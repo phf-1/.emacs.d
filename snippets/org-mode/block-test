@@ -1,0 +1,21 @@
+# -*- mode: snippet -*-
+# name: block-test
+# key: test
+# --
+#+begin_src test :id `(downcase (org-id-new))`
+${1:?term} :
+  - Définition ?
+  - Exemple ?
+# --------
+Définition
+
+${2:?définition}
+
+
+Exemple
+
+${3:?exemple}
+
+
+--- Source : □
+#+end_src

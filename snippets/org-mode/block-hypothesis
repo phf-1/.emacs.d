@@ -1,0 +1,6 @@
+# key: hypothesis
+# name: block-hypothesis
+# --
+#+begin_hypothesis
+$0
+#+end_hypothesis

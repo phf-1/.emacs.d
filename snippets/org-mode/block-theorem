@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: block-theorem
+# key: theorem
+# --
+#+name: ${1:name}
+#+begin_theorem :id `(downcase (org-id-new))`
+$0
+#+end_theorem

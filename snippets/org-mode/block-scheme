@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-scheme
+# key: scheme
+# --
+#+begin_src scheme
+$0
+#+end_src

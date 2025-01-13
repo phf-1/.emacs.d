@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: objective
+# key: objective
+# --
+${1:*} ${2:Objective}
+:PROPERTIES:
+:TYPE: Objective 59ba4bee-d5ae-484c-b95d-a4d0a985d86d
+:END:

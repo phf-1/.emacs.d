@@ -1,0 +1,6 @@
+# key: <regle
+# name: block-regle
+# --
+#+begin_src regle
+$0
+#+end_src

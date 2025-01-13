@@ -1,0 +1,197 @@
+|--------------+------------------------------|
+| property     | value                        |
+|--------------+------------------------------|
+| id           | 060b                         |
+| name         | technical functions          |
+| status       | draft                        |
+| editor       | phfrohring@epsilon-alcen.com |
+| modification | [[https://gitlab.com/epsilon-alcen/digital/epsilon_digital/-/blob/master/change-process/change-process.org][change process]]               |
+| replace      |                              |
+|--------------+------------------------------|
+
+
+* Résumé
+
+Ce document décrit l'orientation technique d'Epsilon Digital: construire des modules
+intélligents à fixer sur les machines industrielles. Ces modules générent des
+prévisions en fonction de mesure physiques en temps réel afin d'optimiser les coûts
+d'exploitation, par exemple en provocant un arrêt de la machine avant une casse
+probable.
+
+
+* Problème
+
+Trouver une orientation technique correspondant aux compétences historiques d'Epsilon
+tout en ouvrant de belles perspectives de croissance pour l'entreprise.
+
+
+* Conditions
+
+- Secteur industriel e.g. aéronautique, défense, spatiale, santé …
+- Forte composante physique, notamment: mesures physique et simulation
+- Forte composante informatique
+- Permet de trouver des marchés
+- Permet de recruter
+
+
+* Solution
+
+Orientation stratégique: aboutir in finé à la création d'un module physique à placer
+sur des machines industrielles comme présenté ici:
+
+[[https://www.youtube.com/watch?v=cFlY6L1igKY][ABB module]]
+
+Pour aboutir à la production d'un module physique de ce type, il faut mettre en
+oeuvre au minimum *toutes* ces compétences:
+
+#+begin_src dot :file data/4614.png
+  digraph {
+      graph [pad=0.25 nodesep=0.25 ranksep=0.05 overlap=false fontsize=12 rankdir=LR]
+      edge [concentrate=true arrowhead=none splines=ortho]
+      node [shape=box fixedsize=true width=1.25 height=0.5]
+      root [label="compétences"]
+      "n-7" [label="ML"]
+      "n-6" [label="physique"]
+      "n-5" [label="Web"]
+      "n-4" [label="UX/UI"]
+      "n-3" [label="spécification"]
+      "n-2" [label="test"]
+      "n-1" [label="simulation φ"]
+      "n+1" [label="architecture"]
+      "n+2" [label="virtualisation"]
+      "n+3" [label="déploiement"]
+      "n+4" [label="embarqué"]
+      "n+5" [label="B. de données"]
+      "n+6" [label="optimisation"]
+      "n+7" [label="réseaux"]
+      "n+8" [label="sécurité"]
+      node [shape="point" width=0 height=0]
+      { rank = same; "p-7" "p-6" "p-5" "p-4" "p-3" "p-2" "p-1" p0 "p+1" "p+2" "p+3" "p+4" "p+5" "p+6" "p+7" "p+8" }
+      root -> p0
+      "p-7" -> "p-6" -> "p-5" -> "p-4" -> "p-3" -> "p-2" -> "p-1" -> p0 -> "p+1" -> "p+2" -> "p+3" -> "p+4" -> "p+5" -> "p+6" -> "p+7" -> "p+8"
+      "p-7" -> "n-7"
+      "p-6" -> "n-6"
+      "p-5" -> "n-5"
+      "p-4" -> "n-4"
+      "p-3" -> "n-3"
+      "p-2" -> "n-2"
+      "p-1" -> "n-1"
+      "p+1" -> "n+1"
+      "p+2" -> "n+2"
+      "p+3" -> "n+3"
+      "p+4" -> "n+4"
+      "p+5" -> "n+5"
+      "p+6" -> "n+6"
+      "p+7" -> "n+7"
+      "p+8" -> "n+8"
+  }
+#+end_src
+
+#+RESULTS:
+[[file:data/4614.png]]
+
+En retirer une seule rend impossible la production du module physique.
+
+Chacune de ces compétences peut:
+1. être vendue individuellement
+2. être l'occasion à Epsilon de gagner un avantage concurrentiel par l'innovation
+3. être déléguée à d'autres entreprises
+
+Notons que certaines d'entres elles existent dans quasiment les projets informatiques
+et donc laisse espérer un grand nombre de clients potentiels (en rouge) tandis que le
+besoin pour les autres sont plus ponctuels (on ne change pas de BD tous les matins):
+
+#+begin_src dot :file data/9e3d.png
+  digraph {
+      graph [pad=0.25 nodesep=0.25 ranksep=0.05 overlap=false fontsize=12 rankdir=LR]
+      edge [concentrate=true arrowhead=none splines=ortho]
+      node [shape=box fixedsize=true width=1.25 height=0.5]
+      root [label="compétences"]
+      "n-7" [label="ML"]
+      "n-6" [label="physique"]
+      "n-5" [label="Web" color="red" style="filled" fontcolor="black"]
+      "n-4" [label="UX/UI" color="red" style="filled" fontcolor="black"]
+      "n-3" [label="spécification" color="red" style="filled" fontcolor="black"]
+      "n-2" [label="test" color="red" style="filled" fontcolor="black"]
+      "n-1" [label="simulation φ"]
+      "n+1" [label="architecture" color="red" style="filled" fontcolor="black"]
+      "n+2" [label="virtualisation" color="red" style="filled" fontcolor="black"]
+      "n+3" [label="déploiement" color="red" style="filled" fontcolor="black"]
+      "n+4" [label="embarqué"]
+      "n+5" [label="B. de données"]
+      "n+6" [label="optimisation"]
+      "n+7" [label="réseaux"]
+      "n+8" [label="sécurité"]
+      node [shape="point" width=0 height=0]
+      { rank = same; "p-7" "p-6" "p-5" "p-4" "p-3" "p-2" "p-1" p0 "p+1" "p+2" "p+3" "p+4" "p+5" "p+6" "p+7" "p+8" }
+      root -> p0
+      "p-7" -> "p-6" -> "p-5" -> "p-4" -> "p-3" -> "p-2" -> "p-1" -> p0 -> "p+1" -> "p+2" -> "p+3" -> "p+4" -> "p+5" -> "p+6" -> "p+7" -> "p+8"
+      "p-7" -> "n-7"
+      "p-6" -> "n-6"
+      "p-5" -> "n-5"
+      "p-4" -> "n-4"
+      "p-3" -> "n-3"
+      "p-2" -> "n-2"
+      "p-1" -> "n-1"
+      "p+1" -> "n+1"
+      "p+2" -> "n+2"
+      "p+3" -> "n+3"
+      "p+4" -> "n+4"
+      "p+5" -> "n+5"
+      "p+6" -> "n+6"
+      "p+7" -> "n+7"
+      "p+8" -> "n+8"
+  }
+#+end_src
+
+#+RESULTS:
+[[file:data/9e3d.png]]
+
+
+Notons que les données de simulation peuvent être ajoutées à des données
+expérimentales avec de construire des modèle de machine learning: c'est la clef de la
+fusion entre les compétences physiques et de machine learning.
+
+
+* Vérification
+
+** Secteur industriel e.g. aéronautique, défense, spatiale, santé …
+
+Tous ces secteurs ont nécessairement des besoins qui correspondent à aux compétences
+citées.
+
+** Forte composante physique, notamment: mesures physique et simulation
+
+Ces modules sont fixées sur des machines industrielles: informatique et physique sont
+nécessaires. Les données synthétiques issues des simulation permettent de combler le
+manque de données expérimentales.
+
+Ces données expérimentales manquent parce qu'elle sont chers à produire.
+
+** Forte composante informatique
+
+évident
+
+** Permet de trouver des marchés
+
+Il y a des raisons de penser que ce type de modules intelligents sont la clefs de
+grands gains de prductivité: il y a de la valeur à produire.  (TODO: à détailler)
+
+Travailler dans l'objectif de produire ces modules est aussi source de marché parce
+que toutes les compétences peuvent être source de revenus: mission de spécification,
+d'architecture, mettre en place la virtualisation etc.
+
+Pendant les périodes d'inter contrat, il est possible de travailler sur un prototype
+maison qui implémente toute la chaîne de comptétences, produire des articles sur
+chaque brique technologique afin de gagner en visibilité et monter en compétences.
+
+
+** Permet de recruter
+
+Nous croyons que cette orientation technique permet d'intéresser des talents, jeunes
+ou non.
+
+- Impacte physique concrêt sur l'appareil industrielle de la France et de l'Europe.
+- Physique et informatique de pointe: compétences transversales
+- Opportunité de se former sur des technologies à haute valeur ajoutés
+- Double orientation produit et conseil

@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: constructor
+# key: constructor
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+*$1 Constructor
+:PROPERTIES:
+:TYPE: Constructor 6791e8f3-6fd9-4afa-9a4c-94ce436f3951
+:END:

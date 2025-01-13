@@ -1,0 +1,6 @@
+# key: lean
+# name: block-lean
+# --
+#+begin_src lean4
+$0
+#+end_src

@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-proof
+# key: proof
+# --
+#+begin_proof
+$0
+#+end_proof

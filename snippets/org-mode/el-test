@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: test
+# key: test
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+${1:*} ${2:Test}                                                     ${3:tag}
+:PROPERTIES:
+:TYPE: Test 7eea63d9-d708-4030-a598-eb5282c6099d
+:END:

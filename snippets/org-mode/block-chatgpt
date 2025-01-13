@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: block-chatgpt
+# key: chatgpt
+# --
+#+begin_quote
+$0
+
+--- ChatGPT
+#+end_quote

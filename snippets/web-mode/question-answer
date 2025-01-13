@@ -1,0 +1,13 @@
+# -*- mode: snippet -*-
+# name: question-answer
+# key: ,qa
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<x-qa id="`(org-id-new)`">
+    <x-q>
+        <p>$0</p>
+    </x-q>
+    <x-a>
+
+    </x-a>
+</x-qa>

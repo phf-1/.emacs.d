@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: math-inline
+# key: ,math-i
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<x-math>$1</x-math>$0

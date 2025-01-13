@@ -1,0 +1,9 @@
+# key: strategy
+# name: strategy# key: strategy
+# name: strategy
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+${1:*} ${2:Strategy}
+:PROPERTIES:
+:TYPE: Strategy eb4c0575-1082-43cb-8406-f85226beb740
+:END:

@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-gdscript
+# key: gdscript
+# --
+#+begin_src gdscript
+$0
+#+end_src

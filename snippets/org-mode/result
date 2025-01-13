@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: result
+# key: result
+# --
+${1:*} ${2:Result}
+:PROPERTIES:
+:TYPE: Result 65b2bcd5-63ee-4de4-886b-00191c28dc9b
+:ID: `(org-id-new)`
+:END:

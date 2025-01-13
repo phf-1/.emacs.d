@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: block-property-source
+# key: source
+# --
+#+source: $0

@@ -1,0 +1,57 @@
+# -*- mode: snippet -*-
+# name: program
+# key: program
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+*${1:*} ${2:name}                                                     ${3:tag}
+:PROPERTIES:
+:TYPE: Actor 549b4898-7f0e-414b-b977-a79c4e02f078
+:TYPE: Program 0f535b48-6ecb-4bf1-b54f-79102cea4215
+:ID: `(org-id-new)`
+:END:
+
+**$1 Specification
+:PROPERTIES:
+:TYPE:     Specification 97ff1d37-612e-4324-818a-367481a38bf2
+:END:
+
+**$1 Code
+:PROPERTIES:
+:TYPE: Code a021fb27-0451-4259-af7f-5b307544fd6e
+:header-args:${4:lang}: :tangle ${5:file} :noweb yes
+:END:
+
+***$1 Interface
+:PROPERTIES:
+:TYPE:     Interface 522ac9db-bbff-4e8c-91ac-51171095538f
+:END:
+
+***$1 Implementation
+:PROPERTIES:
+:TYPE: Implementation c6793400-220d-4948-aa4b-cd6ba73c61b2
+:END:
+
+**$1 Installation
+:PROPERTIES:
+:TYPE: Installation 7f10a535-eea1-4a3c-9e6b-2c5f85b516a9
+:END:
+
+**$1 Configuration
+:PROPERTIES:
+:TYPE: Configuration cb77a6c8-40af-48d5-bb60-733a210a5777
+:END:
+
+**$1 Start/Stop
+:PROPERTIES:
+:TYPE: Start/Stop 91967b09-aba6-4047-8175-7673de04779a
+:END:
+
+**$1 Test
+:PROPERTIES:
+:TYPE: Test 7eea63d9-d708-4030-a598-eb5282c6099d
+:END:
+
+**$1 Mailbox
+:PROPERTIES:
+:TYPE: Mailbox c7ca7755-a0b4-48ce-8b8c-c89093c3a4cf
+:END:

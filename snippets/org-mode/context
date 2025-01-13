@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: context
+# key: context
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+${1:*} ${2:Context}
+:PROPERTIES:
+:TYPE: Context 28175155-34cb-4d46-aead-5bc698872a97
+:END:

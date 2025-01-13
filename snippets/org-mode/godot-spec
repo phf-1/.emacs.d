@@ -1,0 +1,109 @@
+# key: godot-spec
+# name: godot-spec
+# --
+;;; -*- mode: org; indent-tabs-mode: t; eval: (add-hook 'after-save-hook #'org-babel-tangle nil t); -*-
+#+PROPERTY: header-args  :noweb yes  :tangle-mode (identity #o444)
+#+TYPE: 265608d8-fa95-4209-a1ff-4bfa710d2828
+#+ID: `(org-id-new)`
+  
+
+* Spécification
+
+
+* propertyclass.gd
+:PROPERTIES:
+:END:
+
+#+begin_src gdscript :tangle propertyclass.gd
+class_name ${1:ClassName}
+extends RefCounted
+@icon("res://icon/class.svg")
+
+<<imports>>
+
+<<state>>
+
+<<_init>>
+
+<<_enter_tree>>
+
+<<_ready>>
+
+<<_unhandled_input>>
+
+<<_physics_process>>
+
+<<public_func>>
+#+end_src
+
+
+* imports
+
+#+name: imports
+#+begin_src gdscript
+
+#+end_src
+
+
+* state
+
+#+name: state
+#+begin_src gdscript
+const id: str
+var thing: int
+#+end_src
+
+
+* _init
+
+#+name: _init
+#+begin_src gdscript
+func _init():
+     pass
+#+end_src
+
+
+* _enter_tree
+
+#+name: _enter_tree
+#+begin_src gdscript
+func _enter_tree():
+	pass
+#+end_src
+
+
+* _ready
+
+#+name: _ready
+#+begin_src gdscript
+func _ready():
+	pass
+#+end_src
+
+
+* _unhandled_input
+
+#+name: _unhandled_input
+#+begin_src gdscript
+func _unhandled_input(event):
+	pass
+#+end_src
+
+
+* _physics_process
+
+#+name: _physics_process
+#+begin_src gdscript
+func _physics_process(delta):
+	pass
+#+end_src
+
+
+* public_func
+
+#+name: public_func
+#+begin_src gdscript
+
+#+end_src
+
+

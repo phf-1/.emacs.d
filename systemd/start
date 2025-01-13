@@ -1,0 +1,9 @@
+#! /usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
+
+set +euo pipefail
+source $HOME/.profile
+set -euo pipefail
+
+emacs --fg-daemon

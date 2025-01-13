@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: quote
+# key: ,quote
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<x-blockquote author="${3:author}" url="${1:url}" source="${2:url-name}" id="`(org-id-new)`">
+  $0
+</x-blockquote>

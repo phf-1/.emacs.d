@@ -1,0 +1,12 @@
+# key: <dltyp
+# name: block-type
+# --
+#+ATTR_LATEX: :options [${1:def-name}]{${2:`(downcase (s-replace "-" "" (org-id-new)))`}}
+#+begin_dldef
+$0
+#+end_dldef
+
+#+ATTR_LATEX: :options [$1]{$2}
+#+begin_dlcon
+
+#+end_dlcon

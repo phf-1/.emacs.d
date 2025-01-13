@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-discussion
+# key: discussion
+# --
+#+begin_discussion
+$0
+#+end_discussion

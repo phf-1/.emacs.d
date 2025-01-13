@@ -1,0 +1,14 @@
+[Unit]
+Description=Emacs server
+Documentation=info:emacs man:emacs(1) https://gnu.org/software/emacs/
+
+[Service]
+Type=simple
+Environment=SSH_AUTH_SOCK=%t/ssh-agent.socket
+ExecStart=%h/.emacs.d/systemd/start
+ExecStop=%h/.emacs.d/systemd/stop
+RestartSec=1
+Restart=on-failure
+
+[Install]
+WantedBy=default.target

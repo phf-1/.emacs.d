@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: mailbox
+# key: mailbox
+# --
+*${1:*} Mailbox
+:PROPERTIES:
+:TYPE:     Mailbox c7ca7755-a0b4-48ce-8b8c-c89093c3a4cf
+:END:

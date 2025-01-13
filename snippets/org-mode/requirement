@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: requirement
+# key: requirement
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+**$1 Requirement
+:PROPERTIES:
+:TYPE: Requirement 2701d423-2c16-4d66-ae13-09725747c1e7
+:END:

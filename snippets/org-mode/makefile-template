@@ -1,0 +1,62 @@
+# -*- mode: snippet -*-
+# name: makefile-template
+# key: makefile-template
+# --
+* Makefile
+:PROPERTIES:
+:TYPE:     Actor 549b4898-7f0e-414b-b977-a79c4e02f078
+:ID:       uuid
+:header-args:makefile: :tangle Makefile
+:END:
+
+** build
+:PROPERTIES:
+:TYPE:     Interface 522ac9db-bbff-4e8c-91ac-51171095538f
+:END:
+
+~make~ or ~make build~ builds the ~build/~ directory where all code has been produced.
+#+begin_src makefile
+.DEFAULT_GOAL := build
+.PHONY: build
+#+end_src
+
+** install
+:PROPERTIES:
+:TYPE:     Interface 522ac9db-bbff-4e8c-91ac-51171095538f
+:END:
+
+If ~./configure --prefix=$PREFIX~, then ~make install~ installs the content of ~build/~
+under ~${PREFIX}~
+#+begin_src makefile
+.PHONY: install
+#+end_src
+
+** configuration
+:PROPERTIES:
+:TYPE:     Implementation c6793400-220d-4948-aa4b-cd6ba73c61b2
+:END:
+
+See: [[https://www.gnu.org/software/make/manual/html_node/Choosing-the-Shell.html][SHELL]]
+
+#+begin_src makefile
+SHELL:= bash
+.SHELLFLAGS = -cxeuo pipefail
+.ONESHELL:
+#+end_src
+
+** build
+:PROPERTIES:
+:TYPE:     Implementation c6793400-220d-4948-aa4b-cd6ba73c61b2
+:END:
+
+#+begin_src makefile
+build:
+	echo ok
+#+end_src
+
+
+* Local Variables :noexport:
+# Local Variables:
+# eval: (indent-tabs-mode 1)
+# fill-column: 85
+# End:

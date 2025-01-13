@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-preuve
+# key: <preuve
+# --
+#+begin_src preuve
+$0
+#+end_src

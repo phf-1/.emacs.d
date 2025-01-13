@@ -1,0 +1,9 @@
+# key: configuration
+# name: configuration
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+*${1:*} ${2:name}
+:PROPERTIES:
+:TYPE: Configuration cb77a6c8-40af-48d5-bb60-733a210a5777
+:END:
+

@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-css
+# key: css
+# --
+#+begin_src css
+$0
+#+end_src

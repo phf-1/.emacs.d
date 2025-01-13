@@ -1,0 +1,1466 @@
+#+PROPERTY: header-args:emacs-lisp :tangle init.el
+
+* Available packages
+
+** Definition
+
+#+begin_src emacs-lisp
+;; package.el
+;;
+;; Packages are choosen among:
+;;   - Default library of packages
+;;   - MELPA
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(require 'package)
+(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
+(package-initialize)
+#+end_src
+
+* Local packages
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Local packages
+;;
+;; Packages may me loaded from a local directory.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(defvar user--packages (file-name-as-directory (concat user-emacs-directory "elisp"))
+  "Where users adds its elisp files and packages.")
+(add-to-list 'load-path user--packages)
+#+end_src
+
+* Package configuration
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Package configuration
+;;
+;; Packages are configured using `use-package' macro.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(eval-when-compile (require 'use-package))
+#+end_src
+
+* Emacs
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Emacs
+;;
+;; Set of configurations for Emacs.
+#+end_src
+
+** Implementation
+
+*** Begin
+
+**** Definition
+
+#+begin_src emacs-lisp
+;; `emacs` is not a package but we still use the `use-package' macro for consistency
+;; and benefit from its functionalities to configure Emacs.
+#+end_src
+
+**** Implementation
+
+#+begin_src emacs-lisp
+(use-package emacs :demand
+  :init
+#+end_src
+
+*** Calendar
+
+**** Definition
+
+#+begin_src emacs-lisp
+;; Emacs / Calendar
+;;
+;; The week starts on Monday and we are not interested in all holidays.
+#+end_src
+
+**** Implementation
+
+#+begin_src emacs-lisp
+(setq calendar-week-start-day 1)
+(setq holiday-bahai-holidays nil)
+(setq holiday-hebrew-holidays nil)
+(setq holiday-islamic-holidays nil)
+(setq holiday-oriental-holidays nil)
+#+end_src
+
+*** Editing
+
+**** Definition
+
+#+begin_src emacs-lisp
+;; Emacs / Editing
+;;
+;; - Before a buffer is saved, non-necessary whitespaces are cleaned up.
+;; - Do not use tabulations for indentation.
+;; - Disable asking when downcase-region or upcase-region.
+;; - Disable asking when narrow-to-region.
+;; - When pasting over a region, overwrite the content.
+;; - If the underlying file changes, the buffer is updated.
+;; - When loading a file, prefer the newer version.
+#+end_src
+
+**** Implementation
+
+#+begin_src emacs-lisp
+(add-hook 'before-save-hook #'whitespace-cleanup)
+(setq-default indent-tabs-mode nil)
+(put 'downcase-region 'disabled nil)
+(put 'upcase-region 'disabled nil)
+(delete-selection-mode 1)
+(global-auto-revert-mode t)
+(put 'narrow-to-region 'disabled nil)
+(setq load-prefer-newer t)
+#+end_src
+
+*** UI
+
+**** Definition
+
+#+begin_src emacs-lisp
+;; Emacs / UI
+;;
+;; This section removes / minimizes all that is not necessary from the UI.
+;; - The tool bar is removed.
+;; - The scroll bar is removed.
+;; - The menu bar is kept.
+;; - The cursor is a thin bar in between characters.
+;; - Line length is around 85 characters long.
+;; - The column number of current position is displayed in the mode line.
+;; - Frame title is the buffer name.
+;; - Instead of answering by "yes" / "no", "y" / "n" is enough.
+;; - Do not emit sound.
+;; - Set the default font.
+#+end_src
+
+**** Implementation
+
+#+begin_src emacs-lisp
+(scroll-bar-mode -1)
+(tool-bar-mode -1)
+(menu-bar-mode 1)
+(setq-default cursor-type 'bar)
+(setq-default fill-column 85)
+(column-number-mode 1)
+(setq frame-title-format '("%b"))
+(fset 'yes-or-no-p 'y-or-n-p)
+(setq ring-bell-function 'ignore)
+(add-to-list 'default-frame-alist '(font . "JetBrains Mono"))
+#+end_src
+
+*** Startup
+
+**** Definition
+
+#+begin_src emacs-lisp
+;; Emacs / Startup
+;;
+;; This section configures what Emacs does after startup.
+;; - No startup screen.
+;; - No scratch message.
+#+end_src
+
+**** Implementation
+
+#+begin_src emacs-lisp
+(setq inhibit-startup-screen t)
+(setq initial-scratch-message "")
+#+end_src
+
+*** Buffer
+
+**** Definition
+
+#+begin_src emacs-lisp
+;; Emacs / Buffer
+;;
+;; This section configures buffers.
+;; - Buffer name is made unique.
+;; - Common prefixes are stripped.
+#+end_src
+
+**** Implemenation
+
+#+begin_src emacs-lisp
+(setq uniquify-buffer-name-style 'post-forward)
+(setq uniquify-strip-common-suffix nil)
+#+end_src
+
+*** Mini Buffer
+
+**** Definition
+
+#+begin_src emacs-lisp
+;; Allow to use command while in minibuffer.
+#+end_src
+
+**** Implementation
+
+#+begin_src emacs-lisp
+(setq enable-recursive-minibuffers t)
+#+end_src
+
+*** External Processes
+
+**** Definition
+
+#+begin_src emacs-lisp
+;; Emacs / External Processes
+;;
+;; This section configures how Emacs communication with external processes.
+;; - Messages read from external processes are adapted to modern hardware.
+#+end_src
+
+**** Implementation
+
+#+begin_src emacs-lisp
+(setq read-process-output-max (* 1024 1024))
+#+end_src
+
+*** Backup
+
+**** Definition
+
+#+begin_src emacs-lisp
+;; Emacs / Backup
+;;
+;; Define how Emacs manages backups when modifying files.
+;; - Define a temporary directory where to store temporary files.
+;; - Deleting a file moves it to the trash.
+;; - Do not create lockfiles.
+;; - Enable backup by copying the original file instead of renaming.
+;; - Automatically delete old versions of backups, keeping only a certain number of
+;;   new and old versions.
+;; - Enable version control for backups to keep multiple versions.
+;; - Set the directory for auto-save list files to the temporary directory.
+;; - Transform auto-save file names to store them in the temporary directory.
+;; - Set the backup directory to store all backup files in the temporary directory.
+#+end_src
+
+**** Implementation
+
+#+begin_src emacs-lisp
+(defconst emacs-tmp-dir (expand-file-name (format "emacs%d" (user-uid)) temporary-file-directory))
+(setq create-lockfiles nil)
+(setq delete-by-moving-to-trash t)
+(setq
+ backup-by-copying t
+ delete-old-versions t
+ kept-new-versions 6
+ kept-old-versions 2
+ version-control t
+ auto-save-list-file-prefix emacs-tmp-dir
+ auto-save-file-name-transforms `((".*" ,emacs-tmp-dir t))
+ backup-directory-alist `((".*" . ,emacs-tmp-dir)))
+#+end_src
+
+*** Key Bindings
+**** Definition
+
+#+begin_src emacs-lisp
+;; Emacs / Key Bindings
+;;
+;; Define global key bindings for specific functions:
+;; - Bind "C-$" to clone an indirect buffer in another window.
+;; - Bind "C-c l" to store an Org-mode link.
+#+end_src
+
+**** Implementation
+
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-$") #'clone-indirect-buffer-other-window)
+(global-set-key (kbd "C-c l") #'org-store-link)
+#+end_src
+
+*** Utils
+
+**** Definition
+
+#+begin_src emacs-lisp
+;; Emacs / Utils
+;;
+;; Define useful commands.
+;; - Takes a multi-line paragraph and makes it into a single line of text.
+;; - Set current window to be dedicated.
+#+end_src
+
+**** Implementation
+
+#+begin_src emacs-lisp
+(defun unfill-paragraph (&optional region)
+  "Takes a multi-line paragraph and makes it into a single line of text."
+
+  (interactive (progn (barf-if-buffer-read-only) '(t)))
+  (let ((fill-column (point-max))
+        ;; This would override `fill-column' if it's an integer.
+        (emacs-lisp-docstring-fill-column t))
+    (fill-paragraph nil region)))
+
+(defun dedicate-window (&optional arg)
+  "Set current window to be dedicated.
+With prefix ARG, undedicate it."
+  (interactive "P")
+  (set-window-dedicated-p (get-buffer-window (current-buffer)) (not arg))
+  (message (if arg
+               "Window '%s' is normal"
+             "Window '%s' is dedicated")
+           (current-buffer)))
+#+end_src
+*** End
+#+begin_src emacs-lisp
+)
+#+end_src
+
+* gcmh
+
+** Definition
+
+#+begin_src emacs-lisp
+;; GCMH
+;;
+;; See: https://akrl.sdf.org/#orgc15a10d
+;; Enabled after startup.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package gcmh :demand
+  :config
+  (setq gcmh-verbose t)
+  (gcmh-mode))
+#+end_src
+
+* recentf
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Recentf
+;;
+;; Configure Emacs to remember and easily access recently opened files:
+;; - Load Recentf immediately at startup.
+;; - Enable recentf mode to track and list recently visited files.
+;; - Limit the number of items shown in the recent files menu to 20.
+;; - Set the maximum number of saved recent files to 20.
+;; - Schedule the recent files list to be saved every 5 minutes to prevent data loss.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package recentf :demand
+  :config
+  (recentf-mode)
+  (setq recentf-max-menu-items 20)
+  (setq recentf-max-saved-items 20)
+  (run-at-time nil (* 5 60) 'recentf-save-list))
+#+end_src
+
+* dired
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Dired
+;;
+;; Configure the Dired file manager:
+;; - Load Dired immediately at startup.
+;; - Automatically hide detailed information when entering Dired mode.
+;; - Enable Dired-Do-What-I-Mean (DWIM) target behavior for easier file operations between two Dired buffers.
+#+end_src
+
+** Implementation
+#+begin_src emacs-lisp
+(use-package dired :demand
+  :hook (dired-mode . dired-hide-details-mode)
+  :config
+  (setq dired-dwim-target t))
+#+end_src
+
+* paren
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Paren
+;;
+;; Configure parenthesis matching:
+;; - Load the paren package at startup.
+;; - Enable show-paren-mode to highlight matching parentheses.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package paren :demand
+  :config
+  (show-paren-mode 1))
+#+end_src
+
+* elec-pair
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Electric Pair
+;;
+;; Configure automatic pairing of brackets, quotes, and parentheses:
+;; - Load the electric-pair package at startup.
+;; - Enable electric-pair-mode to automatically insert matching pairs.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package elec-pair :demand
+  :config
+  (electric-pair-mode 1))
+#+end_src
+
+* Theme
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Theme
+;;
+;; Configure and customize the Modus themes:
+;; - Load the Modus themes package at startup.
+;; - Bind F12 to toggle between light and dark Modus themes.
+;; - Set highlights for the current line to be intense and accented.
+;; - Ensure underlines are at the descent line for better readability.
+;; - Use intense markup for better visibility.
+;; - Enable italic text for programming constructs but disable bold.
+;; - Configure the region highlight to only change the background without extending to the edge of the screen.
+;; - Load the Modus Vivendi (dark) theme by default.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package modus-themes :demand
+  :bind ([f12] . modus-themes-toggle)
+  :config
+  (setq modus-themes-hl-line  '(intense accented))
+  (setq x-underline-at-descent-line t)
+  (setq modus-themes-intense-markup t)
+  (setq modus-themes-italic-constructs t
+        modus-themes-bold-constructs nil
+        modus-themes-region '(bg-only no-extend))
+  (load-theme 'modus-vivendi :no-confirm))
+#+end_src
+
+* treesit
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Treesit
+;;
+;; Configure Emacs to use Tree-sitter for improved syntax highlighting and code
+;; navigation:
+;; - Load the Tree-sitter integration package at startup.
+
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package treesit :demand)
+#+end_src
+
+* treemacs
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Treemacs
+;;
+;; Setup Treemacs, a file explorer for Emacs:
+;; - Load the Treemacs package for use in Emacs.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package treemacs)
+#+end_src
+
+* hl-line
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Highlight Line
+;;
+;; Configure the current line highlighting:
+;; - Load the hl-line package at startup.
+;; - Enable global highlighting of the current line across all buffers.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package hl-line :demand
+  :config
+  (global-hl-line-mode 1))
+#+end_src
+
+* diff-hl
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Diff Highlight
+;;
+;; Configure diff-hl for showing version control changes:
+;; - Load the diff-hl package.
+;; - Check if version control systems (vc-handled-backends) are available, otherwise inform the user that global-diff-hl-mode won't work as expected.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package diff-hl
+  :config
+  (when (null vc-handled-backends)
+    (message "%s" "global-diff-hl-mode cannot work. See documentation.")))
+#+end_src
+
+* iedit
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Iedit
+;;
+;; Configure Iedit for simultaneous editing of occurrences:
+;; - Load the Iedit package at startup.
+;; - Bind C-; to toggle Iedit mode for editing multiple occurrences of the same text simultaneously.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package iedit :demand
+  :bind ("C-;" . iedit-mode))
+#+end_src
+
+* repeat
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Repeat
+;;
+;; Configure the repeat package to allow for easier key repetition:
+;; - Load the repeat package at startup.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package repeat :demand)
+#+end_src
+
+* imenu
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Imenu
+;;
+;; Configure Imenu for navigation within buffers:
+;; - Load Imenu at startup.
+;; - Enable automatic rescanning of buffers for updated Imenu entries.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package imenu :demand
+  :config
+  (setq imenu-auto-rescan t))
+#+end_src
+
+* tab-bar
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Tab Bar
+;;
+;; Configure tab-bar for managing multiple buffers:
+;; - Load tab-bar mode at startup.
+;; - Enable tab-bar mode for graphical tab management.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package tab-bar :demand
+  :config
+  (tab-bar-mode))
+#+end_src
+
+* avy
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Avy
+;;
+;; Configure Avy for quick navigation:
+;; - Load Avy at startup.
+;; - Bind C-: to jump to a character in the buffer.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package avy :demand
+  :bind
+  ("C-:" . avy-goto-char))
+#+end_src
+
+* expand-region
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Expand Region
+;;
+;; Configure expand-region for selecting text:
+;; - Load expand-region at startup.
+;; - Bind C-< to expand the region around the point.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package expand-region :demand
+  :bind
+  ("C-<" . er/expand-region))
+#+end_src
+
+* magit
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Magit
+;;
+;; Configure Magit for Git operations within Emacs:
+;; - Load Magit.
+;; - Define a helper function for transient prefix objects.
+;; - Bind C-x g to open the Magit status buffer.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package magit
+  :config
+  (defun transient-prefix-object ()
+    (or transient--prefix transient-current-prefix))
+  :bind
+  (("C-x g" . magit-status)))
+#+end_src
+
+* paredit
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Paredit
+;;
+;; Configure Paredit for structural editing of Lisp code:
+;; - Enable Paredit mode automatically for Emacs Lisp and Scheme.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package paredit
+  :hook
+  (emacs-lisp-mode . paredit-mode)
+  (scheme-mode . paredit-mode))
+#+end_src
+
+* rainbow-delimiters
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Rainbow Delimiters
+;;
+;; Configure Rainbow Delimiters for colorizing nested delimiters:
+;; - Enable Rainbow Delimiters for all programming modes.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package rainbow-delimiters
+  :hook (prog-mode . rainbow-delimiters-mode))
+#+end_src
+
+* geiser
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Geiser
+;;
+;; Configure Geiser for Scheme programming:
+;; - Set Guile as the active implementation for Scheme.
+;; - Enable Geiser mode in Scheme buffers.
+;; - Configure Geiser-Guile for additional paths.
+;; - Load Macrostep for macro expansion in Geiser.
+;; - Setup macrostep-geiser integration for both Geiser mode and REPL.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package geiser
+  :config
+  (setq geiser-active-implementations '(guile))
+  :hook
+  (scheme-mode . turn-on-geiser-mode))
+
+(use-package geiser-guile :demand
+  :config
+  (add-to-list 'geiser-guile-load-path "~/src/guix"))
+
+(use-package macrostep :demand)
+
+(use-package macrostep-geiser :demand
+  :after geiser-mode
+  :config (add-hook 'geiser-mode-hook #'macrostep-geiser-setup))
+
+(use-package macrostep-geiser :demand
+  :after geiser-repl
+  :config (add-hook 'geiser-repl-mode-hook #'macrostep-geiser-setup))
+#+end_src
+
+* rg
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Rg (ripgrep)
+;;
+;; Configure ripgrep for searching within Emacs:
+;; - Load rg package at startup.
+;; - Enable default key bindings for rg.
+;; - Set no additional flags for rg command line.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package rg :demand
+  :config
+  (rg-enable-default-bindings)
+  (setq rg-command-line-flags '()))
+#+end_src
+
+* vertico
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Vertico
+;;
+;; Configure Vertico for enhanced minibuffer completion:
+;; - Load Vertico at startup.
+;; - Enable Vertico mode.
+;; - Set no scroll margin in the completion interface.
+;; - Display up to 20 items in completion candidates.
+;; - Enable resizing of the completion window.
+;; - Allow cycling through completion candidates.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package vertico :demand
+  :config
+  (vertico-mode)
+  (setq vertico-scroll-margin 0)
+  (setq vertico-count 20)
+  (setq vertico-resize t)
+  (setq vertico-cycle t))
+#+end_src
+
+* consult
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Consult
+;;
+;; Configure Consult for enhanced search and navigation:
+;; - Load Consult at startup.
+;; - Bind various keys for different Consult functions:
+;;   - C-s for line search, C-r for ripgrep, C-c f for find files, etc.
+;; - Use Consult for preview in completion lists.
+;; - Override register preview with Consult's version.
+;; - Use Consult for xref functions to improve reference navigation.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package consult :demand
+  :bind
+  (("C-s" . consult-line)
+   ("C-r" . consult-ripgrep)
+   ("C-c f" . consult-find)
+   ("M-." . xref-find-definitions)
+   ("M-i" . consult-imenu)
+   ("C-x b" . consult-buffer)
+   ("C--" . consult-mark)
+   ("C-y" . consult-yank-replace)
+   ("C-z" . consult-recent-file)
+   ("M-g g" . consult-goto-line))
+  :hook
+  (completion-list-mode . consult-preview-at-point-mode)
+  :config
+  (advice-add #'register-preview :override #'consult-register-window)
+  (setq xref-show-xrefs-function #'consult-xref
+        xref-show-definitions-function #'consult-xref))
+#+end_src
+
+* orderless
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Orderless
+;;
+;; Configure Orderless for flexible completion matching:
+;; - Load Orderless at startup.
+;; - Use orderless and basic completion styles by default.
+;; - Use basic and partial completion for file names specifically.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package orderless :demand
+  :custom
+  (completion-styles '(orderless basic))
+  (completion-category-overrides '((file (styles basic partial-completion)))))
+#+end_src
+
+* marginalia
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Marginalia
+;;
+;; Configure Marginalia for minibuffer annotations:
+;; - Load Marginalia at startup.
+;; - Bind M-A to cycle through different annotation styles in the minibuffer.
+;; - Enable Marginalia mode.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package marginalia :demand
+  :bind (:map minibuffer-local-map
+         ("M-A" . marginalia-cycle))
+
+  :config
+  (marginalia-mode))
+#+end_src
+
+* yasnippet
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Yasnippet
+;;
+;; Configure Yasnippet for snippet expansion:
+;; - Load Yasnippet at startup.
+;; - Set up custom snippet directory.
+;; - Define a default template for new snippets.
+;; - Enable Yasnippet globally.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package yasnippet :demand
+  :init
+  (require 'f)
+  :config
+  (setq yas--default-user-snippets-dir nil)
+  (add-to-list 'yas-snippet-dirs (f-join user-emacs-directory "snippets"))
+  (setq yas-new-snippet-default
+        "# -*- mode: snippet -*-
+# name: $1
+# key: ${2:${1:$(yas--key-from-desc yas-text)}}
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+$0`(yas-escape-text yas-selected-text)`")
+  (yas-global-mode))
+#+end_src
+
+* corfu
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Corfu
+;;
+;; Configure Corfu for inline completion:
+;; - Load Corfu at startup.
+;; - Enable cycling through candidates.
+;; - Set auto-completion mode.
+;; - Use space as separator for candidates.
+;; - Set scroll margin for candidate list.
+;; - Enable Corfu globally.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package corfu :demand
+  :config
+  (setq corfu-cycle t)
+  (setq corfu-auto t)
+  (setq corfu-separator ?\s)
+  (setq corfu-scroll-margin 5)
+  (global-corfu-mode))
+#+end_src
+
+* savehist
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Savehist
+;;
+;; Configure Savehist for saving minibuffer history:
+;; - Load Savehist at startup.
+;; - Enable Savehist mode.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package savehist :demand
+  :config
+  (savehist-mode))
+#+end_src
+
+* multiple-cursors
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Multiple Cursors
+;;
+;; Configure Multiple Cursors for simultaneous editing:
+;; - Load Multiple Cursors at startup.
+;; - Bind M-m to edit lines with multiple cursors.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package multiple-cursors :demand
+  :bind (("M-m" . mc/edit-lines)))
+#+end_src
+
+* olivetti
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Olivetti
+;;
+;; Configure Olivetti for centered text editing:
+;; - Load Olivetti at startup.
+;; - Set the body width to 100 characters for centered editing.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package olivetti :demand
+  :config
+  (setq olivetti-body-width 100))
+#+end_src
+
+* css
+
+** Definition
+
+#+begin_src emacs-lisp
+;; CSS
+;;
+;; Configure CSS mode with Tree-sitter:
+;; - Remap css-mode to use css-ts-mode for better syntax highlighting.
+;; - Associate .css files with css-ts-mode.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package css-ts-mode
+  :mode "\\.css\\'"
+  :init
+  (add-to-list 'major-mode-remap-alist '(css-mode . css-ts-mode)))
+#+end_src
+
+* epa-file
+
+** Definition
+
+#+begin_src emacs-lisp
+;; EPA File
+;;
+;; Configure encryption for files:
+;; - Enable EPA (Emacs Privacy Assistant) file encryption.
+;; - Set regex for identifying encrypted files.
+;; - Update the encryption settings.
+;; - Add hooks to make encrypted files read-only on open and save.
+;; - Define function to protect secret files by setting read-only mode.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package epa-file
+  :config
+  (epa-file-enable)
+  (setq epa-file-name-regexp "\\.\\(gpg\\|asc\\)$")
+  (epa-file-name-regexp-update)
+
+  :hook
+  ((find-file . user--protect-secret-files)
+   (after-save . user--protect-secret-files)))
+
+(defun user--protect-secret-files ()
+  "Make files with .gpg or .asc extensions read-only when opened or saved."
+  (when-let ((file-path (buffer-file-name)))
+    (when (string-match-p ".*\\.\\(?:asc\\|gpg\\)$" file-path)
+      (read-only-mode 1))))
+#+end_src
+
+* JavaScript
+
+** Definition
+
+#+begin_src emacs-lisp
+;; JavaScript
+;;
+;; Configure JavaScript mode with Tree-sitter:
+;; - Associate .js files with js-ts-mode for enhanced JavaScript editing.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package js
+  :mode ("\\.js\\'" . js-ts-mode))
+#+end_src
+
+* web-mode
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Web Mode
+;;
+;; Configure Web mode for HTML editing:
+;; - Associate .html and .htm files with web-mode.
+;; - Set custom indentation styles for HTML, CSS, and JavaScript within HTML.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package web-mode
+  :mode ("\\.html?\\'" . web-mode)
+  :config
+  (setq web-mode-indent-style 1)
+  (setq web-mode-markup-indent-offset 2)
+  (setq web-mode-css-indent-offset 2)
+  (setq web-mode-code-indent-offset 2))
+#+end_src
+
+* sh-script
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Shell Script
+;;
+;; Configure shell scripting with Tree-sitter:
+;; - Use bash-ts-mode for .bash files.
+;; - Remap sh-mode to bash-ts-mode for all shell scripts.
+;; - Check if bash-language-server is available.
+;; - Set indentation settings for shell scripts.
+;; - Ensure Eglot (LSP client) is active for bash-ts-mode on file open.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package sh-mode
+  :mode "\\.bash\\'"
+  :init
+  (add-to-list 'major-mode-remap-alist '(sh-mode . bash-ts-mode))
+  (let* ((bash-ls-cmd "bash-language-server")
+         (exit-status (call-process bash-ls-cmd nil nil nil "--version")))
+    (unless (= exit-status 0)
+      (message "WARNING: %s not found; bash language server functionality might be limited." bash-ls-cmd)))
+  :config
+  (setq sh-basic-offset 2
+        sh-indentation 2)
+  :hook
+  (bash-ts-mode . eglot-ensure))
+#+end_src
+
+* elixir
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Elixir
+;;
+;; Configure Elixir and HEEx modes with Tree-sitter:
+;; - Remap elixir-mode to elixir-ts-mode for all Elixir files.
+;; - Associate .ex and .exs files with elixir-ts-mode.
+;; - Ensure Elixir Tree-sitter grammar is installed.
+;; - Autoload elixir-ts-mode for performance.
+;; - Associate .heex files with heex-ts-mode.
+;; - Ensure HEEx Tree-sitter grammar is installed.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package elixir-mode
+  :mode (("\\.ex\\'" . elixir-mode)
+         ("\\.exs\\'" . elixir-mode))
+  :init
+  (add-to-list 'major-mode-remap-alist '(elixir-mode . elixir-ts-mode)))
+
+(use-package elixir-ts-mode
+  :preface
+  (unless (treesit-language-available-p 'elixir)
+    (elixir-ts-install-grammar))
+  :config
+  (autoload 'elixir-ts-mode "elixir-ts-mode" "Major mode for Elixir" t))
+
+(use-package heex-ts-mode
+  :mode "\\.heex\\'"
+  :preface
+  (unless (treesit-language-available-p 'heex)
+    (heex-ts-install-grammar)))
+#+end_src
+
+* pyvenv
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Pyvenv
+;;
+;; Load Pyvenv for Python virtual environment management.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package pyvenv)
+#+end_src
+
+* flycheck
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Flycheck
+;;
+;; Configure Flycheck for on-the-fly syntax checking:
+;; - Setup Flycheck after loading.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package flycheck
+  :config
+  (flycheck-package-setup))
+#+end_src
+
+* locs-and-refs
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Locs and Refs
+;;
+;; Enable locs-and-refs mode for searching locations in all text files under $HOME
+;; and buffers:
+;; - Load immediately and enable the mode.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package locs-and-refs :demand
+  :config
+  (locs-and-refs-mode))
+#+end_src
+
+* org-tidy
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Org Tidy
+;;
+;; Hide property drawers.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package org-tidy)
+#+end_src
+
+* org
+:PROPERTIES:
+:ID:       cc511d66-615b-4a92-8481-fb63ba23c43f
+:END:
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Org Mode Configuration
+;;
+;; Key Bindings:
+;; - Bind C-c C-l to insert links.
+;; - Bind M-RET to insert new headings.
+;; - Bind M-<right> for moving subtree right.
+
+;; Configuration:
+;; - Associate 'js' source blocks with js-ts mode for better JavaScript editing.
+;; - Set ellipsis to a single space for cleaner look when folding.
+;; - Hide leading stars to improve visual hierarchy.
+;; - Start with indented view for better readability.
+;; - Preserve indentation when editing source blocks.
+;; - Hide emphasis markers for a cleaner look.
+;; - Define custom TODO keywords with shortcuts for quick state changes.
+;; - Set custom faces for each TODO keyword for visual distinction.
+;; - Log entries into a drawer to keep buffer clean.
+;; - Clock entries into a drawer for consistency.
+;; - Enable specific languages for org-babel execution, including JavaScript.
+;; - Enable native fontification for source blocks for better syntax highlighting.
+;; - Use ID for linking to org-mode entries instead of file paths.
+;; - Keep the link in the kill ring after insertion for reuse.
+
+;; Custom Function:
+;; - Define a function to automatically add unique IDs to all headings that lack one, useful for linking and exporting.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package org
+  :bind
+  (("C-c C-l" . org-insert-link)
+   ("M-RET" . org-insert-heading)
+   ("M-<right>" . org-metaright))
+
+  :config
+  (add-to-list 'org-src-lang-modes '("js" . js-ts))
+  (setq org-ellipsis " ")
+  (setq org-hide-leading-stars t)
+  (setq org-startup-indented t)
+  (setq org-src-preserve-indentation t)
+  (setq org-hide-emphasis-markers t)
+  (setq org-todo-keywords
+        '(
+          (sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")
+          ))
+  (setq org-todo-keyword-faces
+        '(("TODO" . (:foreground "red" :family "JetBrains Mono" :height 0.9))
+          ("WAITING" . (:foreground "orange" :family "JetBrains Mono" :height 0.9))
+          ("FAILED" . (:foreground "purple" :family "JetBrains Mono" :height 0.9))
+          ("DONE" . (:foreground "green" :family "JetBrains Mono" :height 0.9))
+          ("CANCELED" . (:foreground "grey" :family "JetBrains Mono" :height 0.9))))
+  (setq org-log-into-drawer t)
+  (setq org-clock-into-drawer t)
+  (org-babel-do-load-languages
+   'org-babel-load-languages
+   '((emacs-lisp . t)
+     (C . t)
+     (css . t)
+     (shell . t)
+     (lisp . t)
+     (scheme . t)
+     (dot . t)
+     (awk . t)
+     (R . t)
+     (python . t)
+     (js . t)
+     ))
+  (setq org-src-fontify-natively t)
+  (setq org-id-link-to-org-use-id t)
+  (setq org-link-keep-stored-after-insertion t)
+
+  (defun org-for-all-headings-add-id ()
+    "Generate ID for any headings that are missing one"
+    (interactive)
+    (org-map-entries
+     (lambda ()
+       (let ((ID (org-entry-get (point) "ID")))
+         (when (null ID)
+           (org-entry-put (point) "ID" (org-id-new)))))))
+  (require 'org-patches))
+#+end_src
+
+* org-agenda
+:PROPERTIES:
+:ID:       13586139-b0d3-406c-a3bc-e683ccc194e9
+:END:
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Org Agenda Configuration
+;;
+;; Key Binding:
+;; - Bind C-c a to open org-agenda view.
+;;
+;; Configuration:
+;; - Don't skip tasks marked as DONE when scheduled.
+;; - Set the agenda view to show one day at a time.
+;; - Show only the next occurrence of repeating tasks in the future.
+;; - Format the columns in the agenda view to include scheduling, category, TODO state, item name, and effort.
+;; - Warn about deadlines one day in advance.
+;; - Sort agenda items first by time, then by TODO state (ascending), then by priority (descending).
+;; - Define how entries are displayed in the agenda view, adjusting for different types like agenda, todo, tags, or search.
+;; - Configure time grid for daily view showing hours from 6 AM to midnight with a custom line style for better readability.
+;;
+;; Dynamic Agenda File Setup:
+;; - Define a function to dynamically update org-agenda-files:
+;;   - It creates a regex of all TODO keywords.
+;;   - Uses ripgrep to find files with these keywords in .org files located in the home directory.
+;;   - Filters out specific directories or files to exclude from the agenda.
+;;   - Sets `org-agenda-files` with the filtered list and prints them.
+;;
+;; Filtering:
+;; - Define a filter function to exclude certain paths from the agenda, like test directories or specific projects.
+;;
+;; Hook:
+;; - Add advice to `org-agenda` function to run `user--set-org-agenda-files` before opening the agenda, ensuring the list of files is always up-to-date.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(use-package org-agenda :demand
+  :bind (("C-c a" . org-agenda))
+
+  :config
+  (setq org-agenda-skip-scheduled-if-done nil
+        org-agenda-span 'day
+        org-agenda-show-future-repeats 'next
+        org-columns-default-format-for-agenda "%SCHEDULED %CATEGORY %TODO %ITEM %Effort(Effort){:}"
+        org-deadline-warning-days 1
+        org-agenda-sorting-strategy '(time-up todo-state-down priority-down)
+        org-agenda-prefix-format
+        '((agenda . " %-12t %-18:c %s")
+          (todo . " %i %-12:c")
+          (tags . " %i %-12:c")
+          (search . " %i %-12:c"))
+        org-agenda-time-grid
+        '((daily today require-timed)
+          (600 2400)
+          " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
+
+  (defun user--set-org-agenda-files (&rest _rest)
+    "Dynamically set org-agenda-files based on TODO keywords in .org files."
+    (let* ((keywords (with-temp-buffer
+                       (org-mode)
+                       (concat "(" (mapconcat #'identity org-todo-keywords-1 "|") ")")))
+           (command (format "rg -u -m 1 -l -g '*.%s' '^\\*+ +%s' ~" "%s" keywords))
+           (files (s-split "\n" (s-trim (shell-command-to-string (format command "org"))))))
+      (setq org-agenda-files (seq-filter #'user--set-org-agenda-files-filters files))
+      (message (string-join org-agenda-files "\n"))))
+
+  (defun user--set-org-agenda-files-filters (file)
+    (not (or (string-match-p ".*worg.*" file)
+             (string-match-p ".*/dl-python-extracteur/tests/.*" file)
+             (string-match-p ".*/dl-python-docparser/tests/.*" file))))
+
+  (advice-add #'org-agenda :before #'user--set-org-agenda-files))
+#+end_src
+
+* local extension
+
+** Definition
+
+#+begin_src emacs-lisp
+;; Local Extension to Emacs Configuration
+;;
+;; This configuration allows for a local extension to the Emacs init file:
+;; - Defines a function `extend-init-locally` to load a local configuration file.
+;; - Checks if an environment variable 'EMACS_INIT_EXTENSION' is set and points to an existing file.
+;; - If the file exists, it loads this file after the main init.el, allowing for local customizations.
+;; - If no file or variable is set, it prints a message with instructions on how to use this feature.
+;; - Immediately calls `extend-init-locally` to execute the check at startup.
+#+end_src
+
+** Implementation
+
+#+begin_src emacs-lisp
+(require 'f)
+(defun extend-init-locally ()
+  (let* ((env-var "EMACS_INIT_EXTENSION")
+         (local-conf (getenv env-var)))
+    (if (and local-conf (f-file? local-conf))
+        (load-file local-conf)
+      (message "INFO: no local extension to default init.el has been found.
+Set %s to a local elisp file to run it after init.el"
+               env-var))))
+(extend-init-locally)
+#+end_src
+
+* Local Variables  :noexport:
+# Local Variables:
+# org-confirm-babel-evaluate: nil
+# fill-column: 85
+# End:

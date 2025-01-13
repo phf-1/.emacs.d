@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: block-quote
+# key: quote
+# --
+#+begin_quote
+/« ${1:citation} »/
+
+--- ${2:source}
+#+end_quote

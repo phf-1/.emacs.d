@@ -1,0 +1,13 @@
+# -*- mode: snippet -*-
+# name: message
+# key: ,message
+# --
+${1:*} ${2:Message}
+
+*Context*
+
+*Objective*
+
+*Computation*
+
+*Result*

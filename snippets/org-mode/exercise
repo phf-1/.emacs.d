@@ -1,0 +1,16 @@
+# -*- mode: snippet -*-
+# name: exercise
+# key: exercise
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+*${1:*} ${2:Heading}
+:PROPERTIES:
+:ID: `(org-id-new)`
+:HTML_CONTAINER_CLASS: test
+:END:
+
+**$1 question
+<content>
+
+**$1 answer
+<content>

@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: blockcode
+# key: ,code
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<x-blockcode>
+  $0
+</x-blockcode>

@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: paragraph
+# key: ,p
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<p>$1</p>$0

@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: figure
+# key: ,figure
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<figure>
+    <img src="data/${1:file}" alt="${2:alt}">
+    <figcaption>${3:caption}</figcaption>
+</figure>

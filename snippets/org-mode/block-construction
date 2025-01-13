@@ -1,0 +1,7 @@
+# key: <dlcon
+# name: block-construction
+# --
+#+ATTR_LATEX: :options [${1:def-name}]{`(downcase (s-replace "-" "" (org-id-new)))`}
+#+begin_dlcon
+$0
+#+end_dlcon

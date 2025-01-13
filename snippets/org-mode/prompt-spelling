@@ -1,0 +1,7 @@
+# key: prompt-spelling
+# name: prompt-spelling
+# --
+- Your objective is to fix spelling and grammar errors of the content of the file named « ${1:file} ».
+- « $1 » is an Org file as defined by org-mode Emacs package.
+- You must preserve the Org markup.
+- You must let me download your result.

@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: build
+# key: build
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+${1:*} ${2:Build}                                                     ${3:tag}
+:PROPERTIES:
+:TYPE: Build f343de3a-7557-423f-86ad-82eef8afb14d
+:END:

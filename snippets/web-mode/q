@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: quote-inline
+# key: ,q
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<q>$1</q>$0

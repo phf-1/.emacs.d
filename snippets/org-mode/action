@@ -1,0 +1,12 @@
+# key: action
+# name: action
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+*${1:*} ${2:name}
+:PROPERTIES:
+:TYPE:     Action 59079455-2807-4fae-a3ef-48e3b3bee59c
+:END:
+
+*input*
+
+*output*

@@ -1,0 +1,16 @@
+# -*- mode: snippet -*-
+# name: question-answer
+# key: qa
+# --
+* ${1:name}
+:PROPERTIES:
+:HTML_CONTAINER_CLASS: test
+:TYPE: Test 76625de4-09dd-4b84-9f2a-e9aae169b2d8
+:ID: `(org-id-new)`
+:END:
+
+** Question
+$1
+
+** Answer
+$0

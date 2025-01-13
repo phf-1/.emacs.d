@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: uuid-first
+# key: uidf
+# --
+`(car (s-split "-" (org-id-new)))`

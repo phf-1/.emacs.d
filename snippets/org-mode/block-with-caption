@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: block-with-caption
+# key: block-caption
+# --
+#+caption: ${1:name}
+#+name: $1
+#+begin_src ${2:lang}
+$0
+#+end_src

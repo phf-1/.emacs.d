@@ -1,0 +1,6 @@
+# key: <doc
+# name: block-documentation
+# --
+#+begin_documentation
+$0
+#+end_documentation

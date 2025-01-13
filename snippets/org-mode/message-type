@@ -1,0 +1,11 @@
+# -*- mode: snippet -*-
+# name: message-type
+# key: ,message-type
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+${1:*} ${2:Message}
+
+*Context*
+
+*Objective*
+

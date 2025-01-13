@@ -1,0 +1,4 @@
+# key: fn
+# name: footnote
+# --
+[fn:${1:`(s-left 4 (org-id-new))`}] $0[fn:$1]: ${2:note}

@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: module
+# key: module
+# --
+${1:*} ${2:Module}
+:PROPERTIES:
+:TYPE: Module 96fd51ba-4f05-4cd9-adac-d32ad13f9fa4
+:ID: `(org-id-new)`
+:END:

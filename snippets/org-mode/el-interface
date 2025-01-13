@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: interface
+# key: interface
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+${1:*} ${2:Interface}
+:PROPERTIES:
+:TYPE: Interface 522ac9db-bbff-4e8c-91ac-51171095538f
+:END:

@@ -1,0 +1,6 @@
+# key: spec
+# name: block-spec
+# --
+#+begin_spec
+$0
+#+end_spec

@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: x-definition
+# key: ,x-def
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<x-definition term="$1" id="`(org-id-new)`">
+  $0
+</x-definition>

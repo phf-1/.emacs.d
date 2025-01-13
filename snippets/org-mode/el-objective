@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: objective
+# key: objective
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+${1:*} ${2:Objective}
+:PROPERTIES:
+:TYPE: Objective bc90815c-6d44-4b4e-91b7-cd0d832eb059
+:END:

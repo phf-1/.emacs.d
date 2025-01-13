@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: plan
+# key: plan
+# --
+${1:*} ${2:plan}
+:PROPERTIES:
+:TYPE: Plan 73d71a79-aaa4-4574-9eb5-1d5966923175
+:END:

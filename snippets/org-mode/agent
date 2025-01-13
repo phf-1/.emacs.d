@@ -1,0 +1,33 @@
+# key: agent
+# name: agent
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+*${1:*} ${2:name}                                                     ${3:tag}
+:PROPERTIES:
+:TYPE: Agent 06bb59eb-ddc2-4a78-b7b4-089eb167cf92
+:ID: `(org-id-new)`
+:END:
+
+**$1 get objective
+:PROPERTIES:
+:TYPE: Interface 522ac9db-bbff-4e8c-91ac-51171095538f
+:TYPE: Objective 59ba4bee-d5ae-484c-b95d-a4d0a985d86d
+:END:
+
+**$1 get context
+:PROPERTIES:
+:TYPE: Interface 522ac9db-bbff-4e8c-91ac-51171095538f
+:TYPE: Context 28175155-34cb-4d46-aead-5bc698872a97
+:END:
+
+**$1 get mailbox
+:PROPERTIES:
+:TYPE: Interface 522ac9db-bbff-4e8c-91ac-51171095538f
+:TYPE: Mailbox c7ca7755-a0b4-48ce-8b8c-c89093c3a4cf
+:END:
+
+***$1 plan
+:PROPERTIES:
+:TYPE: Message d2cab3e3-a8b6-4190-b072-baa7c112c6db
+:TYPE: Plan 73d71a79-aaa4-4574-9eb5-1d5966923175
+:END:

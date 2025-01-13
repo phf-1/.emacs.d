@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: block-name
+# key: block-name
+# --
+#+name: ${1:name}
+#+begin_src org :exports none
+$0
+#+end_src

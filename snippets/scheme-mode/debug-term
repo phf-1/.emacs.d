@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: debug-term
+# key: dt
+# --
+(format #t "${1:term}: ~a\n" $1)

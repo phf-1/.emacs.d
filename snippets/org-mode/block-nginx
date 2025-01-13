@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-nginx
+# key: nginx
+# --
+#+begin_src nginx
+$0
+#+end_src

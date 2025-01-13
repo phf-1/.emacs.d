@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: var-multiline
+# key: heredoc
+# --
+local ${1:VAR}
+read -r -d '' $1 << EOF
+This is a multi-line string
+that will be assigned to
+the variable named my_variable.
+EOF

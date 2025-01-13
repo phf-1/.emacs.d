@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: em
+# key: ,em
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<em>$1</em>$0

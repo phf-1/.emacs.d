@@ -1,0 +1,616 @@
+# -*- mode: org; indent-tabs-mode: t-*-
+#+PROPERTY: header-args  :noweb yes
+#+TYPE: 265608d8-fa95-4209-a1ff-4bfa710d2828
+#+ID: 435bbcd3-6c5d-4d4b-aaa2-73332ebf0a53
+
+* org2pdf.el
+:PROPERTIES:
+:ID:       473da1b8-4197-4aa4-827f-d4afc2432ddc
+:REQUIRE: 6bfa41e0-13a4-4fd1-ba6d-be4687884b42
+:END:
+
+#+begin_src elisp :tangle org2pdf.el
+;;; org2pdf.el ---  -*- lexical-binding: t; coding: utf-8; -*-
+;;
+;;
+;; Filename: org2pdf.el
+;; Author: Pierre-Henry Fröhring <contact@phfrohring.com>
+;; Maintainer: Pierre-Henry Fröhring <contact@phfrohring.com>
+;; Created: 14 Jan 2023
+;;
+;; This file is not part of GNU Emacs.
+;;
+;; Copyright (C) 2023 Pierre-Henry Fröhring
+;;
+;; This program is free software; you can redistribute it and/or modify it under the
+;; terms of the GNU General Public License as published by the Free Software
+;; Foundation; either version 3, or (at your option) any later version.
+;;
+;; This program is distributed in the hope that it will be useful, but WITHOUT ANY
+;; WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+;; PARTICULAR PURPOSE.  See the GNU General Public License for more details.
+;;
+;; You should have received a copy of the GNU General Public License along with this
+;; program; see the file COPYING.  If not, see <https://www.gnu.org/licenses/>.
+
+
+;;;;;;;;;;;;;;;
+;; Interface ;;
+;;;;;;;;;;;;;;;
+
+(defun org2pdf ()
+  "DOC"
+  (interactive)
+  (org2pdf--buffer (current-buffer)))
+
+(define-minor-mode org2pdf-mode
+  "org2pdf-mode"
+  :lighter " org2pdf"
+  :init-value nil
+  (if org2pdf-mode
+	  (progn
+	(add-hook 'after-save-hook #'org2pdf--not-interactive 0 t)
+	(message "%s" "org2pdf activated"))
+	(remove-hook 'after-save-hook #'org2pdf--not-interactive t)
+	(message "%s" "org2pdf deactivated")))
+
+
+
+;;;;;;;;;;;;;;;;;;;;
+;; Implementation ;;
+;;;;;;;;;;;;;;;;;;;;
+
+(require 'f)
+(require 'dash)
+(require 'org)
+(require 'oc)
+(require 'oc-biblatex)
+(require 'ox)
+
+(cl-defstruct (org2pdf--orgprops (:constructor org2pdf--orgprops))
+  path
+  path-filename
+  dir
+  str
+  id
+  ast
+  style-path
+  style-path-filename
+  style-path-filenamenoext
+  latex-path
+  latex-path-filename
+  pdf-path
+  pdf-path-filename
+  bibliography?
+  bibliography-path
+  bibliography-path-filename)
+
+(defun org2pdf--buffer->orgprops (buffer)
+  (save-window-excursion
+	(save-excursion
+	  (switch-to-buffer buffer)
+	  (let* ((path (buffer-file-name))
+		 (style (f-swap-ext path "sty"))
+		 (latex (f-swap-ext path "tex"))
+		 (pdf (f-swap-ext path "pdf"))
+		 (id (car (alist-get "ID" (org-collect-keywords '("ID")) nil nil #'equal)))
+		 (bibliography (car (alist-get "BIBLIOGRAPHY" (org-collect-keywords '("BIBLIOGRAPHY")) nil nil #'equal))))
+	(org2pdf--orgprops
+	 :path path
+	 :path-filename (f-filename path)
+	 :dir (f-parent path)
+	 :str (buffer-string)
+	 :ast '()
+	 :id (pcase id
+		   (`nil (error "No ID has been found."))
+		   (_ id))
+	 :style-path style
+	 :style-path-filename (f-filename style)
+	 :style-path-filenamenoext (f-no-ext (f-filename style))
+	 :latex-path latex
+	 :latex-path-filename (f-filename latex)
+	 :pdf-path pdf
+	 :pdf-path-filename (f-filename pdf)
+	 :bibliography? (not (null bibliography))
+	 :bibliography-path bibliography
+	 :bibliography-path-filename (when bibliography (f-filename bibliography)))))))
+
+(defun org2pdf--build-style (orgprops)
+  (let ((file-sty (org2pdf--orgprops-style-path-filename orgprops))
+	(fonts-path (f-join (expand-file-name "~") ".guix-home/profile/share/fonts/opentype/")))
+
+	(with-temp-file (format "%s" file-sty)
+	  (insert (format "\\ProvidesPackage{%s}
+
+\%\% French
+\\usepackage[autolanguage]{numprint}
+\\usepackage{hyphenat}
+\\hyphenation{mate-mática recu-perar}
+\\usepackage{polyglossia}[
+  variant=french,
+  autospacing=true,
+  autospaceguillemets=true,
+  frenchpart=true
+]
+\\setmainlanguage{french}
+
+\%\% Fonts
+\\defaultfontfeatures{Path = %s}
+\\usepackage{fontspec}
+\\setmainfont{SourceSerifPro-Regular.otf}[
+ItalicFont = SourceSerifPro-It.otf,
+BoldFont = SourceSerifPro-Bold.otf,
+BoldItalicFont = SourceSerifPro-BoldIt.otf,
+]
+\\setsansfont{SourceSans3-Regular.otf}[
+ItalicFont = SourceSans3-It.otf,
+BoldFont = SourceSans3-Bold.otf,
+BoldItalicFont = SourceSans3-BoldIt.otf,
+]
+\\setmonofont{VictorMono-Regular.otf}[
+Scale=0.9,
+ItalicFont = VictorMono-Italic.otf,
+BoldFont = VictorMono-Bold.otf,
+BoldItalicFont = VictorMono-BoldItalic.otf,
+]
+
+
+\%\% Paragraph
+\\usepackage{parskip}
+
+\%\% Underlining
+\\usepackage{ulem}[normalem]
+
+
+\%\% Colors
+\\usepackage[rgb]{xcolor}
+\\definecolor{bg-main}{HTML}{ffffff}
+\\definecolor{bg-grey}{HTML}{eeeeee}
+\\definecolor{fg-main}{HTML}{000000}
+\\definecolor{bg-active}{HTML}{d7d7d7}
+\\definecolor{red500}{HTML}{F44336}
+\\definecolor{red900}{HTML}{B71C1C}
+\\definecolor{red100}{HTML}{FFCDD2}
+\\definecolor{red50}{HTML}{FFEBEE}
+\\definecolor{orange}{HTML}{FF9800}
+\\definecolor{red-refine-bg}{HTML}{ffcccc}
+\\definecolor{green}{HTML}{005e00}
+\\definecolor{blue}{HTML}{0031a9}
+\\definecolor{blue500}{HTML}{2196F3}
+\\definecolor{magenta}{HTML}{721045}
+
+\%\% Code block
+\\usepackage{lineno}
+\\usepackage{listings}
+\\lstdefinestyle{mystyle}{
+	backgroundcolor=\\color{bg-active},
+	commentstyle=\\color{red500},
+	keywordstyle=\\color{green},
+	numberstyle=\\tiny\\color{fg-main},
+	stringstyle=\\color{blue},
+	basicstyle=\\ttfamily\\footnotesize,
+	breakatwhitespace=false,
+	breaklines=true,
+	captionpos=b,
+	keepspaces=true,
+	numbers=left,
+	numbersep=5pt,
+	showspaces=false,
+	showstringspaces=false,
+	showtabs=false,
+	tabsize=2
+}
+\\lstset{style=mystyle}
+
+\%\% Box
+\\usepackage[framemethod=TikZ]{mdframed}
+
+\%\% Box Important
+\\newenvironment{important}\%\%
+{\\vspace{1em}\\begin{mdframed}[\%\%
+backgroundcolor=red100,\%\%
+linecolor=red900,\%\%
+linewidth=0.1mm,\%\%
+skipabove=\\baselineskip,\%\%
+skipbelow=\\baselineskip,\%\%
+leftmargin=0.05\\linewidth,\%\%
+rightmargin=0.05\\linewidth,\%\%
+roundcorner=2pt,\%\%
+]}\%\%
+{
+\\end{mdframed}\\vspace{1em}\%\%
+}
+
+\%\% Box Definition
+\\newenvironment{definition}\%\%
+{\\vspace{1em}\\begin{mdframed}[\%\%
+backgroundcolor=red100,\%\%
+linecolor=red900,\%\%
+linewidth=0.1mm,\%\%
+skipabove=\\baselineskip,\%\%
+skipbelow=\\baselineskip,\%\%
+leftmargin=0.05\\linewidth,\%\%
+rightmargin=0.05\\linewidth,\%\%
+roundcorner=2pt,\%\%
+]}\%\%
+{
+\\end{mdframed}\\vspace{1em}\%\%
+}
+
+\%\% Box Quote
+\\let\\oldquote\\quote
+\\let\\endoldquote\\endquote
+
+\\renewenvironment{quote}\%\%
+{\\vspace{1em}\\begin{mdframed}[\%\%
+backgroundcolor=bg-grey,\%\%
+skipabove=\\baselineskip,\%\%
+skipbelow=\\baselineskip,\%\%
+leftmargin=0.05\\linewidth,\%\%
+rightmargin=0.05\\linewidth,\%\%
+roundcorner=4pt,\%\%
+]}\%\%
+{
+\\end{mdframed}\\vspace{1em}\%\%
+}
+
+\%\% Links
+\\hypersetup{
+  linktoc = all,
+  colorlinks = true,
+  urlcolor = blue500,
+  citecolor = blue500,
+  linkcolor = blue500,
+  filecolor = blue500,
+  citebordercolor=bg-main,
+  filebordercolor=bg-main,
+  linkbordercolor=bg-main,
+  urlbordercolor=bg-main,
+  menubordercolor=bg-main,
+  pdftitle={Table des matières},
+  pdfborderstyle={/S/U/W 1}
+}
+
+\%\% Header & Footer
+\\usepackage{fancyhdr}
+\\pagestyle{fancy}
+\\fancyhf{}
+\\setlength{\\headheight}{14pt}
+
+\%\%\%\% Header
+\\fancyhead[L]{}
+\\fancyhead[R]{}
+\\renewcommand{\\headrulewidth}{0pt}
+
+\%\%\%\% Footer
+\\renewcommand{\\footrulewidth}{0.5pt}
+\\newcommand{\\footerheaderfont}{\\fontsize{8}{10}\\selectfont}
+\\fancyfoot[R]{\\thepage}
+\\fancyfoot[L]{\\footnotesize id: \\id{}}
+" (f-no-ext file-sty) fonts-path))))
+
+  orgprops)
+
+(defun org2pdf--build-csl (orgprops)
+  (with-temp-file "conf.csl"
+	(insert
+	 "<?xml version=\"1.0\" encoding=\"utf-8\"?>
+<style xmlns=\"http://purl.org/net/xbiblio/csl\" class=\"in-text\" version=\"1.0\" demote-non-dropping-particle=\"sort-only\" default-locale=\"en-US\">
+  <info>
+	<title>Elsevier (numeric, with titles, sorted alphabetically)</title>
+	<id>http://www.zotero.org/styles/elsevier-with-titles-alphabetical</id>
+	<link href=\"http://www.zotero.org/styles/elsevier-with-titles-alphabetical\" rel=\"self\"/>
+	<link href=\"http://www.zotero.org/styles/elsevier-with-titles\" rel=\"template\"/>
+	<link href=\"http://www.elsevier.com/journals/cryobiology/0011-2240/guide-for-authors#68000\" rel=\"documentation\"/>
+	<author>
+	  <name>Richard Karnesky</name>
+	  <email>karnesky+zotero@gmail.com</email>
+	  <uri>http://arc.nucapt.northwestern.edu/Richard_Karnesky</uri>
+	</author>
+	<contributor>
+	  <name>Rintze Zelle</name>
+	  <uri>http://twitter.com/rintzezelle</uri>
+	</contributor>
+	<category citation-format=\"numeric\"/>
+	<category field=\"generic-base\"/>
+	<summary>A style for many of Elsevier's journals that includes article titles in the reference list, but sorted alphabetically</summary>
+	<updated>2012-09-27T22:06:38+00:00</updated>
+	<rights license=\"http://creativecommons.org/licenses/by-sa/3.0/\">This work is licensed under a Creative Commons Attribution-ShareAlike 3.0 License</rights>
+  </info>
+  <macro name=\"author\">
+	<names variable=\"author\">
+	  <name initialize-with=\".\" delimiter=\", \" delimiter-precedes-last=\"always\"/>
+	  <label form=\"short\" prefix=\", \"/>
+	  <substitute>
+	<names variable=\"editor\"/>
+	<names variable=\"translator\"/>
+	  </substitute>
+	</names>
+  </macro>
+  <macro name=\"editor\">
+	<names variable=\"editor\">
+	  <name initialize-with=\".\" delimiter=\", \" delimiter-precedes-last=\"always\"/>
+	  <label form=\"short\" prefix=\" (\" text-case=\"capitalize-first\" suffix=\")\"/>
+	</names>
+  </macro>
+  <macro name=\"year-date\">
+	<choose>
+	  <if variable=\"issued\">
+	<date variable=\"issued\">
+	  <date-part name=\"year\"/>
+	</date>
+	  </if>
+	  <else>
+	<text term=\"no date\" form=\"short\"/>
+	  </else>
+	</choose>
+  </macro>
+  <macro name=\"publisher\">
+	<text variable=\"publisher\" suffix=\", \"/>
+	<text variable=\"publisher-place\" suffix=\", \"/>
+	<text macro=\"year-date\"/>
+  </macro>
+  <macro name=\"edition\">
+	<!--TODO: CSL should have low numeric be text (e.g. '3'->'third')-->
+	<choose>
+	  <if is-numeric=\"edition\">
+	<group delimiter=\" \">
+	  <number variable=\"edition\" form=\"ordinal\"/>
+	  <text term=\"edition\" form=\"short\"/>
+	</group>
+	  </if>
+	  <else>
+	<text variable=\"edition\"/>
+	  </else>
+	</choose>
+  </macro>
+  <citation collapse=\"citation-number\">
+	<sort>
+	  <key variable=\"citation-number\"/>
+	</sort>
+	<layout prefix=\"[\" suffix=\"]\" delimiter=\",\">
+	  <text variable=\"citation-number\"/>
+	</layout>
+  </citation>
+  <bibliography entry-spacing=\"0\" second-field-align=\"flush\">
+	<sort>
+	  <key macro=\"author\"/>
+	  <key variable=\"issued\"/>
+	</sort>
+	<layout suffix=\".\">
+	  <text variable=\"citation-number\" prefix=\"[\" suffix=\"]\"/>
+	  <text macro=\"author\" suffix=\", \"/>
+	  <choose>
+	<if type=\"bill book graphic legal_case legislation motion_picture report song\" match=\"any\">
+	  <group delimiter=\", \">
+		<text variable=\"title\"/>
+		<text macro=\"edition\"/>
+		<text macro=\"publisher\"/>
+	  </group>
+	</if>
+	<else-if type=\"chapter paper-conference\" match=\"any\">
+	  <text variable=\"title\" suffix=\", \"/>
+	  <text term=\"in\" suffix=\": \"/>
+	  <text macro=\"editor\" suffix=\", \"/>
+	  <text variable=\"container-title\" form=\"short\" text-case=\"title\" suffix=\", \"/>
+	  <text macro=\"edition\" suffix=\", \"/>
+	  <text macro=\"publisher\"/>
+	  <group delimiter=\" \">
+		<label variable=\"page\" form=\"short\" prefix=\": \"/>
+		<text variable=\"page\"/>
+	  </group>
+	</else-if>
+	<else-if type=\"patent\">
+	  <group delimiter=\", \">
+		<text variable=\"title\"/>
+		<text variable=\"number\"/>
+		<text macro=\"year-date\"/>
+	  </group>
+	</else-if>
+	<else-if type=\"thesis\">
+	  <group delimiter=\", \">
+		<text variable=\"title\"/>
+		<text variable=\"genre\"/>
+		<text variable=\"publisher\"/>
+		<text macro=\"year-date\"/>
+	  </group>
+	</else-if>
+	<else>
+	  <group delimiter=\" \">
+		<text variable=\"title\" suffix=\",\"/>
+		<text variable=\"container-title\" form=\"short\" text-case=\"title\"/>
+		<text variable=\"volume\"/>
+		<text macro=\"year-date\" prefix=\"(\" suffix=\")\"/>
+		<text variable=\"page\" form=\"short\"/>
+	  </group>
+	</else>
+	  </choose>
+	</layout>
+  </bibliography>
+</style>
+"
+	 ))
+
+  orgprops)
+
+(defun org2pdf--add-frame-to-image-filter (text backend info)
+  "Add \\frame around \\includegraphics in LaTeX."
+  (if (org-export-derived-backend-p backend 'latex)
+	  (replace-regexp-in-string "\\\\includegraphics\\(.*\\)" "\\\\frame{\\\\includegraphics\\1}" text)
+	text))
+
+(defun org2pdf--add-frame-to-image () (add-to-list 'org-export-filter-link-functions 'org2pdf--add-frame-to-image-filter))
+
+(defun org2pdf--build-latex (orgprops)
+  (with-temp-buffer
+	(setq org-latex-listings t)
+	(require 'ox-latex)
+	(add-to-list 'org-latex-packages-alist '("" "listings"))
+	(add-to-list 'org-latex-packages-alist '("" "color"))
+	(customize-set-value 'org-latex-with-hyperref nil)
+	(org2pdf--add-frame-to-image)
+	(insert (format "#+EXPORT_FILE_NAME: %s\n" (org2pdf--orgprops-latex-path-filename orgprops)))
+	(insert "#+LANGUAGE: fr\n")
+	(insert "#+EXCLUDE_TAGS: noexport\n")
+	(insert "#+OPTIONS: toc:nil\n")
+	(insert "#+LATEX_CLASS: article\n")
+	(insert "#+LATEX_COMPILER: xelatex\n")
+	(insert "#+CITE_EXPORT: biblatex alphabetic\n")
+	(insert (format "#+LATEX_HEADER: \\newcommand{\\id}{%s}\n"
+			(org2pdf--orgprops-latex-path-filename orgprops)))
+	(insert (format "#+LATEX_HEADER: \\usepackage{%s}\n" (org2pdf--orgprops-style-path-filenamenoext orgprops)))
+	(insert (org2pdf--orgprops-str orgprops))
+	(org-latex-export-to-latex))
+
+  orgprops)
+
+(defun org2pdf--build-pdf (orgprops)
+  (let ((cd "cd %s")
+	(xelatex "xelatex -interaction=nonstopmode %s")
+	(biber "biber %s")
+	command)
+	(setq cd (format cd (org2pdf--orgprops-dir orgprops)))
+	(setq xelatex (format xelatex (org2pdf--orgprops-latex-path-filename orgprops)))
+	(setq biber (format biber (org2pdf--orgprops-style-path-filenamenoext orgprops)))
+	(setq command (s-join " && " (list cd xelatex biber xelatex xelatex)))
+	(if noninteractive
+	(shell-command command)
+	  (async-shell-command command)))
+  orgprops)
+
+(defun org2pdf--buffer (buffer)
+  (-> (org2pdf--buffer->orgprops buffer)
+	  org2pdf--build-csl
+	  org2pdf--build-style
+	  org2pdf--build-latex
+	  org2pdf--build-pdf
+	  org2pdf--orgprops-pdf-path))
+
+(defun org2pdf--export-TODO-to-latex (text)
+  (s-replace
+   "{\\bfseries\\sffamily TODO}"
+   "{\\bfseries\\ttfamily\\color{red500} TODO}"
+   text))
+
+(defun org2pdf--export-DONE-to-latex (text)
+  (s-replace
+   "{\\bfseries\\sffamily DONE}"
+   "{\\bfseries\\ttfamily\\color{green} DONE}"
+   text))
+
+(defun org2pdf--export-WAITING-to-latex (text)
+  (replace-regexp-in-string
+   ".*section{\\(WAITING\\).*"
+   "{\\\\bfseries\\\\ttfamily\\\\color{orange} WAITING}"
+   text t nil 1))
+
+(defun org2pdf--export-keywords-to-latex (text)
+  (let ((transforms (list #'org2pdf--export-TODO-to-latex
+			  #'org2pdf--export-WAITING-to-latex
+			  #'org2pdf--export-DONE-to-latex))
+	transform
+	(text-transformed text))
+	(while transforms
+	  (setq transform (car transforms))
+	  (setq text-transformed (funcall transform text-transformed))
+	  (setq transforms (cdr transforms)))
+	text-transformed))
+
+(defun org2pdf--headline-filter (text backend info)
+  (if (org-export-derived-backend-p backend 'latex)
+	  (org2pdf--export-keywords-to-latex text)
+	text))
+
+(add-to-list 'org-export-filter-headline-functions #'org2pdf--headline-filter)
+
+(defun org2pdf--not-interactive ()
+  (org2pdf--buffer (current-buffer)))
+
+(provide 'org2pdf)
+
+;;; org2pdf.el ends here
+#+end_src
+
+* Makefile
+:PROPERTIES:
+:ID:       6bfa41e0-13a4-4fd1-ba6d-be4687884b42
+:END:
+
+#+begin_src makefile
+SHELL := bash
+
+.PHONY: env
+.PHONY: run
+.PHONY: test
+.PHONY: dist
+.PHONY: clean
+.DEFAULT_GOAL := dist
+
+.ONESHELL:
+env: manifest.scm
+	guix shell -C -F --preserve="^TERM" -m $^
+
+<<run>>
+
+.ONESHELL:
+test: org2pdf.el
+	emacs -Q --batch -L . --file tests/1/in.org --eval "(progn (require 'org2pdf) (org2pdf))"
+
+dist: org2pdf.el
+
+.ONESHELL:
+clean:
+	rm -rvf org2pdf.org.dot manifest.scm org2pdf.el texput.log
+	rm -rvf org2pdf-mode.el org2pdf-mode.org.dot *.elc org2pdf-mode-autoloads.el
+	rm -rvf org2pdf-mode-pkg.el org2pdf-mode.el org2pdf-mode-test.el
+
+manifest.scm org2pdf.el: org2pdf.org
+	emacs -Q --batch --file $^ --eval "(progn (require 'org) (org-babel-tangle))"
+#+end_src
+
+
+** run
+:PROPERTIES:
+:ID:       6585f31b-92c5-4289-82ef-c78151c69fa8
+:END:
+
+Given an updated version of the code, open the source file so that we
+can add debug points ~edebug-defun~ /etc./
+
+#+name: run
+#+begin_src makefile
+.ONESHELL:
+run: org2pdf.el
+	emacs -Q -nw -L . --eval "(progn (require 'org2pdf))" --file $^
+#+end_src
+
+
+** tests
+:PROPERTIES:
+:ID:       818d0990-6395-4d56-9be7-9857b93a6c23
+:END:
+
+
+
+** manifest.scm
+:PROPERTIES:
+:ID:       4974848c-e0c1-475a-ad65-c917490deb7e
+:END:
+
+#+begin_src scheme
+(specifications->manifest
+ '("emacs-minimal"
+   "bash-minimal"
+   "coreutils"
+   "emacs-f"
+   "emacs-dash"
+   "make"
+   "font-victor-mono"
+   "font-cormorant"
+   "texlive-polyglossia"
+   "texlive"
+   "gawk"
+   "fontconfig"
+   "sed"
+   "biber"))
+#+end_src

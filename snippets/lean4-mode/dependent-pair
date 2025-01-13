@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: dependent-pair
+# key: ⟨
+# --
+⟨${1:left},${2:right}⟩

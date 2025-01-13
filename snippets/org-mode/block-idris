@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-idris
+# key: idris
+# --
+#+begin_src idris
+  $0
+#+end_src

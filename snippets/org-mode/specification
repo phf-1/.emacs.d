@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: specification
+# key: specification
+# --
+*$1 Specification
+:PROPERTIES:
+:TYPE: Specification 97ff1d37-612e-4324-818a-367481a38bf2
+:END:

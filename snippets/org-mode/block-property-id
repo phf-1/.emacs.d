@@ -1,0 +1,5 @@
+# -*- mode: snippet; require-final-newline: nil -*-
+# name: block-property-id
+# key: id
+# --
+#+id: defi$0

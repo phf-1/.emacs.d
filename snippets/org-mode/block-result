@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-result
+# key: result
+# --
+#+begin_src result
+$0
+#+end_src

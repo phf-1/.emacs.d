@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: method
+# key: method
+# --
+${1:*} ${2:Method}
+:PROPERTIES:
+:TYPE: Method 5de0b83f-f584-4cf2-944a-bc4a7320b4a7
+:END:

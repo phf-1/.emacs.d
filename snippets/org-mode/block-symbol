@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-symbol
+# key: symbol
+# --
+#+begin_symbol
+Symbole
+#+end_symbol

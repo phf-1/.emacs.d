@@ -1,0 +1,36 @@
+# -*- mode: snippet -*-
+# name: actor
+# key: actor
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+*${1:*} ${2:name}                                                     ${3:tag}
+:PROPERTIES:
+:TYPE: Actor 549b4898-7f0e-414b-b977-a79c4e02f078
+:ID: `(org-id-new)`
+:END:
+
+**$1 Interface
+:PROPERTIES:
+:TYPE:     Interface 522ac9db-bbff-4e8c-91ac-51171095538f
+:END:
+
+If x : $2, then: x pretend to offer this interface: ...
+
+***$1 Test
+:PROPERTIES:
+:TYPE:     Test 7eea63d9-d708-4030-a598-eb5282c6099d
+:END:
+
+If x : $2, then this result shows that x offers the interface it pretends to.
+
+**$1 Build
+:PROPERTIES:
+:TYPE:     Build f343de3a-7557-423f-86ad-82eef8afb14d
+:END:
+
+Follow these steps to build an instance of $2
+
+** Implementation
+:PROPERTIES:
+:TYPE:     Implementation c6793400-220d-4948-aa4b-cd6ba73c61b2
+:END:

@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: ol
+# key: ,ol
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<ol>
+  <li>$0</li>
+</ol>

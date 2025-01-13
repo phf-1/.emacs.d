@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: abstract
+# key: ,abstract
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<x-abstract>$1</x-abstract>$0

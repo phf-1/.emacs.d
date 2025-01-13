@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: guix-add-pkg
+# key: npkg
+# --
+gnu: Add elixir-telemetry-metrics.
+
+* gnu/packages/elixir-xyz.scm (elixir-telemetry-metrics): New variable.

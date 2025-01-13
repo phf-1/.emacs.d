@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-assertion
+# key: assertion
+# --
+#+begin_assertion
+$0
+#+end_assertion

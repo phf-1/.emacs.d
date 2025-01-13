@@ -1,0 +1,11 @@
+# -*- mode: snippet -*-
+# name: objective-and-result
+# key: oar
+# --
+#+begin_objective
+$0
+#+end_objective
+
+#+begin_result
+
+#+end_result

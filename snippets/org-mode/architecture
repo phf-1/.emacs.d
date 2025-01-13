@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: architecture
+# key: architecture
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+${1:*} ${2:Architecture}
+:PROPERTIES:
+:TYPE: Architecture bcbb45f6-2025-48d3-81a6-94b48a44035e
+:END:

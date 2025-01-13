@@ -1,0 +1,14 @@
+# -*- mode: snippet -*-
+# name: literate-programming-heading-intro
+# key: hintro
+# --
+* ${1:name}
+
+** Objective
+
+** Result
+
+#+name: $1
+#+begin_src $2 :tangle $1.$2 ${3::shebang ""} :tangle-mode (identity #o444)
+$0
+#+end_src

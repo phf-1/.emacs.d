@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-objective
+# key: objective
+# --
+#+begin_objective
+$0
+#+end_objective

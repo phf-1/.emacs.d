@@ -1,0 +1,15 @@
+# -*- mode: snippet -*-
+# name: org-template
+# key: template
+# --
+#+PROPERTY: header-args :noweb yes
+#+FILETAGS: :${1:tag}:
+
+$0
+
+* Local Variables :noexport:
+
+# Local Variables:
+# eval: (add-hook 'after-save-hook #'org-babel-tangle)
+# eval: (add-hook 'before-save-hook #'whitespace-cleanup)
+# End:

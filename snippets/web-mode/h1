@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: h1
+# key: ,h1
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<x-h1 name="${1:name}" id="`(org-id-new)`">
+  $0
+</x-h1>

@@ -1,0 +1,11 @@
+# -*- mode: snippet -*-
+# name: block-ohm
+# key: ohm
+# --
+#+begin_src ohm
+Arithmetic {
+  number  (a number)
+    = digit* "." digit+  -- fract
+    | digit+             -- whole
+}
+#+end_src

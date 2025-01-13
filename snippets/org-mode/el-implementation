@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: implementation
+# key: implementation
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+${1:*} ${2:Implementation}
+:PROPERTIES:
+:TYPE: Implementation c6793400-220d-4948-aa4b-cd6ba73c61b2
+:END:

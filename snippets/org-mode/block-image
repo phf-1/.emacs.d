@@ -1,0 +1,8 @@
+# key: image
+# name: block-image
+# --
+#+CAPTION: ${1:caption}
+#+ATTR_HTML: :alt $1
+#+ATTR_HTML: :title $1
+#+ATTR_HTML: :width ${2:75%}
+[[file:img/${3:filename}]]

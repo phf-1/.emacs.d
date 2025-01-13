@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: local-variables
+# key: lv
+# --
+* Local Variables  :noexport:
+# Local Variables:
+# eval: (setq before-save-hook '(org-fold-hide-drawer-all whitespace-cleanup))
+# eval: (indent-tabs-mode 1)
+# fill-column: 85
+# End:

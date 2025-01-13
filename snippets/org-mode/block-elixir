@@ -1,0 +1,7 @@
+# -*- mode: snippet -*-
+# name: block-elixir
+# key: ex
+# --
+#+begin_src elixir
+$0
+#+end_src

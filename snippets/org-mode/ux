@@ -1,0 +1,8 @@
+# key: ux
+# name: ux
+# --
+*${1:*} ${2:name}                                                     ${3:tag}
+:PROPERTIES:
+:TYPE:     UX 9ac2453d-8e65-43ad-a047-90905e9bad44
+:ID: `(org-id-new)`
+:END:

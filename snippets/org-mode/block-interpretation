@@ -1,0 +1,6 @@
+# key: <interpretation
+# name: block-interpretation
+# --
+#+begin_interpretation
+$0
+#+end_interpretation

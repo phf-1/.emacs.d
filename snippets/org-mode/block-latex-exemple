@@ -1,0 +1,6 @@
+# key: <dlex
+# name: block-latex-exemple
+# --
+#+begin_dlex
+$0
+#+end_dlex

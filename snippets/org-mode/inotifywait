@@ -1,0 +1,10 @@
+# key: inotify
+# name: inotifywait
+# --
+#!/usr/bin/env bash
+
+file_p=./notes.org
+inotifywait -m -e modify "$file_p" |
+    while read path action filename; do
+        echo "do something";
+    done

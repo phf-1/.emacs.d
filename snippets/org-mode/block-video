@@ -1,0 +1,10 @@
+# -*- mode: snippet -*-
+# name: block-video
+# key: <vid
+# --
+#+ATTR_HTML: :controls controls :width 350
+#+BEGIN_video
+#+HTML: <source src="movie.mp4" type="video/mp4">
+#+HTML: <source src="movie.ogg" type="video/ogg">
+Your browser does not support the video tag.
+#+END_video

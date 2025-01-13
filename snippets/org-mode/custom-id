@@ -1,0 +1,5 @@
+# -*- mode: snippet -*-
+# name: custom-id
+# key: cid
+# --
+:CUSTOM_ID: `(org-id-new)`$0

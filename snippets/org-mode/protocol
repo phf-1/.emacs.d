@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: protocol
+# key: protocol
+# --
+*${1:*} ${2:name}                                                     ${3:tag}
+:PROPERTIES:
+:TYPE: Protocol ec881e5d-8363-4cce-8262-11c8b5b84ff7
+:ID: `(org-id-new)`
+:END:

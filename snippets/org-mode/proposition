@@ -1,0 +1,6 @@
+# key: proposition
+# name: proposition
+# --
+#+begin_proposition
+$0
+#+end_proposition

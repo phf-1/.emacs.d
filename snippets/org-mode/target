@@ -1,0 +1,4 @@
+# key: t
+# name: target
+# --
+<<`(s-left 4 (downcase (nth 1 (split-string (org-id-new) "-"))))`>> $0
