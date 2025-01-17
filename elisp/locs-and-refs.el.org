@@ -542,7 +542,7 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (let (button loc display-name)
     (setq display-name
           (apply #'propertize
-                   `(,(substring-no-properties (or name id))
+                   `(,(substring-no-properties (or name (concat locs-and-refs-location-tag ":" id)))
                      face locs-and-refs-location-face)))
     (setq button
           (with-current-buffer buffer
@@ -650,7 +650,7 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (let (button ref display-name)
     (setq display-name
           (apply #'propertize
-                   `(,(substring-no-properties (or name id))
+                   `(,(substring-no-properties (or name (concat locs-and-refs-reference-tag ":" id)))
                      face locs-and-refs-reference-face)))
     (setq button
           (with-current-buffer buffer

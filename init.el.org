@@ -1240,6 +1240,13 @@ $0`(yas-escape-text yas-selected-text)`")
 #+begin_src emacs-lisp
 (use-package locs-and-refs :demand
   :config
+  (load-theme 'modus-vivendi t)
+  (modus-themes-with-colors
+     (custom-set-faces
+      `(locs-and-refs-location-face
+        ((t (:foreground ,blue-faint :underline t))))
+      `(locs-and-refs-reference-face
+        ((t (:foreground ,red-faint :underline t))))))
   (locs-and-refs-mode))
 #+end_src
 
@@ -1428,6 +1435,8 @@ $0`(yas-escape-text yas-selected-text)`")
 
   (advice-add #'org-agenda :before #'user--set-org-agenda-files))
 #+end_src
+
+*
 
 * local extension
 
