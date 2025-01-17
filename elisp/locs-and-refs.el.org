@@ -1,6 +1,6 @@
-#+PROPERTY: header-args:emacs-lisp :noweb yes :tangle locs-and-refs.el
+#+PROPERTY: header-args:emacs-lisp :noweb yes :tangle locs-and-refs.el :comments org
 
-* Package header
+* Header
 
 #+begin_src emacs-lisp
 ;;; locs-and-refs.el --- Define locations and references for text files and buffers  -*- lexical-binding: t; -*-
@@ -54,27 +54,21 @@
 #+end_src
 
 * Dependencies
+This section lists this package's dependencies.
+- rxt (a.k.a. pcre2el) provides `rxt-elisp-to-pcre' that builds a PCRE expression
+  from an ELisp RegEx. Useful to talk to Ripgrep from ELisp.
+- org provides `org-link-set-parameters' that gives control over click behavior on
+  links.
 
 #+begin_src emacs-lisp
-;; Dependencies
-;;
-;; This section lists this package's dependencies.
-;; - rxt (a.k.a. pcre2el) provides `rxt-elisp-to-pcre' that builds a PCRE expression
-;;   from an ELisp RegEx. Useful to talk to Ripgrep from ELisp.
-;; - org provides `org-link-set-parameters' that gives control over click behavior on
-;;   links.
-
 (require 'pcre2el)
 (require 'org)
 #+end_src
 
 * Configuration
+This section lists the user's defined custom parameters.
 
 #+begin_src emacs-lisp
-;; Configuration
-;;
-;; This section lists the user's defined custom parameters.
-
 (defgroup locs-and-refs nil
   "Customization options for locs-and-refs mode.
 This mode provides functionality for handling locations and references
@@ -129,11 +123,8 @@ This comes after buffer creation or modification."
 #+end_src
 
 * LineFileMatch
-
+An instance represents a match at a given line in some file.
 #+begin_src emacs-lisp
-;; LineFileMatch
-;;
-;; An instance represents a match at a given line in some file.
 #+end_src
 
 ** mk
@@ -187,11 +178,8 @@ PATH should be a valid file path, and LINE should be a non-negative integer."
 #+end_src
 
 * LineBufferMatch
-
+An instance represents a match at a given line in some buffer.
 #+begin_src emacs-lisp
-;; LineBufferMatch
-;;
-;; An instance represents a match at a given line in some buffer.
 #+end_src
 
 ** mk
@@ -245,11 +233,8 @@ BUFFER should be a valid buffer, and LINE should be a non-negative integer."
 #+end_src
 
 * FileMatch
-
+An instance represents a file match.
 #+begin_src emacs-lisp
-;; FileMatch
-;;
-;; An instance represents a file match.
 #+end_src
 
 ** mk
@@ -293,11 +278,8 @@ PATH should be a valid file path."
 #+end_src
 
 * Match
-
+An instance represents either a FileMatch, LineFileMatch or a LineBufferMatch.
 #+begin_src emacs-lisp
-;; Match
-;;
-;; An instance represents either a FileMatch, LineFileMatch or a LineBufferMatch.
 #+end_src
 
 ** use
@@ -383,12 +365,9 @@ This action will open the file or switch to the buffer at the specified location
 #+end_src
 
 * Search
-
+Given a RegEx in the form of an Rx expression,
+search matching files/buffers/filenames.
 #+begin_src emacs-lisp
-;; Search
-;;
-;; Given a RegEx in the form of an Rx expression, search matching
-;; files/buffers/filenames.
 #+end_src
 
 ** files
@@ -458,75 +437,9 @@ Returns a list of FileMatch objects."
     matches))
 #+end_src
 
-* UI
-
-#+begin_src emacs-lisp
-;; UI
-#+end_src
-
-** insert-button
-λ : Name Action → Button
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--ui-insert-button (name action tag)
-  "Insert a clickable button with NAME and ACTION in the current buffer."
-  (insert-button name
-                 'action (lambda (_button) (funcall action))
-                 'lar t
-                 'face (cond
-                        ((string= tag (locs-and-refs--location-tag))
-                         'locs-and-refs-reference-face)
-                        ((string= tag (locs-and-refs--reference-tag))
-                         'locs-and-refs-location-face))
-                 'help-echo (format "Click to open %s" name)
-                 'follow-link t))
-#+end_src
-
-** matches
-λ : List(Match) Id Tag → Buffer
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--ui-matches (matches id tag)
-  "Display MATCHES for ID from TAG in a 'Search results' buffer in a dedicated new frame.
-
-Creates or reuses the buffer, inserts a header, and adds clickable buttons
-for each MATCH. Opens a new dedicated frame and switches to the buffer in that frame."
-  (let* ((buffer (with-current-buffer (get-buffer-create "Search results")
-                   (setq buffer-read-only nil)
-                   (erase-buffer)
-                   (insert
-                    (cond
-                     ((string= tag (locs-and-refs--location-tag))
-                      (format "List of references to the location: %S\n\n" (substring-no-properties id)))
-                     ((string= tag (locs-and-refs--reference-tag))
-                      (format "List of locations with id: %S\n\n" (substring-no-properties id)))))
-                   (setq buffer-read-only t)
-                   (current-buffer)))
-         (insert-button
-          (lambda (match)
-            (with-current-buffer buffer
-              (setq buffer-read-only nil)
-              (locs-and-refs--ui-insert-button
-               (locs-and-refs--match-name match)
-               (locs-and-refs--match-action match)
-               tag)
-              (insert "\n")
-              (setq buffer-read-only t)))))
-    (with-current-buffer buffer (mapc insert-button matches))
-    (let* ((frame (make-frame `((name . "Search Results")
-                                (dedicated . t))))
-           (window (frame-root-window frame)))
-      (set-window-buffer window buffer)
-      (set-window-dedicated-p window t))
-    buffer))
-#+end_src
-
 * RegEx
-
+A few utilities.
 #+begin_src emacs-lisp
-;; RegEx
-;;
-;; A few utilities.
 #+end_src
 
 ** content
@@ -543,12 +456,9 @@ ID can be either a string or a regex pattern."
 #+end_src
 
 * Location
-
+An instance defines a place that can be referenced.
+A click on an instance shows all references to it.
 #+begin_src emacs-lisp
-;; Location
-;;
-;; An instance defines a place that can be referenced. A click on an instance shows
-;; all references to it.
 #+end_src
 
 ** mk
@@ -556,7 +466,7 @@ ID can be either a string or a regex pattern."
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-mk (id buffer start end name)
-  "Create a Location object with ID, BUFFER, START, and END.
+  "Create a Location object with ID, BUFFER, START, END and NAME.
 ID is a string, BUFFER must be a buffer object, START and END are integer positions."
   (unless (stringp id) (error "ID is not a string"))
   (unless (bufferp buffer) (error "BUFFER is not a buffer"))
@@ -638,15 +548,12 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
 
 ** click
 λ : Location → Buffer
-
-- loc←click : Buffer
-  - content-regex :≡ self←content-regex
-  - file-matches :≡ search←files(content-regex)
-  - buffer-matches :≡ search←buffers(content-regex)
-  - matches :≡ file-matches + buffer-matches
-  - id :≡ self←id
-  - tag :≡ self←tag
-  - ui←matches(matches id self tag)
+λ loc :≡
+  content-regex  :≡ content-regex(loc)
+  file-matches   :≡ search-files(content-regex)
+  buffer-matches :≡ search-buffers(content-regex)
+  matches        :≡ file-matches + buffer-matches
+  ui-matches(matches id(loc) tag(loc))
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-click (loc)
@@ -660,12 +567,9 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
 #+end_src
 
 * Reference
-
+An instance define a reference to a Location.
+A click on an instance shows all locations that it refers to.
 #+begin_src emacs-lisp
-;; Reference
-;;
-;; An instance define a reference to a Location. A click on an instance shows
-;; all locations that it refers to.
 #+end_src
 
 ** mk
@@ -673,7 +577,7 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-mk (id buffer start end name)
-  "Create a Reference object with ID, BUFFER, START, and END.
+  "Create a Reference object with ID, BUFFER, START, END and NAME.
 ID is a string, BUFFER must be a buffer object, START and END are integer positions."
   (unless (stringp id) (error "ID is not a string"))
   (unless (bufferp buffer) (error "BUFFER is not a buffer"))
@@ -764,16 +668,13 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
 
 ** click
 λ : Reference → Buffer
-
-- ref←click : Buffer
-  - content-regex :≡ self←content-regex
-  - file-matches :≡ search←files(content-regex)
-  - buffer-matches :≡ search←buffers(content-regex)
-  - filename-matches :≡ search←filenames(filename-regex)
-  - matches :≡ file-matches + buffer-matches + filename-matches
-  - id :≡ self←id
-  - tag :≡ self←tag
-  - ui←matches(matches id tag)
+click ref :≡
+  content-regex    :≡ content-regex(ref)
+  file-matches     :≡ search-files(content-regex)
+  buffer-matches   :≡ search-buffers(content-regex)
+  filename-matches :≡ search-filenames(filename-regex)
+  matches          :≡ file-matches + buffer-matches + filename-matches
+  ui-matches(matches id(ref) tag(ref))
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-click (ref)
@@ -787,13 +688,72 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
     (locs-and-refs--ui-matches matches id locs-and-refs-reference-tag)))
 #+end_src
 
-* Minor mode
+* UI
+#+begin_src emacs-lisp
+#+end_src
+
+** insert-button
+λ : Name Action → Button
 
 #+begin_src emacs-lisp
-;; Minor Mode
-;;
-;; Make sure that locations and references are activated in all buffers at all times
-;; as long as they derive from `text-mode' or `prog-mode'.
+(defun locs-and-refs--ui-insert-button (name action tag)
+  "Insert a clickable button with NAME and ACTION in the current buffer.
+The face depends on TAG."
+  (insert-button name
+                 'action (lambda (_button) (funcall action))
+                 'lar t
+                 'face (cond
+                        ((string= tag (locs-and-refs--location-tag))
+                         'locs-and-refs-reference-face)
+                        ((string= tag (locs-and-refs--reference-tag))
+                         'locs-and-refs-location-face))
+                 'help-echo (format "Click to open %s" name)
+                 'follow-link t))
+#+end_src
+
+** matches
+λ : List(Match) Id Tag → Buffer
+
+#+begin_src emacs-lisp
+(defun locs-and-refs--ui-matches (matches id tag)
+  "Display MATCHES for ID from TAG in a buffer.
+Opens a new dedicated frame and switches to the buffer in that frame.
+For each match, a button is inserted in the buffer.
+A click on a button opens the associated file."
+  (let* ((buffer (with-current-buffer (get-buffer-create "Search results")
+                   (setq buffer-read-only nil)
+                   (erase-buffer)
+                   (insert
+                    (cond
+                     ((string= tag (locs-and-refs--location-tag))
+                      (format "List of references to the location: %S\n\n" (substring-no-properties id)))
+                     ((string= tag (locs-and-refs--reference-tag))
+                      (format "List of locations with id: %S\n\n" (substring-no-properties id)))))
+                   (setq buffer-read-only t)
+                   (current-buffer)))
+         (insert-button
+          (lambda (match)
+            (with-current-buffer buffer
+              (setq buffer-read-only nil)
+              (locs-and-refs--ui-insert-button
+               (locs-and-refs--match-name match)
+               (locs-and-refs--match-action match)
+               tag)
+              (insert "\n")
+              (setq buffer-read-only t)))))
+    (with-current-buffer buffer (mapc insert-button matches))
+    (let* ((frame (make-frame `((name . "Search Results")
+                                (dedicated . t))))
+           (window (frame-root-window frame)))
+      (set-window-buffer window buffer)
+      (set-window-dedicated-p window t))
+    buffer))
+#+end_src
+
+* Minor mode
+Make sure that locations and references are activated in all buffers at all times
+as long as they derive from `text-mode' or `prog-mode'.
+#+begin_src emacs-lisp
 #+end_src
 
 #+begin_src emacs-lisp
@@ -932,7 +892,7 @@ More precisely:
     (locs-and-refs--deactivate)))
 #+end_src
 
-* Package footer
+* Footer
 
 #+begin_src emacs-lisp
 (provide 'locs-and-refs)
@@ -947,9 +907,3 @@ More precisely:
 ;; indent-tabs-mode: nil
 ;; End:
 #+end_src
-
-* File configuration
-
-# Local Variables:
-# eval: (add-hook 'after-save-hook 'org-babel-tangle nil t)
-# End:
