@@ -9,7 +9,7 @@
 ;; Author: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Homepage: https://github.com/phf-1/locs-and-refs
-;; Package-Version: 0.15
+;; Package-Version: 0.16
 ;; Package-Requires: ((emacs "27.1") (pcre2el "1.12"))
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -136,7 +136,8 @@ This comes after buffer creation or modification."
 ;; An instance represents a match at a given line in some file.
 #+end_src
 
-** mk : Path Line → LineFileMatch
+** mk
+λ : Path Line → LineFileMatch
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-mk (path line)
@@ -147,7 +148,8 @@ PATH should be a valid file path, and LINE should be a non-negative integer."
   (list :line-file-match path line))
 #+end_src
 
-** p : Any → Boolean
+** p
+λ : Any → Boolean
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-p (any)
@@ -155,7 +157,8 @@ PATH should be a valid file path, and LINE should be a non-negative integer."
   (eq (car-safe any) :line-file-match))
 #+end_src
 
-** use : (Path Line → C) → LineFileMatch → C
+** use
+λ : (Path Line → C) → LineFileMatch → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-use (func)
@@ -165,7 +168,8 @@ PATH should be a valid file path, and LINE should be a non-negative integer."
     (apply func (cdr match))))
 #+end_src
 
-** path : LineFileMatch → Path
+** path
+λ : LineFileMatch → Path
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-path (match)
@@ -173,7 +177,8 @@ PATH should be a valid file path, and LINE should be a non-negative integer."
   (funcall (locs-and-refs--line-file-match-use (lambda (&rest params) (car params))) match))
 #+end_src
 
-** line : LineFileMatch → Line
+** line
+λ : LineFileMatch → Line
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-line (match)
@@ -189,7 +194,8 @@ PATH should be a valid file path, and LINE should be a non-negative integer."
 ;; An instance represents a match at a given line in some buffer.
 #+end_src
 
-** mk : Buffer Line → LineBufferMatch
+** mk
+λ : Buffer Line → LineBufferMatch
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-mk (buffer line)
@@ -200,7 +206,8 @@ BUFFER should be a valid buffer, and LINE should be a non-negative integer."
   (list :line-buffer-match buffer line))
 #+end_src
 
-** p : Any → Boolean
+** p
+λ : Any → Boolean
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-p (any)
@@ -208,7 +215,8 @@ BUFFER should be a valid buffer, and LINE should be a non-negative integer."
   (eq (car-safe any) :line-buffer-match))
 #+end_src
 
-** use : (Buffer Line → C) → LineBufferMatch → C
+** use
+λ : (Buffer Line → C) → LineBufferMatch → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-use (func)
@@ -218,7 +226,8 @@ BUFFER should be a valid buffer, and LINE should be a non-negative integer."
     (apply func (cdr match))))
 #+end_src
 
-** buffer : LineBufferMatch → Buffer
+** buffer
+λ : LineBufferMatch → Buffer
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-buffer (match)
@@ -226,7 +235,8 @@ BUFFER should be a valid buffer, and LINE should be a non-negative integer."
   (funcall (locs-and-refs--line-buffer-match-use (lambda (&rest params) (car params))) match))
 #+end_src
 
-** line : LineBufferMatch → Line
+** line
+λ : LineBufferMatch → Line
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-line (match)
@@ -242,7 +252,8 @@ BUFFER should be a valid buffer, and LINE should be a non-negative integer."
 ;; An instance represents a file match.
 #+end_src
 
-** mk : Path → FileMatch
+** mk
+λ : Path → FileMatch
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--file-match-mk (path)
@@ -252,7 +263,8 @@ PATH should be a valid file path."
   (list :file-match path))
 #+end_src
 
-** p : Any → Boolean
+** p
+λ : Any → Boolean
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--file-match-p (any)
@@ -260,7 +272,8 @@ PATH should be a valid file path."
   (eq (car-safe any) :file-match))
 #+end_src
 
-** use : (Path → C) → FileMatch → C
+** use
+λ : (Path → C) → FileMatch → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--file-match-use (func)
@@ -270,7 +283,8 @@ PATH should be a valid file path."
     (apply func (cdr match))))
 #+end_src
 
-** path : FileMatch → Path
+** path
+λ : FileMatch → Path
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--file-match-path (match)
@@ -286,7 +300,8 @@ PATH should be a valid file path."
 ;; An instance represents either a FileMatch, LineFileMatch or a LineBufferMatch.
 #+end_src
 
-** use : (FileMatch → C) (LineFileMatch → C) (LineBufferMatch → C) → Match → C
+** use
+λ : (FileMatch → C) (LineFileMatch → C) (LineBufferMatch → C) → Match → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--match-use (file-func line-file-func line-buffer-func)
@@ -301,7 +316,8 @@ and LINE-BUFFER-FUNC to LineBufferMatch."
      (t (error "MATCH is not a FileMatch or a LineFileMatch or a LineBufferMatch")))))
 #+end_src
 
-** name : Match → String
+** name
+λ : Match → String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--match-name (match)
@@ -331,7 +347,8 @@ and LINE-BUFFER-FUNC to LineBufferMatch."
    match))
 #+end_src
 
-** action : Match → ∅ → ∅
+** action
+λ : Match → ∅ → ∅
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--match-action (match)
@@ -374,7 +391,8 @@ This action will open the file or switch to the buffer at the specified location
 ;; files/buffers/filenames.
 #+end_src
 
-** files : RegEx → List(Match)
+** files
+λ : RegEx → List(Match)
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--search-files (regex)
@@ -395,7 +413,8 @@ Returns a list of LineFileMatch objects."
     matches))
 #+end_src
 
-** buffers : RegEx → List(Match)
+** buffers
+λ : RegEx → List(Match)
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-number ()
@@ -418,7 +437,8 @@ Returns a list of LineBufferMatch objects."
     matches))
 #+end_src
 
-** filenames : RegEx → List(Match)
+** filenames
+λ : RegEx → List(Match)
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--search-filenames (regex)
@@ -444,7 +464,8 @@ Returns a list of FileMatch objects."
 ;; UI
 #+end_src
 
-** insert-button : Name Action → Button
+** insert-button
+λ : Name Action → Button
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--ui-insert-button (name action tag)
@@ -461,15 +482,15 @@ Returns a list of FileMatch objects."
                  'follow-link t))
 #+end_src
 
-** matches : List(Match) Id Tag → Buffer
+** matches
+λ : List(Match) Id Tag → Buffer
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--ui-matches (matches id tag)
-  "Display MATCHES for ID from TAG in a 'Search results' buffer on the right.
+  "Display MATCHES for ID from TAG in a 'Search results' buffer in a dedicated new frame.
 
 Creates or reuses the buffer, inserts a header, and adds clickable buttons
-for each MATCH. If the buffer is visible, selects it; otherwise, splits
-window to the right."
+for each MATCH. Opens a new dedicated frame and switches to the buffer in that frame."
   (let* ((buffer (with-current-buffer (get-buffer-create "Search results")
                    (setq buffer-read-only nil)
                    (erase-buffer)
@@ -492,11 +513,11 @@ window to the right."
               (insert "\n")
               (setq buffer-read-only t)))))
     (with-current-buffer buffer (mapc insert-button matches))
-    (let ((window (get-buffer-window buffer)))
-      (if window
-          (select-window window)
-        (with-selected-window (split-window-right)
-          (switch-to-buffer-other-window buffer))))
+    (let* ((frame (make-frame `((name . "Search Results")
+                                (dedicated . t))))
+           (window (frame-root-window frame)))
+      (set-window-buffer window buffer)
+      (set-window-dedicated-p window t))
     buffer))
 #+end_src
 
@@ -508,7 +529,8 @@ window to the right."
 ;; A few utilities.
 #+end_src
 
-** content : Tag Optional(id) → Rx
+** content
+λ : Tag Optional(id) → Rx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--regex-content (tag &optional id)
@@ -529,7 +551,8 @@ ID can be either a string or a regex pattern."
 ;; all references to it.
 #+end_src
 
-** mk : String Buffer Start End Name → Location
+** mk
+λ : String Buffer Start End Name → Location
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-mk (id buffer start end name)
@@ -542,21 +565,23 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (let (button loc display-name)
     (setq display-name
           (apply #'propertize
-                   `(,(substring-no-properties (or name (concat locs-and-refs-location-tag ":" id)))
-                     face locs-and-refs-location-face)))
+                 `(,(substring-no-properties (or name (concat locs-and-refs-location-tag ":" id)))
+                   face locs-and-refs-location-face)))
     (setq button
           (with-current-buffer buffer
-            (make-button start end
-                         'action (lambda (_button) (locs-and-refs--location-click loc))
-                         'lar t
-                         'display display-name
-                         'help-echo (format "Click to open %s" id)
-                         'follow-link t)))
+            (let ((inhibit-modification-hooks t))
+              (make-button start end
+                           'action (lambda (_button) (locs-and-refs--location-click loc))
+                           'lar t
+                           'display display-name
+                           'help-echo (format "Click to open %s" id)
+                           'follow-link t))))
     (setq loc (list :location id buffer start end button name))
     loc))
 #+end_src
 
-** p : Any → Boolean
+** p
+λ : Any → Boolean
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-p (loc)
@@ -564,7 +589,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (eq (car-safe loc) :location))
 #+end_src
 
-** use : (String → C) → Location → C
+** use
+λ : (String → C) → Location → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-use (func)
@@ -574,7 +600,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
     (apply func (cdr loc))))
 #+end_src
 
-** id : Location → String
+** id
+λ : Location → String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-id (loc)
@@ -582,7 +609,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (funcall (locs-and-refs--location-use (lambda (id &rest _args) id)) loc))
 #+end_src
 
-** tag : String
+** tag
+λ : String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-tag ()
@@ -590,7 +618,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   locs-and-refs-location-tag)
 #+end_src
 
-** content-regex : Location → RegEx
+** content-regex
+λ : Location → RegEx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-content-regex (loc)
@@ -598,7 +627,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (locs-and-refs--regex-content (locs-and-refs--reference-tag) (locs-and-refs--location-id loc)))
 #+end_src
 
-** regex : RegEx
+** regex
+λ : RegEx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-regex ()
@@ -606,7 +636,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (locs-and-refs--regex-content (locs-and-refs--location-tag)))
 #+end_src
 
-** click : Location → Buffer
+** click
+λ : Location → Buffer
 
 - loc←click : Buffer
   - content-regex :≡ self←content-regex
@@ -637,7 +668,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
 ;; all locations that it refers to.
 #+end_src
 
-** mk : Id Buffer Start End Name → Reference
+** mk
+λ : Id Buffer Start End Name → Reference
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-mk (id buffer start end name)
@@ -654,17 +686,19 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
                      face locs-and-refs-reference-face)))
     (setq button
           (with-current-buffer buffer
-            (make-button start end
+            (let ((inhibit-modification-hooks t))
+              (make-button start end
                          'action (lambda (_button) (locs-and-refs--reference-click ref))
                          'lar t
                          'display display-name
                          'help-echo (format "Click to open %s" id)
-                         'follow-link t)))
+                         'follow-link t))))
     (setq ref (list :reference id buffer start end button name))
     ref))
 #+end_src
 
-** p : Any → Boolean
+** p
+λ : Any → Boolean
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-p (ref)
@@ -672,7 +706,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (eq (car-safe ref) :reference))
 #+end_src
 
-** use : (String → C) → Reference → C
+** use
+λ : (String → C) → Reference → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-use (func)
@@ -682,7 +717,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
     (apply func (cdr ref))))
 #+end_src
 
-** id : Reference → String
+** id
+λ : Reference → String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-id (ref)
@@ -690,7 +726,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (funcall (locs-and-refs--reference-use (lambda (id &rest _args) id)) ref))
 #+end_src
 
-** tag : String
+** tag
+λ : String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-tag ()
@@ -698,7 +735,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   locs-and-refs-reference-tag)
 #+end_src
 
-** content-regex : Reference → RegEx
+** content-regex
+λ : Reference → RegEx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-content-regex (ref)
@@ -706,7 +744,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (locs-and-refs--regex-content (locs-and-refs--location-tag) (locs-and-refs--reference-id ref)))
 #+end_src
 
-** regex : Regex
+** regex
+λ : Regex
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-regex ()
@@ -714,7 +753,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   (locs-and-refs--regex-content (locs-and-refs--reference-tag)))
 #+end_src
 
-** filename-regex : Reference → RegEx
+** filename-regex
+λ : Reference → RegEx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-filename-regex (ref)
@@ -722,7 +762,8 @@ ID is a string, BUFFER must be a buffer object, START and END are integer positi
   `(seq ,(locs-and-refs--reference-id ref)))
 #+end_src
 
-** click : Reference → Buffer
+** click
+λ : Reference → Buffer
 
 - ref←click : Buffer
   - content-regex :≡ self←content-regex

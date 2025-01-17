@@ -1244,7 +1244,7 @@ $0`(yas-escape-text yas-selected-text)`")
   (modus-themes-with-colors
      (custom-set-faces
       `(locs-and-refs-location-face
-        ((t (:foreground ,blue-faint :underline t))))
+        ((t (:foreground ,magenta-faint :underline t))))
       `(locs-and-refs-reference-face
         ((t (:foreground ,red-faint :underline t))))))
   (locs-and-refs-mode))
