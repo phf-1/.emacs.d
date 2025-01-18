@@ -989,11 +989,10 @@ This configuration allows for a local extension to the Emacs init file:
 - Immediately calls `extend-init-locally` to execute the check at startup.
 
 #+begin_src emacs-lisp
-(require 'f)
 (defun extend-init-locally ()
   (let* ((env-var "EMACS_INIT_EXTENSION")
          (local-conf (getenv env-var)))
-    (if (and local-conf (f-file? local-conf))
+    (if (and local-conf (file-exists-p local-conf))
         (load-file local-conf)
       (message "INFO: no local extension to default init.el has been found.
 Set %s to a local elisp file to run it after init.el"
