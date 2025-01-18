@@ -1,1 +1,12 @@
 init.el
+backup.el
+buffer.el
+calendar.el
+editing.el
+elisp/locs-and-refs.elc
+external-processes.el
+key-bindings.el
+mini-buffer.el
+startup.el
+ui.el
+utils.el
