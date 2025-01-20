@@ -907,3 +907,51 @@ More precisely:
 ;; indent-tabs-mode: nil
 ;; End:
 #+end_src
+
+* Check
+
+#+begin_src makefile :tangle Makefile
+SHELL := bash
+.ONESHELL:
+.SHELLFLAGS := -ceuo pipefail
+EMACS := emacs -Q --batch
+DEPS := ${HOME}/.emacs.d/elpa
+ORG_PATCHES := ${HOME}/.emacs.d/elisp/org-patches.el
+
+.PHONY: all
+all: elc checkdoc lint
+
+.PHONY: el
+el: locs-and-refs.el
+locs-and-refs.el: locs-and-refs.el.org
+	$(EMACS) $< \
+		-l $(ORG_PATCHES) \
+		-f org-babel-tangle
+	sed -i '1,2d' $@
+
+.PHONY: elc
+elc: locs-and-refs.elc
+locs-and-refs.elc: locs-and-refs.el
+	$(EMACS) -L $(DEPS)/pcre2el-20240629.2322 \
+		-f batch-byte-compile locs-and-refs.el
+
+.PHONY: checkdoc
+checkdoc: checkdoc-report.txt
+checkdoc-report.txt: locs-and-refs.el
+	$(EMACS) --eval '(checkdoc-file "$<")' > $@
+
+.PHONY: lint
+lint: lint-report.txt
+lint-report.txt: locs-and-refs.el
+	$(EMACS) $< \
+		-L $(DEPS)/package-lint-20241127.1826 \
+		-l package-lint \
+		-f package-lint-buffer > $@
+
+.PHONY: clean
+clean:
+	rm -fv locs-and-refs.el
+	rm -fv locs-and-refs.elc
+	rm -fv checkdoc-report.txt
+	rm -fv lint-report.txt
+#+end_src
