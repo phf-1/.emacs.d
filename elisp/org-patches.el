@@ -78,25 +78,27 @@ Iteratively processes all blocks marked with the 'js' tag."
   (interactive)
   (save-excursion
     (goto-char (point-min))
-    (pcase (user--next-code-block "js")
-      ('nil
-       (message "All JS code blocks have been formatted using %s" (user--format-code-cmd)))
-      (`(:error ,msg)
-       (user-error msg))
-      (`(,start ,end)
-       (pcase (user--format-code (user--extract-code start end)
-                                 (get-buffer-create "*Formatting errors*"))
-         (`(:error ,msg)
-          (message "Code block starting at %s has not been formatted.\n%s" start msg)
-          (with-restriction end (point-max)
-            (user-format-all-js-code-blocks)))
-         (formatted-code
-          (user--replace-code start end formatted-code)
-          (goto-char start)
-          (pcase (user--next-code-block "js")
-            (`(,start ,end)
-             (with-restriction end (point-max)
-               (user-format-all-js-code-blocks))))))))))
+    (while (not (eobp))
+      (pcase (user--next-code-block "js")
+        ('nil
+         (message "All JS code blocks have been formatted using %s" (user--format-code-cmd))
+         (end-of-buffer))
+        (`(:error ,msg)
+         (user-error msg))
+        (`(,start ,end)
+         (pcase (user--format-code (user--extract-code start end)
+                                   (get-buffer-create "*Formatting errors*"))
+           (`(:error ,msg)
+            (message "Code block starting at %s has not been formatted.\n%s" start msg)
+
+            (goto-char end))
+           (formatted-code
+            (user--replace-code start end formatted-code)
+            (goto-char start)
+            (forward-line -1)
+            (pcase (user--next-code-block "js")
+              (`(,start ,end)
+               (goto-char end))))))))))
 
 (defun user--next-code-block (tag)
   "Find the next code block tagged with TAG in the current buffer.
@@ -140,20 +142,20 @@ and return an error indicator."
   (if (string= code "")
       ""
     (let (return-code)
-    (with-temp-buffer
-      (insert code)
-      (setq return-code
-            (shell-command-on-region
-             (point-min)
-             (point-max)
-             (user--format-code-cmd)
-             (current-buffer) t
-             error-buffer))
-      (pcase return-code
-        (0
-         (buffer-substring-no-properties (point-min) (point-max)))
-        (_
-         (list :error (format "Formatting error. See buffer %s" (buffer-name error-buffer)))))))))
+      (with-temp-buffer
+        (insert code)
+        (setq return-code
+              (shell-command-on-region
+               (point-min)
+               (point-max)
+               (user--format-code-cmd)
+               (current-buffer) t
+               error-buffer))
+        (pcase return-code
+          (0
+           (buffer-substring-no-properties (point-min) (point-max)))
+          (_
+           (list :error (format "Formatting error. See buffer %s" (buffer-name error-buffer)))))))))
 
 (setq user--format-code-cmd-cache nil)
 (defun user--format-code-cmd ()
