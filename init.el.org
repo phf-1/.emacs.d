@@ -695,17 +695,15 @@ that the appropriate major-mode is set.  SPEC has the form:
 
 #+begin_src emacs-lisp
 (defun user-format-all-js-code-blocks ()
-  "Format all JavaScript code blocks in the current buffer using Prettier.
-If Prettier is not found in the PATH, signal an error.
+  "Format all JavaScript code blocks in the current buffer using Biomejs or Prettier.
+If neither Prettier nor Biomejs is found in the PATH, signal an error.
 Iteratively processes all blocks marked with the 'js' tag."
   (interactive)
-  (when (not (executable-find "prettier"))
-    (user-error "Prettier has not been found in PATH"))
   (save-excursion
     (goto-char (point-min))
     (pcase (user--next-code-block "js")
       ('nil
-       (message "All JS code blocks have been formatted using Prettier"))
+       (message "All JS code blocks have been formatted using %s" (user--format-code-cmd)))
       (`(:error ,msg)
        (user-error msg))
       (`(,start ,end)
@@ -716,7 +714,7 @@ Iteratively processes all blocks marked with the 'js' tag."
           (with-restriction end (point-max)
             (user-format-all-js-code-blocks)))
          (formatted-code
-          (replace-code start end formatted-code)
+          (user--replace-code start end formatted-code)
           (goto-char start)
           (pcase (user--next-code-block "js")
             (`(,start ,end)
@@ -768,7 +766,7 @@ and return an error indicator."
             (shell-command-on-region
              (point-min)
              (point-max)
-             "prettier --stdin-filepath tmp.js"
+             (user--format-code-cmd)
              (current-buffer) t
              error-buffer))
       (pcase return-code
@@ -776,6 +774,21 @@ and return an error indicator."
          (buffer-substring-no-properties (point-min) (point-max)))
         (_
          (list :error (format "Formatting error. See buffer %s" (buffer-name error-buffer))))))))
+
+(setq user--format-code-cmd-cache nil)
+(defun user--format-code-cmd ()
+  (if (null user--format-code-cmd-cache)
+      (setq user--format-code-cmd-cache
+            (pcase (executable-find "biome")
+              ((and (pred stringp) path)
+               (format "%s format --indent-style space --indent-width 4 --stdin-file-path tmp.js" path))
+              (_
+               (pcase (executable-find "prettier")
+                 ((and (pred stringp) path)
+                  (format "%s --stdin-filepath tmp.js" path))
+                 (_
+                  (user-error "neither biome nor prettier in the PATH"))))))
+    user--format-code-cmd-cache))
 #+end_src
 ** provide
 
