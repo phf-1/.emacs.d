@@ -58,7 +58,7 @@ that the appropriate major-mode is set.  SPEC has the form:
                (org-fill-template
                 org-babel-tangle-comment-format-end link-data)))))
 
-;; All JS code blocks have been formatted
+;; Try to format all JS code blocks
 ;; - λ()
 ;;   - point :≡ point-min()
 ;;   - search-next-code-block() ≡
@@ -72,14 +72,15 @@ that the appropriate major-mode is set.  SPEC has the form:
 ;;       - λ()
 
 (defun user-format-all-js-code-blocks ()
+  "Format all JavaScript code blocks in the current buffer using Biomejs or Prettier.
+If neither Prettier nor Biomejs is found in the PATH, signal an error.
+Iteratively processes all blocks marked with the 'js' tag."
   (interactive)
-  (when (not (executable-find "prettier"))
-    (user-error "prettier has not been found in PATH"))
   (save-excursion
     (goto-char (point-min))
     (pcase (user--next-code-block "js")
       ('nil
-       (message "All js code blocks have been formatted using prettier"))
+       (message "All JS code blocks have been formatted using %s" (user--format-code-cmd)))
       (`(:error ,msg)
        (user-error msg))
       (`(,start ,end)
@@ -90,7 +91,7 @@ that the appropriate major-mode is set.  SPEC has the form:
           (with-restriction end (point-max)
             (user-format-all-js-code-blocks)))
          (formatted-code
-          (replace-code start end formatted-code)
+          (user--replace-code start end formatted-code)
           (goto-char start)
           (pcase (user--next-code-block "js")
             (`(,start ,end)
@@ -98,13 +99,17 @@ that the appropriate major-mode is set.  SPEC has the form:
                (user-format-all-js-code-blocks))))))))))
 
 (defun user--next-code-block (tag)
+  "Find the next code block tagged with TAG in the current buffer.
+Returns nil if no block is found, or a list (START END) indicating
+the region of the block, or an error if an unmatched block is found."
   (save-excursion
     (let ((case-fold-search t) begin-re end-re start)
       (setq begin-re
-            (rx-to-string `(seq bol (0+ " ") "#+begin_src" (1+ " ") (literal ,tag))))
+            (rx-to-string `(seq bol (0+ " ") "#+begin_src" (1+ " ") (literal ,tag) (not word))))
       (pcase (search-forward-regexp begin-re nil t)
         ('nil nil)
         (_
+         (backward-char)
          (forward-line 1)
          (setq start (point))
          (setq end-re (rx-to-string '(seq bol (0+ " ") "#+end_src" (0+ " "))))
@@ -116,30 +121,54 @@ that the appropriate major-mode is set.  SPEC has the form:
             (list start (point)))))))))
 
 (defun user--extract-code (start end)
+  "Extract the code between START and END in the current buffer.
+Returns the content of the region as a string."
   (buffer-substring-no-properties start end))
 
 (defun user--replace-code (start end code)
+  "Replace the content between START and END with CODE in the current buffer."
   (save-excursion
     (kill-region start end)
     (goto-char start)
     (insert code)))
 
 (defun user--format-code (code error-buffer)
-  (let (return-code)
+  "Format the given CODE using Prettier.
+If formatting succeeds, return the formatted code as a string.
+If an error occurs, insert the error message into ERROR-BUFFER
+and return an error indicator."
+  (if (string= code "")
+      ""
+    (let (return-code)
     (with-temp-buffer
       (insert code)
       (setq return-code
             (shell-command-on-region
              (point-min)
              (point-max)
-             "prettier --stdin-filepath tmp.js"
+             (user--format-code-cmd)
              (current-buffer) t
              error-buffer))
       (pcase return-code
         (0
          (buffer-substring-no-properties (point-min) (point-max)))
         (_
-         (list :error (format "Formatting error. See buffer %s" (buffer-name error-buffer))))))))
+         (list :error (format "Formatting error. See buffer %s" (buffer-name error-buffer)))))))))
+
+(setq user--format-code-cmd-cache nil)
+(defun user--format-code-cmd ()
+  (if (null user--format-code-cmd-cache)
+      (setq user--format-code-cmd-cache
+            (pcase (executable-find "biome")
+              ((and (pred stringp) path)
+               (format "%s format --indent-style space --indent-width 4 --stdin-file-path tmp.js" path))
+              (_
+               (pcase (executable-find "prettier")
+                 ((and (pred stringp) path)
+                  (format "%s --stdin-filepath tmp.js" path))
+                 (_
+                  (user-error "neither biome nor prettier in the PATH"))))))
+    user--format-code-cmd-cache))
 
 ;; provide
 

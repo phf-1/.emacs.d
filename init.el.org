@@ -43,7 +43,7 @@
 :END:
 
 #+begin_src emacs-lisp
-(add-hook 'before-save-hook #'whitespace-cleanup)
+;; (add-hook 'before-save-hook #'whitespace-cleanup)
 (setq-default indent-tabs-mode nil)
 (put 'downcase-region 'disabled nil)
 (put 'upcase-region 'disabled nil)
@@ -522,6 +522,13 @@ $0`(yas-escape-text yas-selected-text)`")
   :mode ("\\.js\\'" . js-ts-mode))
 #+end_src
 
+* JSON
+
+#+begin_src emacs-lisp
+(use-package json
+  :mode ("\\.json\\'" . json-ts-mode))
+#+end_src
+
 * web-mode
 
 #+begin_src emacs-lisp
@@ -728,10 +735,11 @@ the region of the block, or an error if an unmatched block is found."
   (save-excursion
     (let ((case-fold-search t) begin-re end-re start)
       (setq begin-re
-            (rx-to-string `(seq bol (0+ " ") "#+begin_src" (1+ " ") (literal ,tag))))
+            (rx-to-string `(seq bol (0+ " ") "#+begin_src" (1+ " ") (literal ,tag) (not word))))
       (pcase (search-forward-regexp begin-re nil t)
         ('nil nil)
         (_
+         (backward-char)
          (forward-line 1)
          (setq start (point))
          (setq end-re (rx-to-string '(seq bol (0+ " ") "#+end_src" (0+ " "))))
@@ -759,7 +767,9 @@ Returns the content of the region as a string."
 If formatting succeeds, return the formatted code as a string.
 If an error occurs, insert the error message into ERROR-BUFFER
 and return an error indicator."
-  (let (return-code)
+  (if (string= code "")
+      ""
+    (let (return-code)
     (with-temp-buffer
       (insert code)
       (setq return-code
@@ -773,7 +783,7 @@ and return an error indicator."
         (0
          (buffer-substring-no-properties (point-min) (point-max)))
         (_
-         (list :error (format "Formatting error. See buffer %s" (buffer-name error-buffer))))))))
+         (list :error (format "Formatting error. See buffer %s" (buffer-name error-buffer)))))))))
 
 (setq user--format-code-cmd-cache nil)
 (defun user--format-code-cmd ()
@@ -790,6 +800,7 @@ and return an error indicator."
                   (user-error "neither biome nor prettier in the PATH"))))))
     user--format-code-cmd-cache))
 #+end_src
+
 ** provide
 
 #+begin_src emacs-lisp
