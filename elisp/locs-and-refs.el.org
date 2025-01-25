@@ -944,7 +944,7 @@ checkdoc-report.txt: locs-and-refs.el
 lint: lint-report.txt
 lint-report.txt: locs-and-refs.el
 	$(EMACS) $< \
-		-L $(DEPS)/package-lint-20241127.1826 \
+		-L $(DEPS)/package-lint-20250108.1407 \
 		-l package-lint \
 		-f package-lint-buffer > $@
 
