@@ -11,7 +11,7 @@
 * Local packages
 
 #+begin_src emacs-lisp
-(defvar user--packages (file-name-as-directory (concat user-emacs-directory "elisp"))
+(defvar user--packages (expand-file-name (file-name-as-directory (concat user-emacs-directory "elisp")))
   "Where users adds its elisp files and packages.")
 (add-to-list 'load-path user--packages)
 #+end_src
@@ -573,6 +573,7 @@ be limited." bash-ls-cmd)))
   :preface
   (unless (treesit-language-available-p 'elixir)
     (elixir-ts-install-grammar))
+  :hook (elixir-mode . eglot-ensure)
   :config
   (autoload 'elixir-ts-mode "elixir-ts-mode" "Major mode for Elixir" t))
 
@@ -581,6 +582,19 @@ be limited." bash-ls-cmd)))
   :preface
   (unless (treesit-language-available-p 'heex)
     (heex-ts-install-grammar)))
+#+end_src
+
+* eglot
+
+ (setq eglot-server-programs '())
+
+#+begin_src emacs-lisp
+(use-package eglot
+  :demand
+  :config
+  (add-to-list
+   'eglot-server-programs
+   `(elixir-ts-mode ,(concat user--packages "elixir-ls/language_server.sh"))))
 #+end_src
 
 * pyvenv
