@@ -1,0 +1,146 @@
+#+PROPERTY: header-args :noweb yes :comments org :mkdirp yes :tangle _build/environment.scm
+
+* Environment
+
+1. An environment in which ~locs-and-refs.el~ has a meaning.
+
+#+begin_src scheme
+<<Environment_locale>>
+
+<<Environment_elisp_packages>>
+
+<<Environment_binaries>>
+
+`(,en-us-utf8-glibc-locales ,@elisp-packages ,@binaries)
+#+end_src
+
+** UTF-8 locale
+:PROPERTIES:
+:header-args:
+:END:
+
+#+name: Environment_locale
+#+begin_src scheme
+(use-modules (gnu packages base))
+(define en-us-utf8-glibc-locales
+  (make-glibc-utf8-locales
+   glibc
+   #:locales (list "en_US")
+   #:name "glibc-en-utf8-locales"))
+#+end_src
+
+** Elisp packages
+:PROPERTIES:
+:header-args:
+:END:
+
+#+name: Environment_elisp_packages
+#+begin_src scheme
+(use-modules (gnu packages emacs-xyz))
+(define elisp-packages (list emacs-pcre2el emacs-package-lint))
+#+end_src
+   
+** Binaries
+:PROPERTIES:
+:header-args:
+:END:
+
+#+name: Environment_binaries
+#+begin_src scheme
+(use-modules
+ (gnu packages base)
+ (gnu packages bash)
+ (gnu packages emacs)
+ (gnu packages rust-apps)
+ (gnu packages admin)
+ (gnu packages build-tools))
+
+(define binaries
+  (list coreutils
+        gnu-make      
+        emacs-minimal
+        ripgrep
+        fd
+        sed
+        bash-minimal))
+#+end_src
+
+** org-patches.el
+:PROPERTIES:
+:header-args+: :tangle _build/org-patches.el
+:END:
+
+*** Property drawers are removed after tangling
+
+#+begin_src emacs-lisp
+(defun user--org-remove-property-drawers ()
+  "After tangling, remove all :PROPERTIES: drawers."
+  (save-excursion
+    (let ((inhibit-modification-hooks t)
+          (modified-p (buffer-modified-p)))
+      (goto-char (point-min))
+      (while (re-search-forward ".*:PROPERTIES:$" nil t)
+        (let ((start (line-beginning-position)))
+          (when (re-search-forward ".*:END:\n" nil t)
+            (delete-region start (point)))))
+      (set-buffer-modified-p modified-p))))
+(add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
+#+end_src
+
+*** org-babel-spec-to-string is fixed
+
+- org-babel-spec-to-string is fixed:
+  like the original version
+  but do not insert useless new line.
+
+#+begin_src emacs-lisp
+(defun org-babel-spec-to-string (spec)
+  "Insert SPEC into the current file.
+
+Insert the source-code specified by SPEC into the current source
+code file.  This function uses `comment-region' which assumes
+that the appropriate major-mode is set.  SPEC has the form:
+
+  (start-line file link source-name params body comment)"
+  (pcase-let*
+      ((`(,start ,file ,link ,source ,info ,body ,comment) spec)
+       (comments (cdr (assq :comments info)))
+       (link? (or (string= comments "both") (string= comments "link")
+                  (string= comments "yes") (string= comments "noweb")))
+       (link-data `(("start-line" . ,(number-to-string start))
+                    ("file" . ,file)
+                    ("link" . ,link)
+                    ("source-name" . ,source)))
+       (insert-comment (lambda (text)
+                         (when (and comments
+                                    (not (string= comments "no"))
+                                    (org-string-nw-p text))
+                           (if org-babel-tangle-uncomment-comments
+                               ;; Plain comments: no processing.
+                               (insert text)
+                             ;; Ensure comments are made to be comments.  Also ignore
+                             ;; invisible characters when commenting.
+                             (comment-region
+                              (point)
+                              (progn (insert (org-no-properties text))
+                                     (point))))))))
+    (when comment (funcall insert-comment comment))
+    (when link?
+      (funcall insert-comment
+               (org-fill-template
+                org-babel-tangle-comment-format-beg link-data)))
+    (insert body "\n")
+    (when link?
+      (funcall insert-comment
+               (org-fill-template
+                org-babel-tangle-comment-format-end link-data)))))
+#+end_src
+
+** bash.rc
+:PROPERTIES:
+:header-args: :tangle _build/bash.rc
+:END:
+
+#+begin_src bash
+export LC_ALL=en_US.UTF-8
+#+end_src

@@ -48,8 +48,10 @@
 :header-args:emacs-lisp: :tangle editing.el
 :END:
 
+1. ~(add-hook 'before-save-hook #'whitespace-cleanup)~ does not work
+   because it removes tabs in makefile code blocks.
+
 #+begin_src emacs-lisp
-(add-hook 'before-save-hook #'whitespace-cleanup)
 (setq-default indent-tabs-mode nil)
 (put 'downcase-region 'disabled nil)
 (put 'upcase-region 'disabled nil)
@@ -388,25 +390,28 @@ With prefix ARG, undedicate it."
 * geiser
 
 #+begin_src emacs-lisp
-(use-package geiser :demand
+(use-package geiser
+  :demand
   :config
   (setq geiser-active-implementations '(guile))
+  (setq geiser-default-implementation 'guile)
   :hook
-  (scheme-mode . turn-on-geiser-mode))
+  (scheme-mode . geiser-mode))
 
-(use-package geiser-guile :demand
+(use-package geiser-guile
+  :demand
   :config
   (add-to-list 'geiser-guile-load-path "~/src/guix"))
 
-(use-package macrostep :demand)
+(use-package macrostep
+  :demand)
 
-(use-package macrostep-geiser :demand
-  :after geiser-mode
-  :config (add-hook 'geiser-mode-hook #'macrostep-geiser-setup))
-
-(use-package macrostep-geiser :demand
-  :after geiser-repl
-  :config (add-hook 'geiser-repl-mode-hook #'macrostep-geiser-setup))
+(use-package macrostep-geiser
+  :demand
+  :after (geiser-mode geiser-repl)
+  :config
+  (add-hook 'geiser-mode-hook #'macrostep-geiser-setup)
+  (add-hook 'geiser-repl-mode-hook #'macrostep-geiser-setup))
 #+end_src
 
 * rg
@@ -955,6 +960,17 @@ and return an error indicator."
   (require 'org-patches))
 #+end_src
 
+* makefile
+
+#+begin_src emacs-lisp
+(use-package make-mode :demand
+  :hook (makefile-mode . user--indent-makefile-code-blocks-with-tabs)
+  :config
+  (defun user--indent-makefile-code-blocks-with-tabs ()
+    (setq tab-width 4)
+    (setq indent-tabs-mode t)))
+#+end_src
+
 * org-agenda
 :PROPERTIES:
 :ID:       13586139-b0d3-406c-a3bc-e683ccc194e9
@@ -1014,6 +1030,7 @@ Set %s to a local elisp file to run it after init.el"
 #+end_src
 
 * Local Variables  :noexport:
+
 # Local Variables:
 # org-confirm-babel-evaluate: nil
 # fill-column: 85
