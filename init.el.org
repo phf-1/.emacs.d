@@ -1016,6 +1016,21 @@ and return an error indicator."
   (advice-add #'org-agenda :before #'user--set-org-agenda-files))
 #+end_src
 
+* eshell
+
+#+begin_src emacs-lisp
+(use-package eshell :demand
+  :config
+  (defun eshell-prompt ()
+    "Custom prompt for eshell with only the current directory name."
+    (concat
+     (file-name-nondirectory (eshell/pwd))
+     " $ "))
+
+  ;; Set the custom prompt function
+  (setq eshell-prompt-function 'eshell-prompt))
+#+end_src
+
 * local extension
 
 #+begin_src emacs-lisp
