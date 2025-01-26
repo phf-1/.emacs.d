@@ -1,6 +1,6 @@
 #+PROPERTY: header-args:emacs-lisp :tangle init.el :comments org
 
-* package.el
+* COMMENT package.el
 
 #+begin_src emacs-lisp
 (require 'package)
@@ -8,7 +8,9 @@
 (package-initialize)
 #+end_src
 
-* Local packages
+* user--packages
+
+1. If a package is installed under ~user--packages~, then it may be loaded.
 
 #+begin_src emacs-lisp
 (defvar user--packages (expand-file-name (file-name-as-directory (concat user-emacs-directory "elisp")))
@@ -16,13 +18,17 @@
 (add-to-list 'load-path user--packages)
 #+end_src
 
-* Package configuration
+* use-package
+
+1. ~use-package~ macro may be used to configure packages.
 
 #+begin_src emacs-lisp
 (eval-when-compile (require 'use-package))
 #+end_src
 
 * emacs
+
+1. Vanilla Emacs is configured.
 
 ** calendar
 :PROPERTIES:
@@ -43,7 +49,7 @@
 :END:
 
 #+begin_src emacs-lisp
-;; (add-hook 'before-save-hook #'whitespace-cleanup)
+(add-hook 'before-save-hook #'whitespace-cleanup)
 (setq-default indent-tabs-mode nil)
 (put 'downcase-region 'disabled nil)
 (put 'upcase-region 'disabled nil)
@@ -183,7 +189,9 @@ With prefix ARG, undedicate it."
 #+end_src
 
 * gcmh
-See: https://akrl.sdf.org/#orgc15a10d
+
+1. GC occurs after Emacs has been idle for come time.
+2. See: https://akrl.sdf.org/#orgc15a10d
 
 #+begin_src emacs-lisp
 (use-package gcmh :demand
@@ -193,6 +201,8 @@ See: https://akrl.sdf.org/#orgc15a10d
 #+end_src
 
 * recentf
+
+1. Emacs remembre the last couple of files it has opened.
 
 #+begin_src emacs-lisp
 (use-package recentf :demand
@@ -205,6 +215,8 @@ See: https://akrl.sdf.org/#orgc15a10d
 
 * dired
 
+1. dired buffers display minimum amount of information by default.
+
 #+begin_src emacs-lisp
 (use-package dired :demand
   :hook (dired-mode . dired-hide-details-mode)
@@ -214,6 +226,8 @@ See: https://akrl.sdf.org/#orgc15a10d
 
 * paren
 
+1. Matching parentheses are highlighted.
+
 #+begin_src emacs-lisp
 (use-package paren :demand
   :config
@@ -222,6 +236,8 @@ See: https://akrl.sdf.org/#orgc15a10d
 
 * elec-pair
 
+1. Parentheses are inserted by pair.
+
 #+begin_src emacs-lisp
 (use-package elec-pair :demand
   :config
@@ -229,6 +245,8 @@ See: https://akrl.sdf.org/#orgc15a10d
 #+end_src
 
 * theme
+
+1. Dark theme is enabled.
 
 #+begin_src emacs-lisp
 (use-package modus-themes :demand
@@ -245,17 +263,23 @@ See: https://akrl.sdf.org/#orgc15a10d
 
 * treesit
 
+1. treesitter may be used.
+
 #+begin_src emacs-lisp
 (use-package treesit :demand)
 #+end_src
 
 * treemacs
 
+1. directory structure may be displayed.
+
 #+begin_src emacs-lisp
 (use-package treemacs)
 #+end_src
 
 * hl-line
+
+1. The current line is highlighted.
 
 #+begin_src emacs-lisp
 (use-package hl-line :demand
@@ -264,6 +288,9 @@ See: https://akrl.sdf.org/#orgc15a10d
 #+end_src
 
 * diff-hl
+
+1. If a file is managed by a version manager like Git,
+   then highlight the differences introduced.
 
 #+begin_src emacs-lisp
 (use-package diff-hl
@@ -274,6 +301,11 @@ See: https://akrl.sdf.org/#orgc15a10d
 
 * iedit
 
+1. If a region is selected and the key sequence pressed,
+   then all the occurrences of the current region in the buffer are highlighted.
+2. If one occurrence is modified,
+   then change are propagated to all other occurrences simultaneously.
+
 #+begin_src emacs-lisp
 (use-package iedit :demand
   :bind ("C-;" . iedit-mode))
@@ -281,11 +313,16 @@ See: https://akrl.sdf.org/#orgc15a10d
 
 * repeat
 
+1. Most recently executed command may be repeated.
+
 #+begin_src emacs-lisp
 (use-package repeat :demand)
 #+end_src
 
 * imenu
+
+1. If activated, then Jump to a place in the buffer chosen
+   using a buffer menu or mouse menu.
 
 #+begin_src emacs-lisp
 (use-package imenu :demand
@@ -303,6 +340,8 @@ See: https://akrl.sdf.org/#orgc15a10d
 
 * avy
 
+1. The point may be moved anywhere in a few keystrokes.
+
 #+begin_src emacs-lisp
 (use-package avy :demand
   :bind
@@ -310,6 +349,8 @@ See: https://akrl.sdf.org/#orgc15a10d
 #+end_src
 
 * expand-region
+
+1. If keys sequence is pressed, then the selected region is incread by semantic units.
 
 #+begin_src emacs-lisp
 (use-package expand-region :demand
@@ -347,7 +388,7 @@ See: https://akrl.sdf.org/#orgc15a10d
 * geiser
 
 #+begin_src emacs-lisp
-(use-package geiser
+(use-package geiser :demand
   :config
   (setq geiser-active-implementations '(guile))
   :hook
@@ -379,6 +420,8 @@ See: https://akrl.sdf.org/#orgc15a10d
 
 * vertico
 
+1. If Emacs offers options to choose from, then display a vertical completion UI.
+
 #+begin_src emacs-lisp
 (use-package vertico :demand
   :config
@@ -389,7 +432,17 @@ See: https://akrl.sdf.org/#orgc15a10d
   (setq vertico-cycle t))
 #+end_src
 
+* xref
+
+#+begin_src emacs-lisp
+(use-package xref :demand)
+#+end_src
+
 * consult
+
+1. Search and navigation commands based on the Emacs completion function completing-read,
+   are provided.
+2. For instance, compare ~consult-imenu~ and ~imenu~.
 
 #+begin_src emacs-lisp
 (use-package consult :demand
@@ -397,7 +450,7 @@ See: https://akrl.sdf.org/#orgc15a10d
   (("C-s" . consult-line)
    ("C-r" . consult-ripgrep)
    ("C-c f" . consult-find)
-   ("M-." . xref-find-definitions)
+   ("M-." . xref-find-definitions) ;see configuration below.
    ("M-i" . consult-imenu)
    ("C-x b" . consult-buffer)
    ("C--" . consult-mark)
@@ -414,6 +467,9 @@ See: https://akrl.sdf.org/#orgc15a10d
 
 * orderless
 
+1. Orderless completion style that divides the pattern into space-separated components,
+   and matches candidates that match all of the components in any order is provided.
+
 #+begin_src emacs-lisp
 (use-package orderless :demand
   :custom
@@ -422,6 +478,9 @@ See: https://akrl.sdf.org/#orgc15a10d
 #+end_src
 
 * marginalia
+
+1. Meta-data are added to completion candidates like descriptions.
+2. Cycle annotators using the provided key sequence
 
 #+begin_src emacs-lisp
 (use-package marginalia :demand
@@ -452,6 +511,8 @@ $0`(yas-escape-text yas-selected-text)`")
 #+end_src
 
 * corfu
+
+1. In-buffer completion is enhanced with a small completion popup.
 
 #+begin_src emacs-lisp
 (use-package corfu :demand
@@ -569,24 +630,32 @@ be limited." bash-ls-cmd)))
   :init
   (add-to-list 'major-mode-remap-alist '(elixir-mode . elixir-ts-mode)))
 
-(use-package elixir-ts-mode
+(add-to-list 'load-path (concat user--packages "heex-ts-mode/"))
+(use-package heex-ts-mode
+  :mode "\\.heex\\'"
+  :preface
+  (unless (treesit-language-available-p 'heex)
+    (heex-ts-install-grammar)))
+
+(add-to-list 'load-path (concat user--packages "elixir-ts-mode/"))
+(use-package elixir-ts-mode :demand
   :preface
   (unless (treesit-language-available-p 'elixir)
     (elixir-ts-install-grammar))
   :hook (elixir-mode . eglot-ensure)
   :config
   (autoload 'elixir-ts-mode "elixir-ts-mode" "Major mode for Elixir" t))
+#+end_src
 
-(use-package heex-ts-mode
-  :mode "\\.heex\\'"
-  :preface
-  (unless (treesit-language-available-p 'heex)
-    (heex-ts-install-grammar)))
+* project
+
+#+begin_src emacs-lisp
+(use-package project :demand
+  :config
+  (setq project-vc-extra-root-markers '("project-root" "mix.exs")))
 #+end_src
 
 * eglot
-
- (setq eglot-server-programs '())
 
 #+begin_src emacs-lisp
 (use-package eglot
@@ -603,12 +672,18 @@ be limited." bash-ls-cmd)))
 (use-package pyvenv)
 #+end_src
 
-* flycheck
+* COMMENT flycheck
 
 #+begin_src emacs-lisp
 (use-package flycheck
   :config
   (flycheck-package-setup))
+#+end_src
+
+* flymake
+
+#+begin_src emacs-lisp
+(use-package flymake :demand)
 #+end_src
 
 * locs-and-refs
@@ -626,7 +701,7 @@ be limited." bash-ls-cmd)))
   (locs-and-refs-mode))
 #+end_src
 
-* org-tidy
+* COMMENT org-tidy
 
 #+begin_src emacs-lisp
 (use-package org-tidy)
