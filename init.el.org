@@ -694,6 +694,7 @@ be limited." bash-ls-cmd)))
 * locs-and-refs
 
 #+begin_src emacs-lisp
+(add-to-list 'load-path (concat user--packages "locs-and-refs/_build/"))
 (use-package locs-and-refs :demand
   :config
   (load-theme 'modus-vivendi t)
