@@ -1,4 +1,4 @@
-#+PROPERTY: header-args:emacs-lisp :tangle init.el :comments org
+#+PROPERTY: header-args :tangle init.el :comments org
 
 * COMMENT package.el
 
@@ -32,7 +32,7 @@
 
 ** calendar
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle calendar.el
+:header-args:emacs-lisp+: :tangle elisp/calendar.el
 :END:
 
 #+begin_src emacs-lisp
@@ -45,7 +45,7 @@
 
 ** editing
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle editing.el
+:header-args:emacs-lisp+: :tangle elisp/editing.el
 :END:
 
 1. ~(add-hook 'before-save-hook #'whitespace-cleanup)~ does not work
@@ -63,7 +63,7 @@
 
 ** ui
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle ui.el
+:header-args:emacs-lisp+: :tangle elisp/ui.el
 :END:
 
 #+begin_src emacs-lisp
@@ -81,7 +81,7 @@
 
 ** startup
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle startup.el
+:header-args:emacs-lisp+: :tangle elisp/startup.el
 :END:
 
 #+begin_src emacs-lisp
@@ -91,7 +91,7 @@
 
 ** buffer
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle buffer.el
+:header-args:emacs-lisp+: :tangle elisp/buffer.el
 :END:
 
 #+begin_src emacs-lisp
@@ -101,7 +101,7 @@
 
 ** mini-buffer
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle mini-buffer.el
+:header-args:emacs-lisp+: :tangle elisp/mini-buffer.el
 :END:
 
 #+begin_src emacs-lisp
@@ -110,7 +110,7 @@
 
 ** external-processes
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle external-processes.el
+:header-args:emacs-lisp+: :tangle elisp/external-processes.el
 :END:
 
 #+begin_src emacs-lisp
@@ -119,7 +119,7 @@
 
 ** backup
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle backup.el
+:header-args:emacs-lisp+: :tangle elisp/backup.el
 :END:
 
 #+begin_src emacs-lisp
@@ -139,7 +139,7 @@
 
 ** key-bindings
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle key-bindings.el
+:header-args:emacs-lisp+: :tangle elisp/key-bindings.el
 :END:
 
 #+begin_src emacs-lisp
@@ -149,7 +149,7 @@
 
 ** utils
 :PROPERTIES:
-:header-args:emacs-lisp: :tangle utils.el
+:header-args:emacs-lisp+: :tangle elisp/utils.el
 :END:
 
 #+begin_src emacs-lisp
@@ -178,16 +178,16 @@ With prefix ARG, undedicate it."
 #+begin_src emacs-lisp
 (use-package emacs :demand
   :init
-  (load (concat user-emacs-directory "calendar.el"))
-  (load (concat user-emacs-directory "editing.el"))
-  (load (concat user-emacs-directory "ui.el"))
-  (load (concat user-emacs-directory "startup.el"))
-  (load (concat user-emacs-directory "buffer.el"))
-  (load (concat user-emacs-directory "mini-buffer.el"))
-  (load (concat user-emacs-directory "external-processes.el"))
-  (load (concat user-emacs-directory "backup.el"))
-  (load (concat user-emacs-directory "key-bindings.el"))
-  (load (concat user-emacs-directory "utils.el")))
+  (load (concat user--packages "calendar.el"))
+  (load (concat user--packages "editing.el"))
+  (load (concat user--packages "ui.el"))
+  (load (concat user--packages "startup.el"))
+  (load (concat user--packages "buffer.el"))
+  (load (concat user--packages "mini-buffer.el"))
+  (load (concat user--packages "external-processes.el"))
+  (load (concat user--packages "backup.el"))
+  (load (concat user--packages "key-bindings.el"))
+  (load (concat user--packages "utils.el")))
 #+end_src
 
 * gcmh
@@ -211,7 +211,7 @@ With prefix ARG, undedicate it."
   :config
   (recentf-mode)
   (setq recentf-max-menu-items 20)
-  (setq recentf-max-saved-items 20)
+  (setq recentf-max-saved-items 100)
   (run-at-time nil (* 5 60) 'recentf-save-list))
 #+end_src
 

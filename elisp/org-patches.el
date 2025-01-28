@@ -1,5 +1,3 @@
-;; Property drawers are removed after tangling
-
 (defun user--org-remove-property-drawers ()
   "After tangling, remove all :PROPERTIES: drawers."
   (save-excursion
@@ -12,10 +10,6 @@
             (delete-region start (point)))))
       (set-buffer-modified-p modified-p))))
 (add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
-
-;; org-babel-spec-to-string is fixed
-;; Like the original version
-;; but do not insert useless new line.
 
 (defun org-babel-spec-to-string (spec)
   "Insert SPEC into the current file.
@@ -57,19 +51,6 @@ that the appropriate major-mode is set.  SPEC has the form:
       (funcall insert-comment
                (org-fill-template
                 org-babel-tangle-comment-format-end link-data)))))
-
-;; Try to format all JS code blocks
-;; - λ()
-;;   - point :≡ point-min()
-;;   - search-next-code-block() ≡
-;;     - error[msg] ⇒ message(msg)
-;;     - nil ⇒ ■
-;;     - pair[start end] ⇒
-;;       - format-code extract-code(start end) ≡
-;;         - error[msg] ⇒ message(msg)
-;;         - formatted-code ⇒ replace-code(start end formatted-code)
-;;       - point :≡ end
-;;       - λ()
 
 (defun user-format-all-js-code-blocks ()
   "Format all JavaScript code blocks in the current buffer using Biomejs or Prettier.
@@ -170,7 +151,5 @@ and return an error indicator."
                  (_
                   (user-error "neither biome nor prettier in the PATH"))))))
     user--format-code-cmd-cache))
-
-;; provide
 
 (provide 'org-patches)
