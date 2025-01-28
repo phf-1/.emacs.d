@@ -1,16 +1,16 @@
 # -*- mode: snippet -*-
 # name: ai-given-that
-# key: aiq
+# key: aigt
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
 Given:
 
-```
+\`\`\`
 
-```
+\`\`\`
 
 Then:
 
-```
+\`\`\`
 
-```
+\`\`\`

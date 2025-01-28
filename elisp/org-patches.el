@@ -1,7 +1,4 @@
 ;; org-patches
-;; :PROPERTIES:
-;; :header-args+: :tangle elisp/org-patches.el
-;; :END:
 
 (provide 'org-patches)
 
@@ -10,14 +7,13 @@
 (defun user--org-remove-property-drawers ()
   "After tangling, remove all :PROPERTIES: drawers."
   (save-excursion
-    (let ((inhibit-modification-hooks t)
-          (modified-p (buffer-modified-p)))
-      (goto-char (point-min))
-      (while (re-search-forward ".*:PROPERTIES:$" nil t)
-        (let ((start (line-beginning-position)))
-          (when (re-search-forward ".*:END:\n" nil t)
-            (delete-region start (point)))))
-      (set-buffer-modified-p modified-p))))
+    (goto-char (point-min))
+    (while (re-search-forward "^.*:PROPERTIES:$" nil t)
+      (let ((start (line-beginning-position)))
+        (when (re-search-forward "^.*:END:\n" nil t)
+          (delete-region start (point)))))
+    (when (buffer-modified-p)
+      (save-buffer))))
 (add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
 
 ;; org-babel-spec-to-string is fixed

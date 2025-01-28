@@ -1,7 +1,4 @@
 ;; utils
-;; :PROPERTIES:
-;; :header-args+: :tangle elisp/user-utils.el
-;; :END:
 
 (defun unfill-paragraph (&optional region)
   "Takes a multi-line paragraph and makes it into a single line of text."

@@ -1,7 +1,4 @@
 ;; backup
-;; :PROPERTIES:
-;; :header-args+: :tangle elisp/user-backup.el
-;; :END:
 
 (defconst emacs-tmp-dir (expand-file-name (format "emacs%d" (user-uid)) temporary-file-directory))
 (setq create-lockfiles nil)

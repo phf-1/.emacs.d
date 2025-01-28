@@ -1,7 +1,4 @@
 ;; editing
-;; :PROPERTIES:
-;; :header-args+: :tangle elisp/user-editing.el
-;; :END:
 
 ;; 1. (add-hook 'before-save-hook #'whitespace-cleanup) does not work,
 ;;    because it removes tabs in makefile code blocks.
