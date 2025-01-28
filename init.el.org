@@ -917,6 +917,7 @@ and return an error indicator."
 
   :config
   (add-to-list 'org-src-lang-modes '("js" . js-ts))
+  (add-to-list 'org-src-lang-modes '("json" . js-ts))
   (setq org-ellipsis " ")
   (setq org-hide-leading-stars t)
   (setq org-startup-indented t)
