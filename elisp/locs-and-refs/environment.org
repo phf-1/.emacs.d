@@ -70,6 +70,10 @@
 :header-args+: :tangle _build/org-patches.el
 :END:
 
+#+begin_src emacs-lisp
+(provide 'org-patches)
+#+end_src
+
 *** Property drawers are removed after tangling
 
 #+begin_src emacs-lisp

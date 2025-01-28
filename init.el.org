@@ -10,17 +10,19 @@
 
 * user--packages
 
-1. If a package is installed under ~user--packages~, then it may be loaded.
+1. The following has the expected meaning.
+2. code-el :≡ user--packages Δ "xyz.el"
+3. ∃code-el → load(code-el) succeeds
 
 #+begin_src emacs-lisp
-(defvar user--packages (expand-file-name (file-name-as-directory (concat user-emacs-directory "elisp")))
+(defvar user--packages (expand-file-name (file-name-concat user-emacs-directory "elisp"))
   "Where users adds its elisp files and packages.")
 (add-to-list 'load-path user--packages)
 #+end_src
 
 * use-package
 
-1. ~use-package~ macro may be used to configure packages.
+1. (use-package …) has the expected meaning.
 
 #+begin_src emacs-lisp
 (eval-when-compile (require 'use-package))
@@ -28,11 +30,24 @@
 
 * emacs
 
-1. Vanilla Emacs is configured.
+#+begin_src emacs-lisp
+(use-package emacs
+  :init
+  (require 'user-calendar)
+  (require 'user-editing)
+  (require 'user-ui)
+  (require 'user-startup)
+  (require 'user-buffer)
+  (require 'user-mini-buffer)
+  (require 'user-external-processes)
+  (require 'user-backup)
+  (require 'user-key-bindings)
+  (require 'user-utils))
+#+end_src
 
 ** calendar
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/calendar.el
+:header-args+: :tangle elisp/user-calendar.el
 :END:
 
 #+begin_src emacs-lisp
@@ -41,14 +56,15 @@
 (setq holiday-hebrew-holidays nil)
 (setq holiday-islamic-holidays nil)
 (setq holiday-oriental-holidays nil)
+(provide 'user-calendar)
 #+end_src
 
 ** editing
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/editing.el
+:header-args+: :tangle elisp/user-editing.el
 :END:
 
-1. ~(add-hook 'before-save-hook #'whitespace-cleanup)~ does not work
+1. (add-hook 'before-save-hook #'whitespace-cleanup) does not work,
    because it removes tabs in makefile code blocks.
 
 #+begin_src emacs-lisp
@@ -59,11 +75,12 @@
 (global-auto-revert-mode t)
 (put 'narrow-to-region 'disabled nil)
 (setq load-prefer-newer t)
+(provide 'user-editing)
 #+end_src
 
 ** ui
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/ui.el
+:header-args+: :tangle elisp/user-ui.el
 :END:
 
 #+begin_src emacs-lisp
@@ -77,49 +94,54 @@
 (fset 'yes-or-no-p 'y-or-n-p)
 (setq ring-bell-function 'ignore)
 (add-to-list 'default-frame-alist '(font . "JetBrains Mono"))
+(provide 'user-ui)
 #+end_src
 
 ** startup
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/startup.el
+:header-args+: :tangle elisp/user-startup.el
 :END:
 
 #+begin_src emacs-lisp
 (setq inhibit-startup-screen t)
 (setq initial-scratch-message "")
+(provide 'user-startup)
 #+end_src
 
 ** buffer
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/buffer.el
+:header-args+: :tangle elisp/user-buffer.el
 :END:
 
 #+begin_src emacs-lisp
 (setq uniquify-buffer-name-style 'post-forward)
 (setq uniquify-strip-common-suffix nil)
+(provide 'user-buffer)
 #+end_src
 
 ** mini-buffer
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/mini-buffer.el
+:header-args+: :tangle elisp/user-mini-buffer.el
 :END:
 
 #+begin_src emacs-lisp
 (setq enable-recursive-minibuffers t)
+(provide 'user-mini-buffer)
 #+end_src
 
 ** external-processes
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/external-processes.el
+:header-args+: :tangle elisp/user-external-processes.el
 :END:
 
 #+begin_src emacs-lisp
 (setq read-process-output-max (* 1024 1024))
+(provide 'user-external-processes)
 #+end_src
 
 ** backup
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/backup.el
+:header-args+: :tangle elisp/user-backup.el
 :END:
 
 #+begin_src emacs-lisp
@@ -135,21 +157,23 @@
  auto-save-list-file-prefix emacs-tmp-dir
  auto-save-file-name-transforms `((".*" ,emacs-tmp-dir t))
  backup-directory-alist `((".*" . ,emacs-tmp-dir)))
+(provide 'user-backup)
 #+end_src
 
 ** key-bindings
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/key-bindings.el
+:header-args+: :tangle elisp/user-key-bindings.el
 :END:
 
 #+begin_src emacs-lisp
 (global-set-key (kbd "C-$") #'clone-indirect-buffer-other-window)
 (global-set-key (kbd "C-c l") #'org-store-link)
+(provide 'user-key-bindings)
 #+end_src
 
 ** utils
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/utils.el
+:header-args+: :tangle elisp/user-utils.el
 :END:
 
 #+begin_src emacs-lisp
@@ -171,23 +195,7 @@ With prefix ARG, undedicate it."
                "Window '%s' is normal"
              "Window '%s' is dedicated")
            (current-buffer)))
-#+end_src
-
-** configuration
-
-#+begin_src emacs-lisp
-(use-package emacs :demand
-  :init
-  (load (concat user--packages "calendar.el"))
-  (load (concat user--packages "editing.el"))
-  (load (concat user--packages "ui.el"))
-  (load (concat user--packages "startup.el"))
-  (load (concat user--packages "buffer.el"))
-  (load (concat user--packages "mini-buffer.el"))
-  (load (concat user--packages "external-processes.el"))
-  (load (concat user--packages "backup.el"))
-  (load (concat user--packages "key-bindings.el"))
-  (load (concat user--packages "utils.el")))
+(provide 'user-utils)
 #+end_src
 
 * gcmh
@@ -204,7 +212,7 @@ With prefix ARG, undedicate it."
 
 * recentf
 
-1. Emacs remembre the last couple of files it has opened.
+1. Emacs remembers the last couple of files it has opened.
 
 #+begin_src emacs-lisp
 (use-package recentf :demand
@@ -585,14 +593,8 @@ $0`(yas-escape-text yas-selected-text)`")
 
 #+begin_src emacs-lisp
 (use-package js
-  :mode ("\\.js\\'" . js-ts-mode))
-#+end_src
-
-* JSON
-
-#+begin_src emacs-lisp
-(use-package json
-  :mode ("\\.json\\'" . json-ts-mode))
+  :mode (("\\.js\\'" . js-ts-mode)
+         ("\\.json\\'" . js-ts-mode)))
 #+end_src
 
 * web-mode
@@ -635,14 +637,14 @@ be limited." bash-ls-cmd)))
   :init
   (add-to-list 'major-mode-remap-alist '(elixir-mode . elixir-ts-mode)))
 
-(add-to-list 'load-path (concat user--packages "heex-ts-mode/"))
+(add-to-list 'load-path (file-name-concat user--packages "heex-ts-mode"))
 (use-package heex-ts-mode
   :mode "\\.heex\\'"
   :preface
   (unless (treesit-language-available-p 'heex)
     (heex-ts-install-grammar)))
 
-(add-to-list 'load-path (concat user--packages "elixir-ts-mode/"))
+(add-to-list 'load-path (file-name-concat user--packages "elixir-ts-mode"))
 (use-package elixir-ts-mode :demand
   :preface
   (unless (treesit-language-available-p 'elixir)
@@ -668,7 +670,7 @@ be limited." bash-ls-cmd)))
   :config
   (add-to-list
    'eglot-server-programs
-   `(elixir-ts-mode ,(concat user--packages "elixir-ls/language_server.sh"))))
+   `(elixir-ts-mode ,(file-name-concat user--packages "elixir-ls/language_server.sh"))))
 #+end_src
 
 * pyvenv
@@ -694,7 +696,7 @@ be limited." bash-ls-cmd)))
 * locs-and-refs
 
 #+begin_src emacs-lisp
-(add-to-list 'load-path (concat user--packages "locs-and-refs/_build/"))
+(add-to-list 'load-path (file-name-concat user--packages "locs-and-refs/_build"))
 (use-package locs-and-refs :demand
   :config
   (load-theme 'modus-vivendi t)
@@ -715,8 +717,12 @@ be limited." bash-ls-cmd)))
 
 * org-patches
 :PROPERTIES:
-:header-args:emacs-lisp+: :tangle elisp/org-patches.el
+:header-args+: :tangle elisp/org-patches.el
 :END:
+
+#+begin_src emacs-lisp
+(provide 'org-patches)
+#+end_src
 
 ** Property drawers are removed after tangling
 
@@ -897,12 +903,6 @@ and return an error indicator."
     user--format-code-cmd-cache))
 #+end_src
 
-** provide
-
-#+begin_src emacs-lisp
-(provide 'org-patches)
-#+end_src
-
 * org
 :PROPERTIES:
 :ID:       cc511d66-615b-4a92-8481-fb63ba23c43f
@@ -1050,4 +1050,5 @@ Set %s to a local elisp file to run it after init.el"
 # Local Variables:
 # org-confirm-babel-evaluate: nil
 # fill-column: 85
+# eval: (add-hook 'after-save-hook #'org-babel-tangle)
 # End:
