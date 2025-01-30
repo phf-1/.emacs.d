@@ -80,8 +80,7 @@ ENVIRONMENT := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
 .PHONY: init
 init: ${ENVIRONMENT}
 ${ENVIRONMENT}: ${SRC}.org | ${BUILD}
-	emacs -Q --batch $< -f org-babel-tangle &>/dev/null # ${ELISP_EL} extracted.
-	${EMACS} $< -f org-babel-tangle &>/dev/null	
+	emacs -Q --batch $< -f org-babel-tangle &>/dev/null
 	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
 	sed -i '1,2d' ${SRC_EL}
 
