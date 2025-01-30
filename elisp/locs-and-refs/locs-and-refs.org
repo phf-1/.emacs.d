@@ -17,7 +17,7 @@
 
 ** user--org-remove-property-drawers
 
-1. user--org-remove-property-drawers : Function that executes after tangling.
+1. Function that executes after tangling.
    It removes exported properties drawers.
 
 #+begin_src emacs-lisp
@@ -86,7 +86,7 @@ that the appropriate major-mode is set.  SPEC has the form:
 :header-args: :tangle init.bash
 :END:
 
-1. init.bash : File that contains Bash environment variable declarations.
+1. File that contains Bash environment variable declarations.
 
 #+begin_src bash
 export LC_ALL=en_US.UTF-8
@@ -97,7 +97,7 @@ export LC_ALL=en_US.UTF-8
 :header-args+: :tangle guix-packages.scm
 :END:
 
-1. guix-packages.scm : File that evaluates to a list of Guix packages.
+1. File that evaluates to a list of Guix packages.
 
 #+begin_src scheme
 <<locale>>
@@ -114,7 +114,7 @@ export LC_ALL=en_US.UTF-8
 :header-args:
 :END:
 
-1. locale : Guix package that provides utf8 locale.
+1. Guix package that provides utf8 locale.
 
 #+name: locale
 #+begin_src scheme
@@ -131,7 +131,7 @@ export LC_ALL=en_US.UTF-8
 :header-args:
 :END:
 
-1. elisp-packages : List of Elisp guix packages.
+1. List of Elisp guix packages.
 
 #+name: elisp-packages
 #+begin_src scheme
@@ -144,7 +144,7 @@ export LC_ALL=en_US.UTF-8
 :header-args:
 :END:
 
-1. binaries : List of Guix packages that provides binaries.
+1. List of Guix packages that provides binaries.
 
 #+name: binaries
 #+begin_src scheme
@@ -1114,7 +1114,7 @@ More precisely:
 
 ** configuration
 
-1. configuration : List of parameters that control the behavior of the Makefile.
+1. List of parameters that control the behavior of the Makefile.
 
 #+begin_src makefile
 SHELL := bash
@@ -1126,7 +1126,7 @@ MAKEFLAGS += --no-print-directory
 
 ** BUILD
 
-1. BUILD : variable that refers to the build directory.
+1. Variable that refers to the build directory.
 
 #+begin_src makefile
 BUILD := _build
@@ -1136,7 +1136,7 @@ ${BUILD}:
 
 ** SRC
 
-1. SRC : variable that refers to the source file.
+1. Variable that refers to the source file.
 
 #+begin_src makefile
 SRC := locs-and-refs
@@ -1146,7 +1146,7 @@ SRC_EL := ${BUILD}/${SRC}.el
 
 ** PACKAGES
 
-1. PACKAGES : variable that refers to the list of Guix packages of the environment.
+1. Variable that refers to the list of Guix packages of the environment.
 
 #+begin_src makefile
 PACKAGES := guix-packages
@@ -1155,7 +1155,7 @@ PACKAGES_SCM := ${BUILD}/${PACKAGES}.scm
 
 ** INIT
 
-1. INIT : variable that refers to init file of the bash session in the environment.
+1. Variable that refers to init file of the bash session in the environment.
 
 #+begin_src makefile
 INIT := init
@@ -1164,7 +1164,7 @@ INIT_BASH := ${BUILD}/${INIT}.bash
 
 ** ELISP
 
-1. ELISP : variable that refers to ELisp code that should be loaded by ${EMACS}.
+1. Variable that refers to ELisp code that should be loaded by ${EMACS}.
 
 #+begin_src makefile
 ELISP := elisp
@@ -1173,7 +1173,7 @@ ELISP_EL := ${BUILD}/${ELISP}.el
 
 ** EMACS
 
-1. EMACS : variable that refers to the Emacs executable.
+1. Variable that refers to the Emacs executable.
 
 #+begin_src makefile
 EMACS := emacs -Q --batch -l ${ELISP_EL}
@@ -1181,7 +1181,7 @@ EMACS := emacs -Q --batch -l ${ELISP_EL}
 
 ** GUIX
 
-1. GUIX : variable that refers to guix executable.
+1. Variable that refers to guix executable.
 
 #+begin_src makefile
 GUIX := guix
@@ -1189,7 +1189,7 @@ GUIX := guix
 
 ** ENVIRONMENT
 
-1. ENVIRONMENT : List of files that form the development environment.
+1. List of files that form the development environment.
 
 #+begin_src makefile
 ENVIRONMENT := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
@@ -1197,7 +1197,7 @@ ENVIRONMENT := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
 
 ** init
 
-1. init : Makefile target that tangles necessary files.
+1. Makefile target that tangles necessary files.
 
 #+begin_src makefile
 .PHONY: init
@@ -1210,7 +1210,7 @@ ${ENVIRONMENT}: ${SRC}.org | ${BUILD}
 
 ** clean
 
-1. ~clean~ : Makefile target that delete all generate files necesseary files.
+1. Makefile target that delete all generate files necesseary files.
 
 #+begin_src makefile
 .PHONY: clean
@@ -1220,7 +1220,7 @@ clean:
 
 ** env
 
-1. ~env~ : Makefile target that starts the environment.
+1. Makefile target that starts the environment.
 
 #+begin_src makefile
 .PHONY: env
@@ -1246,7 +1246,7 @@ env:
 
 ** elc
 
-1. elc : Makefile target that byte compiles the package.
+1. Makefile target that byte compiles the package.
 
 #+begin_src makefile
 .PHONY: elc
@@ -1258,7 +1258,7 @@ ${SRC_ELC}: ${SRC_EL}
 
 ** lint
 
-1. ~lint~ : Makefile target that lints the package.
+1. Makefile target that lints the package.
 
 #+begin_src makefile
 .PHONY: lint
@@ -1271,7 +1271,7 @@ ${LINT_TXT}: ${SRC_EL}
 
 ** checkdoc
 
-1. ~lint~ : Makefile target that check the docstrings of the package.
+1. Makefile target that check the docstrings of the package.
 
 #+begin_src makefile
 .PHONY: checkdoc
@@ -1284,7 +1284,7 @@ ${CHECKDOC_TXT}: ${SRC_EL}
 
 ** all
 
-1. ~all~ : Makefile target that builds, lint and checkdoc the package.
+1. Makefile target that builds, lint and checkdoc the package.
 
 #+begin_src makefile
 .DEFAULT_GOAL := all
