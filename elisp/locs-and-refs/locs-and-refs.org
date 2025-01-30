@@ -36,7 +36,7 @@
 
 ** org-babel-spec-to-string
 
-- org-babel-spec-to-string : like org-babel-spec-to-string but removes new lines.
+1. Like org-babel-spec-to-string but removes new lines.
 
 #+begin_src emacs-lisp
 (defun org-babel-spec-to-string (spec)
@@ -83,7 +83,7 @@ that the appropriate major-mode is set.  SPEC has the form:
 
 * init.bash
 :PROPERTIES:
-:header-args: :tangle init.bash
+:header-args+: :tangle init.bash
 :END:
 
 1. File that contains Bash environment variable declarations.
@@ -111,7 +111,7 @@ export LC_ALL=en_US.UTF-8
 
 ** locale
 :PROPERTIES:
-:header-args:
+:header-args+: :tangle no
 :END:
 
 1. Guix package that provides utf8 locale.
@@ -128,7 +128,7 @@ export LC_ALL=en_US.UTF-8
 
 ** elisp-packages
 :PROPERTIES:
-:header-args:
+:header-args+: :tangle no
 :END:
 
 1. List of Elisp guix packages.
@@ -141,7 +141,7 @@ export LC_ALL=en_US.UTF-8
 
 ** binaries
 :PROPERTIES:
-:header-args:
+:header-args+: :tangle no
 :END:
 
 1. List of Guix packages that provides binaries.
@@ -1109,7 +1109,7 @@ More precisely:
 
 * Makefile
 :PROPERTIES:
-:header-args: :tangle Makefile
+:header-args+: :tangle Makefile
 :END:
 
 ** configuration
@@ -1203,7 +1203,8 @@ ENVIRONMENT := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
 .PHONY: init
 init: ${ENVIRONMENT}
 ${ENVIRONMENT}: ${SRC}.org | ${BUILD}
-	emacs -Q --batch $< -f org-babel-tangle &>/dev/null
+	emacs -Q --batch $< -f org-babel-tangle &>/dev/null # ${ELISP_EL} extracted.
+	${EMACS} $< -f org-babel-tangle &>/dev/null	
 	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
 	sed -i '1,2d' ${SRC_EL}
 #+end_src
