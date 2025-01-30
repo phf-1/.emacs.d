@@ -1,5 +1,6 @@
 ;; backup
 
+
 (defconst emacs-tmp-dir (expand-file-name (format "emacs%d" (user-uid)) temporary-file-directory))
 (setq create-lockfiles nil)
 (setq delete-by-moving-to-trash t)

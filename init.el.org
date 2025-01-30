@@ -70,6 +70,7 @@
 
 #+begin_src emacs-lisp
 (setq-default indent-tabs-mode nil)
+;; (setq whitespace-style '(face tabs trailing lines-tail))
 (put 'downcase-region 'disabled nil)
 (put 'upcase-region 'disabled nil)
 (delete-selection-mode 1)
@@ -376,6 +377,7 @@ With prefix ARG, undedicate it."
   :config
   (defun transient-prefix-object ()
     (or transient--prefix transient-current-prefix))
+  (setq magit-diff-refine-hunk (quote all))
   :bind
   (("C-x g" . magit-status)))
 #+end_src
@@ -959,6 +961,8 @@ and return an error indicator."
          (when (null ID)
            (org-entry-put (point) "ID" (org-id-new)))))))
 
+  (setq org-imenu-depth 5)
+
   (require 'org-patches))
 #+end_src
 
@@ -969,8 +973,9 @@ and return an error indicator."
   :hook (makefile-mode . user--indent-makefile-code-blocks-with-tabs)
   :config
   (defun user--indent-makefile-code-blocks-with-tabs ()
-    (setq tab-width 4)
-    (setq indent-tabs-mode t)))
+    (setq indent-tabs-mode t)
+    (setq whitespace-style
+          (remove 'tabs whitespace-style))))
 #+end_src
 
 * org-agenda

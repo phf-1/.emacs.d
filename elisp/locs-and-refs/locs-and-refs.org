@@ -1,16 +1,185 @@
-#+PROPERTY: header-args :noweb yes :comments org :mkdirp yes :tangle _build/locs-and-refs.el
+#+PROPERTY: header-args :noweb yes :comments org :mkdirp yes
+
+* elisp.el
+:PROPERTIES:
+:header-args+: :tangle elisp.el
+:END:
+
+#+begin_src emacs-lisp
+(provide 'org-patches)
+#+end_src
+
+** package-lint
+
+#+begin_src emacs-lisp
+(require 'package-lint)
+#+end_src
+
+** user--org-remove-property-drawers
+
+1. user--org-remove-property-drawers : Function that executes after tangling.
+   It removes exported properties drawers.
+
+#+begin_src emacs-lisp
+(defun user--org-remove-property-drawers ()
+  "After tangling, remove all :PROPERTIES: drawers."
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "^.*:PROPERTIES:$" nil t)
+      (let ((start (line-beginning-position)))
+        (when (re-search-forward "^.*:END:\n" nil t)
+          (delete-region start (point)))))
+    (when (buffer-modified-p)
+      (save-buffer))))
+(add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
+#+end_src
+
+** org-babel-spec-to-string
+
+- org-babel-spec-to-string : like org-babel-spec-to-string but removes new lines.
+
+#+begin_src emacs-lisp
+(defun org-babel-spec-to-string (spec)
+  "Insert SPEC into the current file.
+
+Insert the source-code specified by SPEC into the current source
+code file.  This function uses `comment-region' which assumes
+that the appropriate major-mode is set.  SPEC has the form:
+
+  (start-line file link source-name params body comment)"
+  (pcase-let*
+      ((`(,start ,file ,link ,source ,info ,body ,comment) spec)
+       (comments (cdr (assq :comments info)))
+       (link? (or (string= comments "both") (string= comments "link")
+                  (string= comments "yes") (string= comments "noweb")))
+       (link-data `(("start-line" . ,(number-to-string start))
+                    ("file" . ,file)
+                    ("link" . ,link)
+                    ("source-name" . ,source)))
+       (insert-comment (lambda (text)
+                         (when (and comments
+                                    (not (string= comments "no"))
+                                    (org-string-nw-p text))
+                           (if org-babel-tangle-uncomment-comments
+                               ;; Plain comments: no processing.
+                               (insert text)
+                             ;; Ensure comments are made to be comments.  Also ignore
+                             ;; invisible characters when commenting.
+                             (comment-region
+                              (point)
+                              (progn (insert (org-no-properties text))
+                                     (point))))))))
+    (when comment (funcall insert-comment comment))
+    (when link?
+      (funcall insert-comment
+               (org-fill-template
+                org-babel-tangle-comment-format-beg link-data)))
+    (insert body "\n")
+    (when link?
+      (funcall insert-comment
+               (org-fill-template
+                org-babel-tangle-comment-format-end link-data)))))
+#+end_src
+
+* init.bash
+:PROPERTIES:
+:header-args: :tangle init.bash
+:END:
+
+1. init.bash : File that contains Bash environment variable declarations.
+
+#+begin_src bash
+export LC_ALL=en_US.UTF-8
+#+end_src
+
+* guix-packages.scm
+:PROPERTIES:
+:header-args+: :tangle guix-packages.scm
+:END:
+
+1. guix-packages.scm : File that evaluates to a list of Guix packages.
+
+#+begin_src scheme
+<<locale>>
+
+<<elisp-packages>>
+
+<<binaries>>
+
+`(,locale ,@elisp-packages ,@binaries)
+#+end_src
+
+** locale
+:PROPERTIES:
+:header-args:
+:END:
+
+1. locale : Guix package that provides utf8 locale.
+
+#+name: locale
+#+begin_src scheme
+(use-modules (gnu packages base))
+(define locale
+  (make-glibc-utf8-locales
+   glibc
+   #:locales (list "en_US")
+   #:name "glibc-en-utf8-locales"))
+#+end_src
+
+** elisp-packages
+:PROPERTIES:
+:header-args:
+:END:
+
+1. elisp-packages : List of Elisp guix packages.
+
+#+name: elisp-packages
+#+begin_src scheme
+(use-modules (gnu packages emacs-xyz))
+(define elisp-packages (list emacs-pcre2el emacs-package-lint))
+#+end_src
+
+** binaries
+:PROPERTIES:
+:header-args:
+:END:
+
+1. binaries : List of Guix packages the provides binaries.
+
+#+name: binaries
+#+begin_src scheme
+(use-modules
+ (gnu packages base)
+ (gnu packages bash)
+ (gnu packages emacs)
+ (gnu packages rust-apps)
+ (gnu packages admin)
+ (gnu packages build-tools))
+
+(define binaries
+  (list coreutils
+        gnu-make
+        emacs-minimal
+        ripgrep
+        fd
+        sed
+        bash-minimal))
+#+end_src
 
 * locs-and-refs
+:PROPERTIES:
+:header-args+: :tangle locs-and-refs.el
+:END:
 
 ** Header
 #+begin_src emacs-lisp
-;;; locs-and-refs.el --- Define locations and references for text files and buffers  -*- lexical-binding: t; -*-
+;;; locs-and-refs.el --- Define locations and references for files and buffers  -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2024 Pierre-Henry FRÖHRING
 ;; Author: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Homepage: https://github.com/phf-1/locs-and-refs
-;; Package-Version: 0.16
+;; Package-Version: 0.17
 ;; Package-Requires: ((emacs "27.1") (pcre2el "1.12"))
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -740,14 +909,38 @@ A click on a button opens the associated file."
          (insert-button
           (lambda (match)
             (with-current-buffer buffer
-              (setq buffer-read-only nil)
               (locs-and-refs--ui-insert-button
                (locs-and-refs--match-name match)
                (locs-and-refs--match-action match)
                tag)
-              (insert "\n")
-              (setq buffer-read-only t)))))
-    (with-current-buffer buffer (mapc insert-button matches))
+              (insert "\n")))))
+    (with-current-buffer buffer
+      (setq buffer-read-only nil)
+      (let (line-buffer-matches line-file-matches file-matches)
+        (setq file-matches
+              (alist-get t (seq-group-by #'locs-and-refs--file-match-p matches)))
+
+        (setq line-file-matches
+              (alist-get t (seq-group-by #'locs-and-refs--line-file-match-p matches)))
+
+        (setq line-buffer-matches
+              (alist-get t (seq-group-by #'locs-and-refs--line-buffer-match-p matches)))
+
+        (when line-buffer-matches
+          (insert "* Line buffer matches\n\n")
+          (mapc insert-button line-buffer-matches)
+          (insert "\n"))
+
+        (when line-file-matches
+          (insert "* Line file matches\n\n")
+          (mapc insert-button line-file-matches)
+          (insert "\n"))
+
+        (when file-matches
+          (insert "* File matches\n\n")
+          (mapc insert-button file-matches)
+          (insert "\n")))
+      (setq buffer-read-only t))
     (let* ((frame (make-frame `((name . "Search Results")
                                 (dedicated . t))))
            (window (frame-root-window frame)))
@@ -914,3 +1107,188 @@ More precisely:
 ;; End:
 #+end_src
 
+* Makefile
+:PROPERTIES:
+:header-args: :tangle Makefile
+:END:
+
+** configuration
+
+1. configuration : List of parameters that control the behavior of the Makefile.
+
+#+begin_src makefile
+SHELL := bash
+.SHELLFLAGS := -ceuo pipefail
+MAKEFLAGS += --no-print-directory
+.ONESHELL:
+.SILENT:
+#+end_src
+
+** BUILD
+
+1. BUILD : variable that refer to the build directory.
+
+#+begin_src makefile
+BUILD := _build
+${BUILD}:
+	mkdir -p $@
+#+end_src
+
+** SRC
+
+1. SRC : variable that refers to the source file.
+
+#+begin_src makefile
+SRC := locs-and-refs
+SRC_ORG := ${SRC}.org
+SRC_EL := ${BUILD}/${SRC}.el
+#+end_src
+
+** PACKAGES
+
+1. PACKAGES : variable that refer to the list of Guix packages of the environment.
+
+#+begin_src makefile
+PACKAGES := guix-packages
+PACKAGES_SCM := ${BUILD}/${PACKAGES}.scm
+#+end_src
+
+** INIT
+
+1. INIT : variable that refer to init file of the bash session in the environment.
+
+#+begin_src makefile
+INIT := init
+INIT_BASH := ${BUILD}/${INIT}.bash
+#+end_src
+
+** ELISP
+
+1. INIT : variable that refer to init file of the bash session in the environment.
+
+#+begin_src makefile
+ELISP := elisp
+ELISP_EL := ${BUILD}/${ELISP}.el
+#+end_src
+
+** EMACS
+
+1. EMACS : variable that refers to the Emacs executable.
+
+#+begin_src makefile
+EMACS := emacs -Q --batch -l ${ELISP_EL}
+#+end_src
+
+** GUIX
+
+1. GUIX : variable that refers to guix executable.
+
+#+begin_src makefile
+GUIX := guix
+#+end_src
+
+** ENVIRONMENT
+
+1. ENVIRONMENT : List of files that form the development environment.
+
+#+begin_src makefile
+ENVIRONMENT := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
+#+end_src
+
+** init
+
+1. init : Makefile target that tangles necesseary files.
+
+#+begin_src makefile
+.PHONY: init
+init: ${ENVIRONMENT}
+${ENVIRONMENT}: ${SRC}.org | ${BUILD}
+	emacs -Q --batch $< -f org-babel-tangle &>/dev/null
+	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
+	sed -i '1,2d' ${SRC_EL}
+#+end_src
+
+** clean
+
+1. ~clean~ : Makefile target that delete all generate files necesseary files.
+
+#+begin_src makefile
+.PHONY: clean
+clean:
+	rm -rfv _*
+#+end_src
+
+** env
+
+1. ~env~ : Makefile target that starts the environment.
+
+#+begin_src makefile
+.PHONY: env
+env:
+	ALL="${ALL}"
+	if [[ ! -v GUIX_ENVIRONMENT ]]; then
+	  ${MAKE} init
+	  if [[ "$${ALL}" == "true" ]]; then
+	    ${GUIX} shell --container \
+	    -F \
+	    --file=${PACKAGES_SCM} \
+	    --preserve='^TERM$$' \
+	    -- bash --init-file ${INIT_BASH} -c "${MAKE} lint checkdoc"
+	  else
+	    ${GUIX} shell --container \
+	    -F \
+	    --file=${PACKAGES_SCM} \
+	    --preserve='^TERM$$' \
+	    -- bash --init-file ${INIT_BASH} -i
+	  fi
+	fi
+#+end_src
+
+** elc
+
+1. elc : Makefile target that byte compiles the package.
+
+#+begin_src makefile
+.PHONY: elc
+SRC_ELC := ${BUILD}/${SRC}.elc
+elc: ${SRC_ELC}
+${SRC_ELC}: ${SRC_EL}
+	${EMACS} -f batch-byte-compile $<
+#+end_src
+
+** lint
+
+1. ~lint~ : Makefile target that lints the package.
+
+#+begin_src makefile
+.PHONY: lint
+LINT := lint-report
+LINT_TXT := ${BUILD}/${LINT}.txt
+lint: ${LINT_TXT}
+${LINT_TXT}: ${SRC_EL}
+	$(EMACS) $< -f package-lint-buffer > $@
+#+end_src
+
+** checkdoc
+
+1. ~lint~ : Makefile target that check the docstrings of the package.
+
+#+begin_src makefile
+.PHONY: checkdoc
+CHECKDOC := checkdoc
+CHECKDOC_TXT := ${BUILD}/${CHECKDOC}.txt
+checkdoc: ${CHECKDOC_TXT}
+${CHECKDOC_TXT}: ${SRC_EL}
+	$(EMACS) --eval '(checkdoc-file "$<")' > $@
+#+end_src
+
+** all
+
+1. ~all~ : Makefile target that builds, lint and checkdoc the package.
+
+#+begin_src makefile
+.DEFAULT_GOAL := all
+.PHONY: all
+all: init
+	${MAKE} env ALL=true
+#+end_src

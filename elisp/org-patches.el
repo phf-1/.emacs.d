@@ -1,8 +1,10 @@
 ;; org-patches
 
+
 (provide 'org-patches)
 
 ;; Property drawers are removed after tangling
+
 
 (defun user--org-remove-property-drawers ()
   "After tangling, remove all :PROPERTIES: drawers."
@@ -19,6 +21,7 @@
 ;; org-babel-spec-to-string is fixed
 ;; Like the original version
 ;; but do not insert useless new line.
+
 
 (defun org-babel-spec-to-string (spec)
   "Insert SPEC into the current file.
@@ -73,6 +76,7 @@ that the appropriate major-mode is set.  SPEC has the form:
 ;;         - formatted-code ⇒ replace-code(start end formatted-code)
 ;;       - point :≡ end
 ;;       - λ()
+
 
 (defun user-format-all-js-code-blocks ()
   "Format all JavaScript code blocks in the current buffer using Biomejs or Prettier.

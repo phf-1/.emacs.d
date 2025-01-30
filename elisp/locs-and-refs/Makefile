@@ -1,84 +1,84 @@
-# Makefile
-
 SHELL := bash
-.ONESHELL:
 .SHELLFLAGS := -ceuo pipefail
-EMACS := emacs --batch
-PKG := locs-and-refs.org
-ENVIRONMENT := environment.org
+MAKEFLAGS += --no-print-directory
+.ONESHELL:
+.SILENT:
+
 BUILD := _build
-$(shell mkdir -p ${BUILD})
+${BUILD}:
+	mkdir -p $@
 
-# env
+SRC := locs-and-refs
+SRC_ORG := ${SRC}.org
+SRC_EL := ${BUILD}/${SRC}.el
 
-# 1. ~make env~ builds the environment.
+PACKAGES := guix-packages
+PACKAGES_SCM := ${BUILD}/${PACKAGES}.scm
 
-.PHONY: env
-ENV := ${BUILD}/environment.scm
-BASH_INIT := ${BUILD}/bash.rc
-ORG_PATCHES := ${BUILD}/org-patches.el
-${ENV}: ${ENVIRONMENT}
-	emacs -Q --batch $< -f org-babel-tangle
-env: ${ENV}
-	guix shell --container \
-	-F \
-	--file=$< \
-	--preserve='^TERM$$' \
-	-- bash --init-file ${BASH_INIT} -i
+INIT := init
+INIT_BASH := ${BUILD}/${INIT}.bash
 
-# el
+ELISP := elisp
+ELISP_EL := ${BUILD}/${ELISP}.el
 
-# 2. ~make el~ tangle the package.
+EMACS := emacs -Q --batch -l ${ELISP_EL}
 
-.PHONY: el
-EL := ${BUILD}/locs-and-refs.el
-el: ${EL}
-${EL}: ${ENV} ${PKG} 
-	$(EMACS) ${PKG} -l ${ORG_PATCHES} -f org-babel-tangle
-	sed -i '1,2d' $@
+GUIX := guix
 
-# elc
+ENVIRONMENT := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
 
-# 3. ~make elc~ byte compile the package.
-
-.PHONY: elc
-ELC := ${BUILD}/locs-and-refs.elc
-elc: ${ELC}
-${ELC}: ${EL}
-	$(EMACS) -f batch-byte-compile $<
-
-# lint
-
-# 4. ~make lint~ lint the package.
-
-.PHONY: lint
-LINT := ${BUILD}/lint-report.txt
-lint: ${LINT}
-${LINT}: ${EL}
-	$(EMACS) $< -f package-lint-buffer > $@
-
-# checkdoc
-
-# 5. ~make checkdoc~ checks the documentation of the package.
-
-.PHONY: checkdoc
-CHECKDOC := ${BUILD}/checkdoc-report.txt
-checkdoc: ${CHECKDOC}
-${CHECKDOC}: ${EL}
-	$(EMACS) --eval '(checkdoc-file "$<")' > $@
-
-# all
-
-# 6. ~make all~ all of the above.
-
-.DEFAULT_GOAL := all
-.PHONY: all
-all: elc checkdoc lint
-
-# clean
-
-# 7. ~make clean~ delete all generated files.
+.PHONY: init
+init: ${ENVIRONMENT}
+${ENVIRONMENT}: ${SRC}.org | ${BUILD}
+	emacs -Q --batch $< -f org-babel-tangle &>/dev/null
+	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
+	sed -i '1,2d' ${SRC_EL}
 
 .PHONY: clean
 clean:
 	rm -rfv _*
+
+.PHONY: env
+env:
+	ALL="${ALL}"
+	if [[ ! -v GUIX_ENVIRONMENT ]]; then
+	  ${MAKE} init
+	  if [[ "$${ALL}" == "true" ]]; then
+	    ${GUIX} shell --container \
+	    -F \
+	    --file=${PACKAGES_SCM} \
+	    --preserve='^TERM$$' \
+	    -- bash --init-file ${INIT_BASH} -c "${MAKE} lint checkdoc"
+	  else
+	    ${GUIX} shell --container \
+	    -F \
+	    --file=${PACKAGES_SCM} \
+	    --preserve='^TERM$$' \
+	    -- bash --init-file ${INIT_BASH} -i
+	  fi
+	fi
+
+.PHONY: elc
+SRC_ELC := ${BUILD}/${SRC}.elc
+elc: ${SRC_ELC}
+${SRC_ELC}: ${SRC_EL}
+	${EMACS} -f batch-byte-compile $<
+
+.PHONY: lint
+LINT := lint-report
+LINT_TXT := ${BUILD}/${LINT}.txt
+lint: ${LINT_TXT}
+${LINT_TXT}: ${SRC_EL}
+	$(EMACS) $< -f package-lint-buffer > $@
+
+.PHONY: checkdoc
+CHECKDOC := checkdoc
+CHECKDOC_TXT := ${BUILD}/${CHECKDOC}.txt
+checkdoc: ${CHECKDOC_TXT}
+${CHECKDOC_TXT}: ${SRC_EL}
+	$(EMACS) --eval '(checkdoc-file "$<")' > $@
+
+.DEFAULT_GOAL := all
+.PHONY: all
+all: init
+	${MAKE} env ALL=true

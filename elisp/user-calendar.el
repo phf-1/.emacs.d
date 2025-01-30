@@ -1,5 +1,6 @@
 ;; calendar
 
+
 (setq calendar-week-start-day 1)
 (setq holiday-bahai-holidays nil)
 (setq holiday-hebrew-holidays nil)

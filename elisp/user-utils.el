@@ -1,5 +1,6 @@
 ;; utils
 
+
 (defun unfill-paragraph (&optional region)
   "Takes a multi-line paragraph and makes it into a single line of text."
 
