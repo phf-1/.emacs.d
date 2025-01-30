@@ -144,7 +144,7 @@ export LC_ALL=en_US.UTF-8
 :header-args:
 :END:
 
-1. binaries : List of Guix packages the provides binaries.
+1. binaries : List of Guix packages that provides binaries.
 
 #+name: binaries
 #+begin_src scheme
@@ -218,7 +218,7 @@ export LC_ALL=en_US.UTF-8
 ;; - fd: For fast file search.
 ;;
 ;; The code structure lives at:
-;; - https://github.com/phf-1/.emacs.d/blob/master/elisp/locs-and-refs.el.org
+;; - https://github.com/phf-1/.emacs.d/blob/master/elisp/locs-and-refs/locs-and-refs.org
 ;;
 ;;; Code:
 #+end_src
@@ -1126,7 +1126,7 @@ MAKEFLAGS += --no-print-directory
 
 ** BUILD
 
-1. BUILD : variable that refer to the build directory.
+1. BUILD : variable that refers to the build directory.
 
 #+begin_src makefile
 BUILD := _build
@@ -1146,7 +1146,7 @@ SRC_EL := ${BUILD}/${SRC}.el
 
 ** PACKAGES
 
-1. PACKAGES : variable that refer to the list of Guix packages of the environment.
+1. PACKAGES : variable that refers to the list of Guix packages of the environment.
 
 #+begin_src makefile
 PACKAGES := guix-packages
@@ -1155,7 +1155,7 @@ PACKAGES_SCM := ${BUILD}/${PACKAGES}.scm
 
 ** INIT
 
-1. INIT : variable that refer to init file of the bash session in the environment.
+1. INIT : variable that refers to init file of the bash session in the environment.
 
 #+begin_src makefile
 INIT := init
@@ -1164,7 +1164,7 @@ INIT_BASH := ${BUILD}/${INIT}.bash
 
 ** ELISP
 
-1. INIT : variable that refer to init file of the bash session in the environment.
+1. ELISP : variable that refers to ELisp code that should be loaded by ${EMACS}.
 
 #+begin_src makefile
 ELISP := elisp
@@ -1197,7 +1197,7 @@ ENVIRONMENT := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
 
 ** init
 
-1. init : Makefile target that tangles necesseary files.
+1. init : Makefile target that tangles necessary files.
 
 #+begin_src makefile
 .PHONY: init
