@@ -9,6 +9,13 @@
 (provide 'org-patches)
 #+end_src
 
+** no-littering
+
+#+begin_src emacs-lisp
+(setq make-backup-files nil)
+(setq auto-save-default nil)
+#+end_src
+
 ** package-lint
 
 #+begin_src emacs-lisp
@@ -16,9 +23,8 @@
 #+end_src
 
 ** user--org-remove-property-drawers
-
-1. Function that executes after tangling.
-   It removes exported properties drawers.
+- Function that executes after tangling.
+  It removes exported properties drawers.
 
 #+begin_src emacs-lisp
 (defun user--org-remove-property-drawers ()
@@ -35,8 +41,7 @@
 #+end_src
 
 ** org-babel-spec-to-string
-
-1. Like org-babel-spec-to-string but removes new lines.
+- Like org-babel-spec-to-string but removes new lines.
 
 #+begin_src emacs-lisp
 (require 'org)
@@ -86,8 +91,7 @@ that the appropriate major-mode is set.  SPEC has the form:
 :PROPERTIES:
 :header-args+: :tangle init.bash
 :END:
-
-1. File that contains Bash environment variable declarations.
+- File that contains Bash environment variable declarations.
 
 #+begin_src bash
 export LC_ALL=en_US.UTF-8
@@ -97,8 +101,7 @@ export LC_ALL=en_US.UTF-8
 :PROPERTIES:
 :header-args+: :tangle guix-packages.scm
 :END:
-
-1. File that evaluates to a list of Guix packages.
+- File that evaluates to a list of Guix packages.
 
 #+begin_src scheme
 <<locale>>
@@ -114,8 +117,7 @@ export LC_ALL=en_US.UTF-8
 :PROPERTIES:
 :header-args+: :tangle no
 :END:
-
-1. Guix package that provides utf8 locale.
+- Guix package that provides utf8 locale.
 
 #+name: locale
 #+begin_src scheme
@@ -131,8 +133,7 @@ export LC_ALL=en_US.UTF-8
 :PROPERTIES:
 :header-args+: :tangle no
 :END:
-
-1. List of Elisp guix packages.
+- List of Elisp guix packages.
 
 #+name: elisp-packages
 #+begin_src scheme
@@ -144,8 +145,7 @@ export LC_ALL=en_US.UTF-8
 :PROPERTIES:
 :header-args+: :tangle no
 :END:
-
-1. List of Guix packages that provides binaries.
+- List of Guix packages that provides binaries.
 
 #+name: binaries
 #+begin_src scheme
@@ -225,11 +225,11 @@ export LC_ALL=en_US.UTF-8
 #+end_src
 
 ** Dependencies
-This section lists this package's dependencies.
-- rxt (a.k.a. pcre2el) provides `rxt-elisp-to-pcre' that builds a PCRE expression
-  from an ELisp RegEx. Useful to talk to Ripgrep from ELisp.
-- org provides `org-link-set-parameters' that gives control over click behavior on
-  links.
+- This section lists this package's dependencies.
+  - rxt (a.k.a. pcre2el) provides `rxt-elisp-to-pcre' that builds a PCRE expression
+    from an ELisp RegEx. Useful to talk to Ripgrep from ELisp.
+  - org provides `org-link-set-parameters' that gives control over click behavior on
+    links.
 
 #+begin_src emacs-lisp
 (require 'pcre2el)
@@ -237,7 +237,7 @@ This section lists this package's dependencies.
 #+end_src
 
 ** Configuration
-This section lists the user's defined custom parameters.
+- This section lists the user's defined custom parameters.
 
 #+begin_src emacs-lisp
 (defgroup locs-and-refs nil
@@ -294,12 +294,12 @@ This comes after buffer creation or modification."
 #+end_src
 
 ** LineFileMatch
-An instance represents a match at a given line in some file.
+- An instance represents a match at a given line in some file.
 #+begin_src emacs-lisp
 #+end_src
 
 *** mk
-λ : Path Line → LineFileMatch
+- λ : Path Line → LineFileMatch
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-mk (path line)
@@ -312,7 +312,7 @@ non-negative integer."
 #+end_src
 
 *** p
-λ : Any → Boolean
+- λ : Any → Boolean
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-p (any)
@@ -321,7 +321,7 @@ non-negative integer."
 #+end_src
 
 *** use
-λ : (Path Line → C) → LineFileMatch → C
+- λ : (Path Line → C) → LineFileMatch → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-use (func)
@@ -332,7 +332,7 @@ non-negative integer."
 #+end_src
 
 *** path
-λ : LineFileMatch → Path
+- λ : LineFileMatch → Path
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-path (match)
@@ -341,7 +341,7 @@ non-negative integer."
 #+end_src
 
 *** line
-λ : LineFileMatch → Line
+- λ : LineFileMatch → Line
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-line (match)
@@ -355,7 +355,7 @@ An instance represents a match at a given line in some buffer.
 #+end_src
 
 *** mk
-λ : Buffer Line → LineBufferMatch
+- λ : Buffer Line → LineBufferMatch
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-mk (buffer line)
@@ -368,7 +368,7 @@ non-negative integer."
 #+end_src
 
 *** p
-λ : Any → Boolean
+- λ : Any → Boolean
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-p (any)
@@ -377,7 +377,7 @@ non-negative integer."
 #+end_src
 
 *** use
-λ : (Buffer Line → C) → LineBufferMatch → C
+- λ : (Buffer Line → C) → LineBufferMatch → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-use (func)
@@ -388,7 +388,7 @@ non-negative integer."
 #+end_src
 
 *** buffer
-λ : LineBufferMatch → Buffer
+- λ : LineBufferMatch → Buffer
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-buffer (match)
@@ -397,7 +397,7 @@ non-negative integer."
 #+end_src
 
 *** line
-λ : LineBufferMatch → Line
+- λ : LineBufferMatch → Line
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-line (match)
@@ -411,7 +411,7 @@ An instance represents a file match.
 #+end_src
 
 *** mk
-λ : Path → FileMatch
+- λ : Path → FileMatch
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--file-match-mk (path)
@@ -422,7 +422,7 @@ PATH should be a valid file path."
 #+end_src
 
 *** p
-λ : Any → Boolean
+- λ : Any → Boolean
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--file-match-p (any)
@@ -431,7 +431,7 @@ PATH should be a valid file path."
 #+end_src
 
 *** use
-λ : (Path → C) → FileMatch → C
+- λ : (Path → C) → FileMatch → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--file-match-use (func)
@@ -442,7 +442,7 @@ PATH should be a valid file path."
 #+end_src
 
 *** path
-λ : FileMatch → Path
+- λ : FileMatch → Path
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--file-match-path (match)
@@ -456,7 +456,7 @@ An instance represents either a FileMatch, LineFileMatch or a LineBufferMatch.
 #+end_src
 
 *** use
-λ : (FileMatch → C) (LineFileMatch → C) (LineBufferMatch → C) → Match → C
+- λ : (FileMatch → C) (LineFileMatch → C) (LineBufferMatch → C) → Match → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--match-use (file-func line-file-func line-buffer-func)
@@ -472,7 +472,7 @@ LineFileMatch, and LINE-BUFFER-FUNC to LineBufferMatch."
 #+end_src
 
 *** name
-λ : Match → String
+- λ : Match → String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--match-name (match)
@@ -503,7 +503,7 @@ LineFileMatch, and LINE-BUFFER-FUNC to LineBufferMatch."
 #+end_src
 
 *** action
-λ : Match → ∅ → ∅
+- λ : Match → ∅ → ∅
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--match-action (match)
@@ -539,13 +539,13 @@ specified location."
 #+end_src
 
 ** Search
-Given a RegEx in the form of an Rx expression,
-search matching files/buffers/filenames.
+- Given a RegEx in the form of an Rx expression,
+  search matching files/buffers/filenames.
 #+begin_src emacs-lisp
 #+end_src
 
 *** files
-λ : RegEx → List(Match)
+- λ : RegEx → List(Match)
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--search-files (regex)
@@ -567,7 +567,7 @@ Returns a list of LineFileMatch objects."
 #+end_src
 
 *** buffers
-λ : RegEx → List(Match)
+- λ : RegEx → List(Match)
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-number ()
@@ -591,7 +591,7 @@ Returns a list of LineBufferMatch objects."
 #+end_src
 
 *** filenames
-λ : RegEx → List(Match)
+- λ : RegEx → List(Match)
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--search-filenames (regex)
@@ -617,7 +617,7 @@ A few utilities.
 #+end_src
 
 *** content
-λ : Tag Optional(id) → Rx
+- λ : Tag Optional(id) → Rx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--regex-content (tag &optional id)
@@ -636,7 +636,7 @@ A click on an instance shows all references to it.
 #+end_src
 
 *** mk
-λ : String Buffer Start End Name → Location
+- λ : String Buffer Start End Name → Location
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-mk (id buffer start end name)
@@ -666,7 +666,7 @@ integer positions."
 #+end_src
 
 *** p
-λ : Any → Boolean
+- λ : Any → Boolean
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-p (loc)
@@ -675,7 +675,7 @@ integer positions."
 #+end_src
 
 *** use
-λ : (String → C) → Location → C
+- λ : (String → C) → Location → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-use (func)
@@ -686,7 +686,7 @@ integer positions."
 #+end_src
 
 *** id
-λ : Location → String
+- λ : Location → String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-id (loc)
@@ -695,7 +695,7 @@ integer positions."
 #+end_src
 
 *** tag
-λ : String
+- λ : String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-tag ()
@@ -704,7 +704,7 @@ integer positions."
 #+end_src
 
 *** content-regex
-λ : Location → RegEx
+- λ : Location → RegEx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-content-regex (loc)
@@ -713,7 +713,7 @@ integer positions."
 #+end_src
 
 *** regex
-λ : RegEx
+- λ : RegEx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-regex ()
@@ -722,7 +722,7 @@ integer positions."
 #+end_src
 
 *** click
-λ : Location → Buffer
+- λ : Location → Buffer
 λ loc :≡
   content-regex  :≡ content-regex(loc)
   file-matches   :≡ search-files(content-regex)
@@ -748,7 +748,7 @@ A click on an instance shows all locations that it refers to.
 #+end_src
 
 *** mk
-λ : Id Buffer Start End Name → Reference
+- λ : Id Buffer Start End Name → Reference
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-mk (id buffer start end name)
@@ -778,7 +778,7 @@ integer positions."
 #+end_src
 
 *** p
-λ : Any → Boolean
+- λ : Any → Boolean
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-p (ref)
@@ -787,7 +787,7 @@ integer positions."
 #+end_src
 
 *** use
-λ : (String → C) → Reference → C
+- λ : (String → C) → Reference → C
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-use (func)
@@ -798,7 +798,7 @@ integer positions."
 #+end_src
 
 *** id
-λ : Reference → String
+- λ : Reference → String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-id (ref)
@@ -807,7 +807,7 @@ integer positions."
 #+end_src
 
 *** tag
-λ : String
+- λ : String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-tag ()
@@ -816,7 +816,7 @@ integer positions."
 #+end_src
 
 *** content-regex
-λ : Reference → RegEx
+- λ : Reference → RegEx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-content-regex (ref)
@@ -825,7 +825,7 @@ integer positions."
 #+end_src
 
 *** regex
-λ : Regex
+- λ : Regex
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-regex ()
@@ -834,7 +834,7 @@ integer positions."
 #+end_src
 
 *** filename-regex
-λ : Reference → RegEx
+- λ : Reference → RegEx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-filename-regex (ref)
@@ -843,7 +843,7 @@ integer positions."
 #+end_src
 
 *** click
-λ : Reference → Buffer
+- λ : Reference → Buffer
 click ref :≡
   content-regex    :≡ content-regex(ref)
   file-matches     :≡ search-files(content-regex)
@@ -869,7 +869,7 @@ click ref :≡
 #+end_src
 
 *** insert-button
-λ : Name Action → Button
+- λ : Name Action → Button
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--ui-insert-button (name action tag)
@@ -888,7 +888,7 @@ The face depends on TAG."
 #+end_src
 
 *** matches
-λ : List(Match) Id Tag → Buffer
+- λ : List(Match) Id Tag → Buffer
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--ui-matches (matches id tag)
@@ -951,8 +951,8 @@ A click on a button opens the associated file."
 #+end_src
 
 ** Minor mode
-Make sure that locations and references are activated in all buffers at all times
-as long as they derive from `text-mode' or `prog-mode'.
+- Make sure that locations and references are activated in all buffers at all times
+  as long as they derive from `text-mode' or `prog-mode'.
 #+begin_src emacs-lisp
 #+end_src
 
@@ -1114,8 +1114,7 @@ More precisely:
 :END:
 
 ** configuration
-
-1. List of parameters that control the behavior of the Makefile.
+- List of parameters that control the behavior of the Makefile.
 
 #+begin_src makefile
 SHELL := bash
@@ -1126,8 +1125,7 @@ MAKEFLAGS += --no-print-directory
 #+end_src
 
 ** BUILD
-
-1. Variable that refers to the build directory.
+- Variable that refers to the build directory.
 
 #+begin_src makefile
 BUILD := _build
@@ -1136,8 +1134,7 @@ ${BUILD}:
 #+end_src
 
 ** SRC
-
-1. Variable that refers to the source file.
+- Variable that refers to the source file.
 
 #+begin_src makefile
 SRC := locs-and-refs
@@ -1146,8 +1143,7 @@ SRC_EL := ${BUILD}/${SRC}.el
 #+end_src
 
 ** PACKAGES
-
-1. Variable that refers to the list of Guix packages of the environment.
+- Variable that refers to the list of Guix packages of the environment.
 
 #+begin_src makefile
 PACKAGES := guix-packages
@@ -1155,8 +1151,7 @@ PACKAGES_SCM := ${BUILD}/${PACKAGES}.scm
 #+end_src
 
 ** INIT
-
-1. Variable that refers to init file of the bash session in the environment.
+- Variable that refers to init file of the bash session in the environment.
 
 #+begin_src makefile
 INIT := init
@@ -1164,8 +1159,7 @@ INIT_BASH := ${BUILD}/${INIT}.bash
 #+end_src
 
 ** ELISP
-
-1. Variable that refers to ELisp code that should be loaded by ${EMACS}.
+- Variable that refers to ELisp code that should be loaded by ${EMACS}.
 
 #+begin_src makefile
 ELISP := elisp
@@ -1173,45 +1167,42 @@ ELISP_EL := ${BUILD}/${ELISP}.el
 #+end_src
 
 ** EMACS
-
-1. Variable that refers to the Emacs executable.
+- Variable that refers to the Emacs executable.
 
 #+begin_src makefile
 EMACS := emacs -Q --batch -l ${ELISP_EL}
 #+end_src
 
 ** GUIX
-
-1. Variable that refers to guix executable.
+- Variable that refers to guix executable.
 
 #+begin_src makefile
 GUIX := guix
 #+end_src
 
 ** ENVIRONMENT
-
-1. List of files that form the development environment.
+- List of files that form the development environment.
 
 #+begin_src makefile
 ENVIRONMENT := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
 #+end_src
 
 ** init
-
-1. Makefile target that tangles necessary files.
+- Makefile target that tangles necessary files.
 
 #+begin_src makefile
 .PHONY: init
 init: ${ENVIRONMENT}
 ${ENVIRONMENT}: ${SRC}.org | ${BUILD}
 	emacs -Q --batch $< -f org-babel-tangle &>/dev/null
-	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
-	sed -i '1,2d' ${SRC_EL}
+	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}	
+	${EMACS} $< -f org-babel-tangle &>/dev/null
+	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}		
+	sed -i '1,1d' ${SRC_EL}
 #+end_src
 
 ** clean
-
-1. Makefile target that delete all generate files necesseary files.
+- Makefile target that delete all generate files necesseary files.
 
 #+begin_src makefile
 .PHONY: clean
@@ -1220,8 +1211,7 @@ clean:
 #+end_src
 
 ** env
-
-1. Makefile target that starts the environment.
+- Makefile target that starts the environment.
 
 #+begin_src makefile
 .PHONY: env
@@ -1246,8 +1236,7 @@ env:
 #+end_src
 
 ** elc
-
-1. Makefile target that byte compiles the package.
+- Makefile target that byte compiles the package.
 
 #+begin_src makefile
 .PHONY: elc
@@ -1258,8 +1247,7 @@ ${SRC_ELC}: ${SRC_EL}
 #+end_src
 
 ** lint
-
-1. Makefile target that lints the package.
+- Makefile target that lints the package.
 
 #+begin_src makefile
 .PHONY: lint
@@ -1271,8 +1259,7 @@ ${LINT_TXT}: ${SRC_EL}
 #+end_src
 
 ** checkdoc
-
-1. Makefile target that check the docstrings of the package.
+- Makefile target that check the docstrings of the package.
 
 #+begin_src makefile
 .PHONY: checkdoc
@@ -1284,8 +1271,7 @@ ${CHECKDOC_TXT}: ${SRC_EL}
 #+end_src
 
 ** all
-
-1. Makefile target that builds, lint and checkdoc the package.
+- Makefile target that builds, lint and checkdoc the package.
 
 #+begin_src makefile
 .DEFAULT_GOAL := all
