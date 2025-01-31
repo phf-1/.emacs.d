@@ -19,25 +19,31 @@ ${BUILD}:
 
 SRC := locs-and-refs
 SRC_ORG := ${SRC}.org
-SRC_EL := ${BUILD}/${SRC}.el
 
 # PACKAGES
 # - Variable that refers to the list of Guix packages of the environment.
 
 PACKAGES := guix-packages
-PACKAGES_SCM := ${BUILD}/${PACKAGES}.scm
 
 # INIT
 # - Variable that refers to init file of the bash session in the environment.
 
 INIT := init
-INIT_BASH := ${BUILD}/${INIT}.bash
 
 # ELISP
 # - Variable that refers to ELisp code that should be loaded by ${EMACS}.
 
 ELISP := elisp
+
+# ENV_FILES
+# - List of files that form the development environment.
+
 ELISP_EL := ${BUILD}/${ELISP}.el
+INIT_BASH := ${BUILD}/${INIT}.bash
+PACKAGES_SCM := ${BUILD}/${PACKAGES}.scm
+SRC_EL := ${BUILD}/${SRC}.el
+
+ENV_FILES := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
 
 # EMACS
 # - Variable that refers to the Emacs executable.
@@ -49,22 +55,17 @@ EMACS := emacs -Q --batch -l ${ELISP_EL}
 
 GUIX := guix
 
-# ENVIRONMENT
-# - List of files that form the development environment.
-
-ENVIRONMENT := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
-
-# init
+# tangle
 # - Makefile target that tangles necessary files.
 
-.PHONY: init
-init: ${ENVIRONMENT}
-${ENVIRONMENT}: ${SRC}.org | ${BUILD}
+.PHONY: tangle
+tangle: ${ENV_FILES}
+${ENV_FILES}: ${SRC}.org | ${BUILD}
 	# Tangling done twice because we want ${ELISP_EL}.
 	emacs -Q --batch $< -f org-babel-tangle &>/dev/null
-	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}	
+	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
 	${EMACS} $< -f org-babel-tangle &>/dev/null
-	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}		
+	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
 	sed -i '1,1d' ${SRC_EL}
 
 # clean
@@ -86,7 +87,7 @@ GUIX_SHELL := ${GUIX} shell --container \
 env:
 	CMD="${CMD}"
 	if [[ ! -v GUIX_ENVIRONMENT ]]; then
-	  ${MAKE} init
+	  ${MAKE} tangle
 	  if [[ "$${CMD}" == "" ]]; then
 	    ${GUIX_SHELL} -i;
 	  else
@@ -128,5 +129,6 @@ ${CHECKDOC_TXT}: ${SRC_EL}
 
 .DEFAULT_GOAL := all
 .PHONY: all
-all: init
+all:
+	${MAKE} tangle
 	${MAKE} env CMD="${MAKE} lint checkdoc"
