@@ -77,22 +77,19 @@ clean:
 # - Makefile target that starts the environment.
 
 .PHONY: env
+GUIX_SHELL := ${GUIX} shell --container \
+	-F \
+	--file=${PACKAGES_SCM} \
+	--preserve='^TERM$$' \
+	-- bash --init-file ${INIT_BASH}
 env:
-	ALL="${ALL}"
+	CMD="${CMD}"
 	if [[ ! -v GUIX_ENVIRONMENT ]]; then
 	  ${MAKE} init
-	  if [[ "$${ALL}" == "true" ]]; then
-	    ${GUIX} shell --container \
-	    -F \
-	    --file=${PACKAGES_SCM} \
-	    --preserve='^TERM$$' \
-	    -- bash --init-file ${INIT_BASH} -c "${MAKE} lint checkdoc"
+	  if [[ "$${CMD}" == "" ]]; then
+	    ${GUIX_SHELL} -i;
 	  else
-	    ${GUIX} shell --container \
-	    -F \
-	    --file=${PACKAGES_SCM} \
-	    --preserve='^TERM$$' \
-	    -- bash --init-file ${INIT_BASH} -i
+	    ${GUIX_SHELL} -c "${CMD}";
 	  fi
 	fi
 
@@ -113,7 +110,7 @@ LINT := lint-report
 LINT_TXT := ${BUILD}/${LINT}.txt
 lint: ${LINT_TXT}
 ${LINT_TXT}: ${SRC_EL}
-	$(EMACS) $< -f package-lint-buffer > $@
+	${EMACS} $< -f package-lint-buffer > $@
 
 # checkdoc
 # - Makefile target that check the docstrings of the package.
@@ -123,7 +120,7 @@ CHECKDOC := checkdoc
 CHECKDOC_TXT := ${BUILD}/${CHECKDOC}.txt
 checkdoc: ${CHECKDOC_TXT}
 ${CHECKDOC_TXT}: ${SRC_EL}
-	$(EMACS) --eval '(checkdoc-file "$<")' > $@
+	${EMACS} --eval '(checkdoc-file "$<")' > $@
 
 # all
 # - Makefile target that builds, lint and checkdoc the package.
@@ -131,4 +128,4 @@ ${CHECKDOC_TXT}: ${SRC_EL}
 .DEFAULT_GOAL := all
 .PHONY: all
 all: init
-	${MAKE} env ALL=true
+	${MAKE} env CMD="${MAKE} lint checkdoc"

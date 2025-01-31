@@ -1215,22 +1215,19 @@ clean:
 
 #+begin_src makefile
 .PHONY: env
+GUIX_SHELL := ${GUIX} shell --container \
+	-F \
+	--file=${PACKAGES_SCM} \
+	--preserve='^TERM$$' \
+	-- bash --init-file ${INIT_BASH}
 env:
-	ALL="${ALL}"
+	CMD="${CMD}"
 	if [[ ! -v GUIX_ENVIRONMENT ]]; then
 	  ${MAKE} init
-	  if [[ "$${ALL}" == "true" ]]; then
-	    ${GUIX} shell --container \
-	    -F \
-	    --file=${PACKAGES_SCM} \
-	    --preserve='^TERM$$' \
-	    -- bash --init-file ${INIT_BASH} -c "${MAKE} lint checkdoc"
+	  if [[ "$${CMD}" == "" ]]; then
+	    ${GUIX_SHELL} -i;
 	  else
-	    ${GUIX} shell --container \
-	    -F \
-	    --file=${PACKAGES_SCM} \
-	    --preserve='^TERM$$' \
-	    -- bash --init-file ${INIT_BASH} -i
+	    ${GUIX_SHELL} -c "${CMD}";
 	  fi
 	fi
 #+end_src
@@ -1277,5 +1274,5 @@ ${CHECKDOC_TXT}: ${SRC_EL}
 .DEFAULT_GOAL := all
 .PHONY: all
 all: init
-	${MAKE} env ALL=true
+	${MAKE} env CMD="${MAKE} lint checkdoc"
 #+end_src
