@@ -1255,7 +1255,7 @@ LINT := lint-report
 LINT_TXT := ${BUILD}/${LINT}.txt
 lint: ${LINT_TXT}
 ${LINT_TXT}: ${SRC_EL}
-	$(EMACS) $< -f package-lint-buffer > $@
+	${EMACS} $< -f package-lint-buffer > $@
 #+end_src
 
 ** checkdoc
@@ -1267,7 +1267,7 @@ CHECKDOC := checkdoc
 CHECKDOC_TXT := ${BUILD}/${CHECKDOC}.txt
 checkdoc: ${CHECKDOC_TXT}
 ${CHECKDOC_TXT}: ${SRC_EL}
-	$(EMACS) --eval '(checkdoc-file "$<")' > $@
+	${EMACS} --eval '(checkdoc-file "$<")' > $@
 #+end_src
 
 ** all
