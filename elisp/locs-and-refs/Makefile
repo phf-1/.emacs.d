@@ -1,4 +1,4 @@
-# configuration
+# Configuration
 # - List of parameters that control the behavior of the Makefile.
 
 SHELL := bash
@@ -21,12 +21,12 @@ SRC := locs-and-refs
 SRC_ORG := ${SRC}.org
 
 # PACKAGES
-# - Variable that refers to the list of Guix packages of the environment.
+# - Variable that refers to the list of Guix packages for the environment.
 
 PACKAGES := guix-packages
 
 # INIT
-# - Variable that refers to init file of the bash session in the environment.
+# - Variable that refers to the init file of the bash session in the environment.
 
 INIT := init
 
@@ -51,7 +51,7 @@ ENV_FILES := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
 EMACS := emacs -Q --batch -l ${ELISP_EL}
 
 # GUIX
-# - Variable that refers to guix executable.
+# - Variable that refers to the Guix executable.
 
 GUIX := guix
 
@@ -69,7 +69,7 @@ ${ENV_FILES}: ${SRC}.org | ${BUILD}
 	sed -i '1,1d' ${SRC_EL}
 
 # clean
-# - Makefile target that delete all generate files necesseary files.
+# - Makefile target that deletes all generated files.
 
 .PHONY: clean
 clean:
@@ -115,7 +115,7 @@ ${LINT_TXT}: ${SRC_EL}
 	${EMACS} $< -f package-lint-buffer > $@
 
 # checkdoc
-# - Makefile target that check the docstrings of the package.
+# - Makefile target that checks the docstrings of the package.
 
 .PHONY: checkdoc
 CHECKDOC := checkdoc
@@ -125,7 +125,7 @@ ${CHECKDOC_TXT}: ${SRC_EL}
 	${EMACS} --eval '(checkdoc-file "$<")' > $@
 
 # all
-# - Makefile target that builds, lint and checkdoc the package.
+# - Makefile target that builds, lints, and checks the docstrings of the package.
 
 .DEFAULT_GOAL := all
 .PHONY: all

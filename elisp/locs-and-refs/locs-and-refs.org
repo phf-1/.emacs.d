@@ -1113,7 +1113,7 @@ More precisely:
 :header-args+: :tangle Makefile
 :END:
 
-** configuration
+** Configuration
 - List of parameters that control the behavior of the Makefile.
 
 #+begin_src makefile
@@ -1142,14 +1142,14 @@ SRC_ORG := ${SRC}.org
 #+end_src
 
 ** PACKAGES
-- Variable that refers to the list of Guix packages of the environment.
+- Variable that refers to the list of Guix packages for the environment.
 
 #+begin_src makefile
 PACKAGES := guix-packages
 #+end_src
 
 ** INIT
-- Variable that refers to init file of the bash session in the environment.
+- Variable that refers to the init file of the bash session in the environment.
 
 #+begin_src makefile
 INIT := init
@@ -1182,7 +1182,7 @@ EMACS := emacs -Q --batch -l ${ELISP_EL}
 #+end_src
 
 ** GUIX
-- Variable that refers to guix executable.
+- Variable that refers to the Guix executable.
 
 #+begin_src makefile
 GUIX := guix
@@ -1204,7 +1204,7 @@ ${ENV_FILES}: ${SRC}.org | ${BUILD}
 #+end_src
 
 ** clean
-- Makefile target that delete all generate files necesseary files.
+- Makefile target that deletes all generated files.
 
 #+begin_src makefile
 .PHONY: clean
@@ -1258,7 +1258,7 @@ ${LINT_TXT}: ${SRC_EL}
 #+end_src
 
 ** checkdoc
-- Makefile target that check the docstrings of the package.
+- Makefile target that checks the docstrings of the package.
 
 #+begin_src makefile
 .PHONY: checkdoc
@@ -1270,7 +1270,7 @@ ${CHECKDOC_TXT}: ${SRC_EL}
 #+end_src
 
 ** all
-- Makefile target that builds, lint and checkdoc the package.
+- Makefile target that builds, lints, and checks the docstrings of the package.
 
 #+begin_src makefile
 .DEFAULT_GOAL := all
