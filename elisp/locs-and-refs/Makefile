@@ -60,6 +60,7 @@ ENVIRONMENT := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
 .PHONY: init
 init: ${ENVIRONMENT}
 ${ENVIRONMENT}: ${SRC}.org | ${BUILD}
+	# Tangling done twice because we want ${ELISP_EL}.
 	emacs -Q --batch $< -f org-babel-tangle &>/dev/null
 	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}	
 	${EMACS} $< -f org-babel-tangle &>/dev/null
