@@ -1137,7 +1137,7 @@ More precisely:
 :END:
 
 ** Configuration
-- List of parameters that control the behavior of the Makefile.
+- List of Makefile configurations.
 
 #+begin_src makefile
 SHELL := bash
@@ -1213,14 +1213,19 @@ GUIX := guix
 
 ** tangle
 - Makefile target that tangles necessary files.
+  1. src.org ≡ ${SRC}.org
+  2. λ(src.org) → ${ELISP_EL}
+  3. → λ(src.org) → ${ENV_FILES}
 
 #+begin_src makefile
 .PHONY: tangle
 tangle: ${ENV_FILES}
 ${ENV_FILES}: ${SRC}.org | ${BUILD}
-	# Tangling done twice because we want ${ELISP_EL}.
+	# ${ELISP_EL} is built.
 	emacs -Q --batch $< -f org-babel-tangle &>/dev/null
 	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
+
+	# ${ENV_FILES} is built.
 	${EMACS} $< -f org-babel-tangle &>/dev/null
 	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
 	sed -i '1,1d' ${SRC_EL}
