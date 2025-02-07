@@ -1,8 +1,7 @@
-# key: definition
+# key: def
 # name: block-definition
 # --
-#+name: `(downcase (org-id-new))`
+#+ATTR_LATEX: :options [${1:0}]
 #+begin_definition
-${1:term} :
 $0
 #+end_definition

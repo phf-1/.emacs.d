@@ -2,6 +2,7 @@
 # name: block-algorithme
 # key: algo
 # --
-#+begin_src algo
+#+ATTR_LATEX: :options [${1:0}]
+#+begin_algorithm
 $0
-#+end_src
+#+end_algorithm

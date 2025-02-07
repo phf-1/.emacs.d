@@ -1,7 +1,8 @@
 # -*- mode: snippet -*-
 # name: block-proposition
-# key: proposition
+# key: prop
 # --
+#+ATTR_LATEX: :options [${1:0}]
 #+begin_proposition
 $0
 #+end_proposition
