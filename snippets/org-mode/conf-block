@@ -1,5 +1,7 @@
-# key: code
-# name: code
+# key: conf
+# name: conf-block
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-\`$1\`$0
+#+begin_src conf
+$0
+#+end_src

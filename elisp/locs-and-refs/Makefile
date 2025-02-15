@@ -1,5 +1,5 @@
 # Configuration
-# - List of parameters that control the behavior of the Makefile.
+# - List of Makefile configurations.
 
 SHELL := bash
 .SHELLFLAGS := -ceuo pipefail
@@ -8,127 +8,181 @@ MAKEFLAGS += --no-print-directory
 .SILENT:
 
 # BUILD
-# - Variable that refers to the build directory.
+
+# - ~${BUILD}~ is the directory under which all generated files are installed.
 
 BUILD := _build
 ${BUILD}:
-	mkdir -p $@
+	mkdir -vp $@
 
-# SRC
-# - Variable that refers to the source file.
+# TRACE
 
-SRC := locs-and-refs
-SRC_ORG := ${SRC}.org
+# - ${TRACE} is a file used to record an execution trace.
 
-# PACKAGES
-# - Variable that refers to the list of Guix packages for the environment.
+TRACE := ${BUILD}/trace.txt
 
-PACKAGES := guix-packages
+# TRAP
 
-# INIT
-# - Variable that refers to the init file of the bash session in the environment.
+TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
 
-INIT := init
+# MAIN
 
-# ELISP
-# - Variable that refers to ELisp code that should be loaded by ${EMACS}.
+# - ~${MAIN}~ is the name of the source file.
+# - ~${MAIN_ORG}~ is the path to its Org Mode representation.
 
-ELISP := elisp
+MAIN := README
+MAIN_ORG := ${MAIN}.org
 
-# ENV_FILES
-# - List of files that form the development environment.
+# tangle-heading
 
-ELISP_EL := ${BUILD}/${ELISP}.el
-INIT_BASH := ${BUILD}/${INIT}.bash
-PACKAGES_SCM := ${BUILD}/${PACKAGES}.scm
-SRC_EL := ${BUILD}/${SRC}.el
+# - ~make tangle-heading~ builds ~${BUILD}/tangle-heading~ and ~./tangle-heading~.
 
-ENV_FILES := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
+.PHONY: tangle-heading
+TANGLE_HEADING := ${BUILD}/tangle-heading
+tangle-heading: ${TANGLE_HEADING}
+${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
+	cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
+	tail -n 1 ${TRACE}
 
-# EMACS
-# - Variable that refers to the Emacs executable.
+# Makefile
 
-EMACS := emacs -Q --batch -l ${ELISP_EL}
+# - ~make Makefile~ builds ~${BUILD}/Makefile~ and ~./Makefile~.
 
-# GUIX
-# - Variable that refers to the Guix executable.
+.PHONY: Makefile
+MAKEFILE := ${BUILD}/Makefile
+Makefile: ${MAKEFILE}
+${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
+	cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
+	tail -n 1 ${TRACE}
 
-GUIX := guix
+# packages.scm
 
-# tangle
-# - Makefile target that tangles necessary files.
+# - ~make packages.scm~ builds ~${BUILD}/packages.scm~ 
 
-.PHONY: tangle
-tangle: ${ENV_FILES}
-${ENV_FILES}: ${SRC}.org | ${BUILD}
-	# Tangling done twice because we want ${ELISP_EL}.
-	emacs -Q --batch $< -f org-babel-tangle &>/dev/null
-	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
-	${EMACS} $< -f org-babel-tangle &>/dev/null
-	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
-	sed -i '1,1d' ${SRC_EL}
+.PHONY: packages.scm
+PACKAGES_SCM := ${BUILD}/packages.scm
+packages.scm: ${PACKAGES_SCM}
+${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
+	echo "$@"
 
-# clean
-# - Makefile target that deletes all generated files.
+# init.bash
 
-.PHONY: clean
-clean:
-	rm -rfv _*
+# - ~make init.bash~ builds ~${BUILD}/init.bash~ 
+
+.PHONY: init.bash
+INIT_BASH := ${BUILD}/init.bash
+init.bash: ${INIT_BASH}
+${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
+	echo "$@"
 
 # env
-# - Makefile target that starts the environment.
+
+# - ~make env~ starts the environment.
 
 .PHONY: env
+GUIX := guix
 GUIX_SHELL := ${GUIX} shell --container \
 	-F \
+	-N \
 	--file=${PACKAGES_SCM} \
 	--preserve='^TERM$$' \
 	-- bash --init-file ${INIT_BASH}
-env:
+env: ${PACKAGES_SCM} ${INIT_BASH}
 	CMD="${CMD}"
 	if [[ ! -v GUIX_ENVIRONMENT ]]; then
-	  ${MAKE} tangle
 	  if [[ "$${CMD}" == "" ]]; then
 	    ${GUIX_SHELL} -i;
 	  else
 	    ${GUIX_SHELL} -c "${CMD}";
 	  fi
+	else
+	  ${CMD}
+	  :
 	fi
 
+# el
+
+# - ~make el~ builds ~${BUILD}/locs-and-refs.el~ 
+
+.PHONY: el
+LOCS_AND_REFS_EL := ${BUILD}/locs-and-refs.el
+el: ${LOCS_AND_REFS_EL}
+${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} locs-and-refs.el ${BUILD} &> ${TRACE}
+	sed -i '1,2d' ${LOCS_AND_REFS_EL} &>> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+
 # elc
-# - Makefile target that byte compiles the package.
+
+# - ~make elc~ builds ~${BUILD}/locs-and-refs.elc~ 
 
 .PHONY: elc
-SRC_ELC := ${BUILD}/${SRC}.elc
-elc: ${SRC_ELC}
-${SRC_ELC}: ${SRC_EL}
-	${EMACS} -f batch-byte-compile $<
+LOCS_AND_REFS_ELC := ${BUILD}/locs-and-refs.elc
+elc: ${LOCS_AND_REFS_ELC}
+${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
+	${TRAP}	
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
+	-f batch-byte-compile $< &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
 
 # lint
-# - Makefile target that lints the package.
+
+# - ~make lint~ builds ~${BUILD}/lint-report.txt~ 
 
 .PHONY: lint
-LINT := lint-report
-LINT_TXT := ${BUILD}/${LINT}.txt
-lint: ${LINT_TXT}
-${LINT_TXT}: ${SRC_EL}
-	${EMACS} $< -f package-lint-buffer > $@
+LINT_REPORT := ${BUILD}/lint-report.txt
+lint: ${LINT_REPORT}
+${LINT_REPORT}: ${LOCS_AND_REFS_EL}
+	${TRAP}	
+	emacs --batch \
+	--file $< \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
+	--eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
 
 # checkdoc
-# - Makefile target that checks the docstrings of the package.
+
+# - ~make checkdoc~ builds ~${BUILD}/checkdoc.txt~ 
 
 .PHONY: checkdoc
-CHECKDOC := checkdoc
-CHECKDOC_TXT := ${BUILD}/${CHECKDOC}.txt
-checkdoc: ${CHECKDOC_TXT}
-${CHECKDOC_TXT}: ${SRC_EL}
-	${EMACS} --eval '(checkdoc-file "$<")' > $@
+CHECKDOC := ${BUILD}/checkdoc.txt
+checkdoc: ${CHECKDOC}
+${CHECKDOC}: ${LOCS_AND_REFS_EL}
+	${TRAP}	
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(checkdoc-file "$<")' &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
 
 # all
-# - Makefile target that builds, lints, and checks the docstrings of the package.
+
+# - ~make all~ builds the package
 
 .DEFAULT_GOAL := all
 .PHONY: all
 all:
-	${MAKE} tangle
-	${MAKE} env CMD="${MAKE} lint checkdoc"
+	${MAKE} env CMD="${MAKE} lint checkdoc elc"
+
+# clean
+
+# - ~make clean~ deletes all generated files.
+
+.PHONY: clean
+clean:
+	rm -rfv ${BUILD}

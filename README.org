@@ -10,10 +10,6 @@
 
 * user--packages
 
-1. The following has the expected meaning.
-2. code-el :≡ user--packages Δ "xyz.el"
-3. ∃code-el → load(code-el) succeeds
-
 #+begin_src emacs-lisp
 (defvar user--packages (expand-file-name (file-name-concat user-emacs-directory "elisp"))
   "Where users adds its elisp files and packages.")
@@ -21,8 +17,6 @@
 #+end_src
 
 * use-package
-
-1. (use-package …) has the expected meaning.
 
 #+begin_src emacs-lisp
 (eval-when-compile (require 'use-package))
@@ -490,6 +484,7 @@ With prefix ARG, undedicate it."
 (use-package orderless :demand
   :custom
   (completion-styles '(orderless basic))
+  (completion-category-defaults nil)
   (completion-category-overrides '((file (styles basic partial-completion)))))
 #+end_src
 
@@ -538,6 +533,19 @@ $0`(yas-escape-text yas-selected-text)`")
   (setq corfu-separator ?\s)
   (setq corfu-scroll-margin 5)
   (global-corfu-mode))
+#+end_src
+
+* dabbrev
+
+#+begin_src emacs-lisp
+(use-package dabbrev :demand
+  :bind (("M-/" . dabbrev-completion)
+         ("C-M-/" . dabbrev-expand))
+  :config
+  (add-to-list 'dabbrev-ignored-buffer-regexps "\\` ")
+  (add-to-list 'dabbrev-ignored-buffer-modes 'doc-view-mode)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'pdf-view-mode)
+  (add-to-list 'dabbrev-ignored-buffer-modes 'tags-table-mode))
 #+end_src
 
 * savehist
@@ -918,7 +926,8 @@ and return an error indicator."
    ("M-<right>" . org-metaright))
 
   :config
-  (setq org-element--cache-self-verify 'backtrace)
+  ;; (setq org-element--cache-self-verify 'backtrace)
+  (setq org-element--cache-self-verify nil)
   (add-to-list 'org-src-lang-modes '("js" . js-ts))
   (add-to-list 'org-src-lang-modes '("json" . js-ts))
   (add-to-list 'org-src-lang-modes '("heex" . heex-ts))

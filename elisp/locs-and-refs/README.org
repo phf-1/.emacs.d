@@ -1,35 +1,52 @@
 #+PROPERTY: header-args :noweb yes :comments org :mkdirp yes
 
 * Objective
-- See locs-and-refs docstring.
 
-* elisp.el
+#+name: commentary
+#+begin_src emacs-lisp
+If there is a string like \"[[ref:1234]]\" in some buffer, then this minor mode
+will turn it into a \"Reference\". A reference may be viewed as a button
+such that a click will search for the matching \"Location\" in files'
+content, file names and buffers. A matching location may be a string
+\"[[id:1234]]\" or a file named \"1234\".
+
+More precisely:
+
+- A location is defined as:
+  - or :ID: <ID>
+  - or [[id:<ID>]]
+  - or [[id:<ID>][<name>]]
+
+- A reference is defined as:
+  - or :REF: <ID>
+  - or [[ref:<ID>]]
+  - or [[ref:<ID>][<name>]]
+
+This package requires `ripgrep' and `fd' to be installed on your system
+for full functionality.
+
+- Ripgrep: For fast text search.
+- fd: For fast file search.
+#+end_src
+
+* tangle-heading
 :PROPERTIES:
-:header-args+: :tangle elisp.el
+:header-args+: :tangle tangle-heading :shebang "#!/usr/bin/env -S emacs --script"
 :END:
 
 #+begin_src emacs-lisp
-(provide 'org-patches)
-#+end_src
+(require 'org)
+(require 'ob-core)
 
-** no-littering
+(setq org-id-track-globally nil)
 
-#+begin_src emacs-lisp
+;; Set Scheme implementation to Guile
+(require 'ob-scheme)
+(setq-default geiser-scheme-implementation 'guile)
+
 (setq make-backup-files nil)
 (setq auto-save-default nil)
-#+end_src
 
-** package-lint
-
-#+begin_src emacs-lisp
-(require 'package-lint)
-#+end_src
-
-** user--org-remove-property-drawers
-- Function that executes after tangling.
-  It removes exported properties drawers.
-
-#+begin_src emacs-lisp
 (defun user--org-remove-property-drawers ()
   "After tangling, remove all :PROPERTIES: drawers."
   (save-excursion
@@ -41,13 +58,7 @@
     (when (buffer-modified-p)
       (save-buffer))))
 (add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
-#+end_src
 
-** org-babel-spec-to-string
-- Like org-babel-spec-to-string but removes new lines.
-
-#+begin_src emacs-lisp
-(require 'org)
 (defun org-babel-spec-to-string (spec)
   "Insert SPEC into the current file.
 
@@ -88,21 +99,33 @@ that the appropriate major-mode is set.  SPEC has the form:
       (funcall insert-comment
                (org-fill-template
                 org-babel-tangle-comment-format-end link-data)))))
+
+(defun tangle-headline-to-dest (name dest)
+  (let (pos)
+    (when (not (file-directory-p dest)) (error "Destination directory `%s' does not exist." dest))
+    (org-with-wide-buffer
+     (save-excursion
+       (setq pos (org-find-exact-headline-in-buffer name (current-buffer) t))
+       (when (null pos) (error "Heading named `%s' not found." name))
+       (goto-char pos)
+       (org-narrow-to-subtree)
+       (org-babel-tangle)
+       (when (not (file-exists-p name)) (error "Tangling `%s' did not build matching file." name))
+       (rename-file name (concat (file-name-as-directory dest) name) t)))))
+
+;; Silence messages.
+(fset 'message (lambda (&rest args) nil))
+
+(let ((org-file (pop argv))
+      (heading-name (pop argv))
+      (dest-dir (pop argv)))
+  (with-current-buffer (find-file-noselect org-file)
+    (tangle-headline-to-dest heading-name dest-dir)))
 #+end_src
 
-* init.bash
+* packages.scm
 :PROPERTIES:
-:header-args+: :tangle init.bash
-:END:
-- File that contains Bash environment variable declarations.
-
-#+begin_src bash
-export LC_ALL=en_US.UTF-8
-#+end_src
-
-* guix-packages.scm
-:PROPERTIES:
-:header-args+: :tangle guix-packages.scm
+:header-args+: :tangle packages.scm
 :END:
 - File that evaluates to a list of Guix packages.
 
@@ -157,25 +180,44 @@ export LC_ALL=en_US.UTF-8
  (gnu packages bash)
  (gnu packages emacs)
  (gnu packages rust-apps)
+ (gnu packages certs)
  (gnu packages admin)
  (gnu packages build-tools))
 
 (define binaries
-  (list coreutils
-        gnu-make
-        emacs-minimal
-        ripgrep
-        fd
-        sed
-        bash-minimal))
+  (list
+   
+   ;; build dependencies
+   ;; bash-minimal
+   bash
+   coreutils
+   gnu-make
+   emacs-minimal
+   sed
+   nss-certs
+
+   ;; runtime dependencies
+   ripgrep
+   fd))
 #+end_src
 
-* locs-and-refs
+* init.bash
+:PROPERTIES:
+:header-args+: :tangle init.bash
+:END:
+- File that contains Bash environment variable declarations.
+
+#+begin_src bash
+export LC_ALL=en_US.UTF-8
+#+end_src
+
+* locs-and-refs.el
 :PROPERTIES:
 :header-args+: :tangle locs-and-refs.el
 :END:
 
 ** Header
+
 #+begin_src emacs-lisp
 ;;; locs-and-refs.el --- Define locations and references for files and buffers  -*- lexical-binding: t; -*-
 ;;
@@ -184,7 +226,7 @@ export LC_ALL=en_US.UTF-8
 ;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Homepage: https://github.com/phf-1/locs-and-refs
 ;; Package-Version: 0.17
-;; Package-Requires: ((emacs "27.1") (pcre2el "1.12"))
+;; Package-Requires: ((emacs "27.1") (pcre2el "1.11"))
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
 ;; This program is free software; you can redistribute it and/or modify
@@ -196,33 +238,7 @@ export LC_ALL=en_US.UTF-8
 ;;
 ;;; Commentary:
 ;;
-;; Locations and References for Emacs
-;;
-;; If there is a string like "[[ref:1234]]" in some buffer, then this minor mode will
-;; turn it into a "Reference". A reference may be viewed as a button such that a
-;; click will search for the matching "Location" in files' content, file names and
-;; buffers. A matching location may be a string "[[id:1234]]" or a file named "1234".
-;;
-;; More precisely:
-;;
-;; - A location is defined as:
-;;   - or :ID: <ID>
-;;   - or [[id:<ID>]]
-;;   - or [[id:<ID>][<name>]]
-;;
-;; - A reference is defined as:
-;;   - or :REF: <ID>
-;;   - or [[ref:<ID>]]
-;;   - or [[ref:<ID>][<name>]]
-;;
-;; This package requires 'ripgrep' and 'fd' to be installed on your system for full
-;; functionality.
-;;
-;; - Ripgrep: For fast text search.
-;; - fd: For fast file search.
-;;
-;; The code structure lives at:
-;; - https://github.com/phf-1/.emacs.d/blob/master/elisp/locs-and-refs/locs-and-refs.org
+;; <<commentary>>
 ;;
 ;;; Code:
 #+end_src
@@ -755,7 +771,7 @@ integer positions."
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-click (loc)
-  "Click on a location LOC shows matching references in a new buffer."
+  "Show references in a new buffer after a click on location LOC."
   (let* ((content-regex (locs-and-refs--location-content-regex loc))
          (file-matches (locs-and-refs--search-files content-regex))
          (buffer-matches (locs-and-refs--search-buffers content-regex))
@@ -877,7 +893,7 @@ click ref :≡
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-click (ref)
-  "Click on a reference REF shows matching locations in a new buffer."
+  "Show matching locations in a new buffer after a click on a reference REF."
   (let* ((content-regex (locs-and-refs--reference-content-regex ref))
          (file-matches (locs-and-refs--search-files content-regex))
          (buffer-matches (locs-and-refs--search-buffers content-regex))
@@ -1087,24 +1103,7 @@ A click on a button opens the associated file."
 (define-minor-mode locs-and-refs-mode
   "Locations and References for Emacs.
 
-If there is a string like \"[[ref:1234]]\" in some buffer, then
-this minor mode will turn it into a \"Reference\". A reference
-may be viewed as a button such that a click will search for the
-matching \"Location\" in files' content, file names and
-buffers. A matching location may be a string \"[[id:1234]]\" or a
-file named \"1234\".
-
-More precisely:
-
-- A location is defined as:
-  - or :ID: <UUID>
-  - or [[id:<UUID>]]
-  - or [[id:<UUID>][<name>]]
-
-- A reference is defined as:
-  - or :REF: <UUID>
-  - or [[ref:<UUID>]]
-  - or [[ref:<UUID>][<name>]]"
+<<commentary>>"
   :init-value nil
   :lighter " L&R"
   :keymap nil
@@ -1148,162 +1147,212 @@ MAKEFLAGS += --no-print-directory
 #+end_src
 
 ** BUILD
-- Variable that refers to the build directory.
+
+- ~${BUILD}~ is the directory under which all generated files are installed.
 
 #+begin_src makefile
 BUILD := _build
 ${BUILD}:
-	mkdir -p $@
+	mkdir -vp $@
 #+end_src
 
-** SRC
-- Variable that refers to the source file.
+** TRACE
+
+- ${TRACE} is a file used to record an execution trace.
 
 #+begin_src makefile
-SRC := locs-and-refs
-SRC_ORG := ${SRC}.org
+TRACE := ${BUILD}/trace.txt
 #+end_src
 
-** PACKAGES
-- Variable that refers to the list of Guix packages for the environment.
+** TRAP
 
 #+begin_src makefile
-PACKAGES := guix-packages
+TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
 #+end_src
 
-** INIT
-- Variable that refers to the init file of the bash session in the environment.
+** MAIN
+
+- ~${MAIN}~ is the name of the source file.
+- ~${MAIN_ORG}~ is the path to its Org Mode representation.
 
 #+begin_src makefile
-INIT := init
+MAIN := README
+MAIN_ORG := ${MAIN}.org
 #+end_src
 
-** ELISP
-- Variable that refers to ELisp code that should be loaded by ${EMACS}.
+** tangle-heading
+
+- ~make tangle-heading~ builds ~${BUILD}/tangle-heading~ and ~./tangle-heading~.
 
 #+begin_src makefile
-ELISP := elisp
-#+end_src
+.PHONY: tangle-heading
+TANGLE_HEADING := ${BUILD}/tangle-heading
+tangle-heading: ${TANGLE_HEADING}
+${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
+	cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
+	tail -n 1 ${TRACE}
+#+end_src 
 
-** ENV_FILES
-- List of files that form the development environment.
+** Makefile
 
-#+begin_src makefile
-ELISP_EL := ${BUILD}/${ELISP}.el
-INIT_BASH := ${BUILD}/${INIT}.bash
-PACKAGES_SCM := ${BUILD}/${PACKAGES}.scm
-SRC_EL := ${BUILD}/${SRC}.el
-
-ENV_FILES := ${SRC_EL} ${INIT_BASH} ${PACKAGES_SCM} ${ELISP_EL}
-#+end_src
-
-** EMACS
-- Variable that refers to the Emacs executable.
+- ~make Makefile~ builds ~${BUILD}/Makefile~ and ~./Makefile~.
 
 #+begin_src makefile
-EMACS := emacs -Q --batch -l ${ELISP_EL}
-#+end_src
+.PHONY: Makefile
+MAKEFILE := ${BUILD}/Makefile
+Makefile: ${MAKEFILE}
+${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
+	cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
+	tail -n 1 ${TRACE}
+#+end_src 
 
-** GUIX
-- Variable that refers to the Guix executable.
+** packages.scm
 
-#+begin_src makefile
-GUIX := guix
-#+end_src
-
-** tangle
-- Makefile target that tangles necessary files.
-  1. src.org ≡ ${SRC}.org
-  2. λ(src.org) → ${ELISP_EL}
-  3. → λ(src.org) → ${ENV_FILES}
+- ~make packages.scm~ builds ~${BUILD}/packages.scm~ 
 
 #+begin_src makefile
-.PHONY: tangle
-tangle: ${ENV_FILES}
-${ENV_FILES}: ${SRC}.org | ${BUILD}
-	# ${ELISP_EL} is built.
-	emacs -Q --batch $< -f org-babel-tangle &>/dev/null
-	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
+.PHONY: packages.scm
+PACKAGES_SCM := ${BUILD}/packages.scm
+packages.scm: ${PACKAGES_SCM}
+${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
+	echo "$@"
+#+end_src 
 
-	# ${ENV_FILES} is built.
-	${EMACS} $< -f org-babel-tangle &>/dev/null
-	mv ${SRC}.el ${INIT}.bash ${PACKAGES}.scm ${ELISP}.el ${BUILD}
-	sed -i '1,1d' ${SRC_EL}
-#+end_src
+** init.bash
 
-** clean
-- Makefile target that deletes all generated files.
+- ~make init.bash~ builds ~${BUILD}/init.bash~ 
 
 #+begin_src makefile
-.PHONY: clean
-clean:
-	rm -rfv _*
-#+end_src
+.PHONY: init.bash
+INIT_BASH := ${BUILD}/init.bash
+init.bash: ${INIT_BASH}
+${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
+	echo "$@"
+#+end_src 
 
 ** env
-- Makefile target that starts the environment.
+
+- ~make env~ starts the environment.
 
 #+begin_src makefile
 .PHONY: env
+GUIX := guix
 GUIX_SHELL := ${GUIX} shell --container \
 	-F \
+	-N \
 	--file=${PACKAGES_SCM} \
 	--preserve='^TERM$$' \
 	-- bash --init-file ${INIT_BASH}
-env:
+env: ${PACKAGES_SCM} ${INIT_BASH}
 	CMD="${CMD}"
 	if [[ ! -v GUIX_ENVIRONMENT ]]; then
-	  ${MAKE} tangle
 	  if [[ "$${CMD}" == "" ]]; then
 	    ${GUIX_SHELL} -i;
 	  else
 	    ${GUIX_SHELL} -c "${CMD}";
 	  fi
+	else
+	  ${CMD}
+	  :
 	fi
 #+end_src
 
+** el
+
+- ~make el~ builds ~${BUILD}/locs-and-refs.el~ 
+
+#+begin_src makefile
+.PHONY: el
+LOCS_AND_REFS_EL := ${BUILD}/locs-and-refs.el
+el: ${LOCS_AND_REFS_EL}
+${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} locs-and-refs.el ${BUILD} &> ${TRACE}
+	sed -i '1,2d' ${LOCS_AND_REFS_EL} &>> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src 
+
 ** elc
-- Makefile target that byte compiles the package.
+
+- ~make elc~ builds ~${BUILD}/locs-and-refs.elc~ 
 
 #+begin_src makefile
 .PHONY: elc
-SRC_ELC := ${BUILD}/${SRC}.elc
-elc: ${SRC_ELC}
-${SRC_ELC}: ${SRC_EL}
-	${EMACS} -f batch-byte-compile $<
+LOCS_AND_REFS_ELC := ${BUILD}/locs-and-refs.elc
+elc: ${LOCS_AND_REFS_ELC}
+${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
+	${TRAP}	
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
+	-f batch-byte-compile $< &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
 #+end_src
 
 ** lint
-- Makefile target that lints the package.
+
+- ~make lint~ builds ~${BUILD}/lint-report.txt~ 
 
 #+begin_src makefile
 .PHONY: lint
-LINT := lint-report
-LINT_TXT := ${BUILD}/${LINT}.txt
-lint: ${LINT_TXT}
-${LINT_TXT}: ${SRC_EL}
-	${EMACS} $< -f package-lint-buffer > $@
+LINT_REPORT := ${BUILD}/lint-report.txt
+lint: ${LINT_REPORT}
+${LINT_REPORT}: ${LOCS_AND_REFS_EL}
+	${TRAP}	
+	emacs --batch \
+	--file $< \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
+	--eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
 #+end_src
 
 ** checkdoc
-- Makefile target that checks the docstrings of the package.
+
+- ~make checkdoc~ builds ~${BUILD}/checkdoc.txt~ 
 
 #+begin_src makefile
 .PHONY: checkdoc
-CHECKDOC := checkdoc
-CHECKDOC_TXT := ${BUILD}/${CHECKDOC}.txt
-checkdoc: ${CHECKDOC_TXT}
-${CHECKDOC_TXT}: ${SRC_EL}
-	${EMACS} --eval '(checkdoc-file "$<")' > $@
+CHECKDOC := ${BUILD}/checkdoc.txt
+checkdoc: ${CHECKDOC}
+${CHECKDOC}: ${LOCS_AND_REFS_EL}
+	${TRAP}	
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(checkdoc-file "$<")' &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
 #+end_src
 
 ** all
-- Makefile target that builds, lints, and checks the docstrings of the package.
+
+- ~make all~ builds the package
 
 #+begin_src makefile
 .DEFAULT_GOAL := all
 .PHONY: all
 all:
-	${MAKE} tangle
-	${MAKE} env CMD="${MAKE} lint checkdoc"
+	${MAKE} env CMD="${MAKE} lint checkdoc elc"
 #+end_src
+
+** clean
+
+- ~make clean~ deletes all generated files.
+
+#+begin_src makefile
+.PHONY: clean
+clean:
+	rm -rfv ${BUILD}
+#+end_src
+
