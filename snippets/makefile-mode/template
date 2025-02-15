@@ -4,22 +4,64 @@
 # --
 SHELL := bash
 .SHELLFLAGS := -ceuo pipefail
+MAKEFLAGS += --no-print-directory
 .ONESHELL:
-# .SILENT:
+.SILENT:
+
+
+# \$(patsubst %.docx,%.md,file1.docx file2.docx)
+# path_wo_ext="\$\${path%.*}"
+
 
 BUILD := _build
 \${BUILD}:
-	mkdir -p \$@
+	mkdir -vp \$@
 
-.PHONY: start
-INPUTS := replique.docx reponse.docx requete.docx
-START := \$(patsubst %.docx,%.md,\${INPUTS})
-start: \${START}
-%.md: %.docx | \${BUILD}
-	path="\$<"
-	path_wo_ext="\$\${path%.*}"
-	pandoc -t markdown_strict "\$\${path}" -o "\${BUILD}/\$\${path_wo_ext}.md"
+TRACE := \${BUILD}/trace.txt
+
+TRAP := > \${TRACE}; trap 'if [[ \$\$? -ne 0 ]]; then cat \${TRACE}; fi' EXIT
+
+MAIN_ORG := README.org
+
+.PHONY: packages.scm
+PACKAGES_SCM := \${BUILD}/packages.scm
+packages.scm: \${PACKAGES_SCM}
+\${PACKAGES_SCM}: \${MAIN_ORG} | \${BUILD}
+	\${TRAP}
+	./tangle-heading \${MAIN_ORG} packages.scm \${BUILD} &> \${TRACE}
+	echo "\$@"
+
+.PHONY: init.bash
+INIT_BASH := \${BUILD}/init.bash
+init.bash: \${INIT_BASH}
+\${INIT_BASH}: \${MAIN_ORG} | \${BUILD}
+	\${TRAP}
+	./tangle-heading \${MAIN_ORG} init.bash \${BUILD} &> \${TRACE}
+	echo "\$@"
+
+.PHONY: env
+GUIX := guix
+GUIX_SHELL := \${GUIX} shell --container \
+	-F \
+	-N \
+	--file=\${PACKAGES_SCM} \
+	--preserve='^TERM\$\$' \
+	-- bash --init-file \${INIT_BASH}
+env: \${PACKAGES_SCM} \${INIT_BASH}
+	CMD="\${CMD}"
+	if [[ ! -v GUIX_ENVIRONMENT ]]; then
+	  if [[ "\$\${CMD}" == "" ]]; then
+	    \${GUIX_SHELL} -i;
+	  else
+	    \${GUIX_SHELL} -c "\${CMD}";
+	  fi
+	else
+	  \${CMD}
+	  :
+	fi
+
+# ...
 
 .PHONY: clean
 clean:
-	rm -rvf \${BUILD}
+	rm -rfv \${BUILD}
