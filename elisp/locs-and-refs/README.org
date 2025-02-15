@@ -737,7 +737,7 @@ integer positions."
 #+end_src
 
 *** tag
-- λ : String
+- λ() : String
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-tag ()
@@ -755,7 +755,7 @@ integer positions."
 #+end_src
 
 *** regex
-- λ : RegEx
+- λ() : RegEx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-regex ()
@@ -867,7 +867,7 @@ integer positions."
 #+end_src
 
 *** regex
-- λ : Regex
+- λ() : Regex
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-regex ()
@@ -907,9 +907,6 @@ click ref :≡
 #+end_src
 
 ** UI
-#+begin_src emacs-lisp
-#+end_src
-
 *** insert-button
 - λ : Name Action → Button
 
@@ -1155,7 +1152,7 @@ MAKEFLAGS += --no-print-directory
 #+begin_src makefile
 BUILD := _build
 ${BUILD}:
-	mkdir -vp $@
+	mkdir -p $@
 #+end_src
 
 ** TRACE
@@ -1173,14 +1170,14 @@ TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
 #+end_src
 
 ** MAIN_ORG
-- ~${MAIN_ORG}~ is the path to this Org Mode file.
+- ~${MAIN_ORG}~ is the path to source file.
 
 #+begin_src makefile
 MAIN_ORG := README.org
 #+end_src
 
 ** tangle-heading
-- ~make tangle-heading~ builds ~${BUILD}/tangle-heading~ and ~./tangle-heading~.
+- ~make tangle-heading~ returns the path to the updated ~./tangle-heading~ script.
 
 #+begin_src makefile
 .PHONY: tangle-heading
@@ -1194,7 +1191,7 @@ ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
 #+end_src 
 
 ** Makefile
-- ~make Makefile~ builds ~${BUILD}/Makefile~ and ~./Makefile~.
+- ~make Makefile~ returns the path to the updated ~./Makefile~.
 
 #+begin_src makefile
 .PHONY: Makefile
@@ -1208,7 +1205,7 @@ ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
 #+end_src 
 
 ** packages.scm
-- ~make packages.scm~ builds ~${BUILD}/packages.scm~ 
+- ~make packages.scm~ returns the path to the Guix packages available in the environment.
 
 #+begin_src makefile
 .PHONY: packages.scm
@@ -1221,7 +1218,7 @@ ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
 #+end_src 
 
 ** init.bash
-- ~make init.bash~ builds ~${BUILD}/init.bash~ 
+- ~make init.bash~ returns the path to parameters that initialize Bash in the environment.
 
 #+begin_src makefile
 .PHONY: init.bash
@@ -1260,7 +1257,7 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 #+end_src
 
 ** el
-- ~make el~ builds ~${BUILD}/locs-and-refs.el~ 
+- ~make el~ returns the path to the elisp package.
 
 #+begin_src makefile
 .PHONY: el
@@ -1275,7 +1272,7 @@ ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
 #+end_src 
 
 ** elc
-- ~make elc~ builds ~${BUILD}/locs-and-refs.elc~ 
+- ~make elc~ returns the path to the compiled elisp package.
 
 #+begin_src makefile
 .PHONY: elc
@@ -1292,7 +1289,7 @@ ${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
 #+end_src
 
 ** lint
-- ~make lint~ builds ~${BUILD}/lint-report.txt~ 
+- ~make lint~ returns the path to the linting report of the elisp package.
 
 #+begin_src makefile
 .PHONY: lint
@@ -1310,7 +1307,7 @@ ${LINT_REPORT}: ${LOCS_AND_REFS_EL}
 #+end_src
 
 ** checkdoc
-- ~make checkdoc~ builds ~${BUILD}/checkdoc.txt~ 
+- ~make checkdoc~ returns the path to the analysis of the docstrings of the elisp package.
 
 #+begin_src makefile
 .PHONY: checkdoc
@@ -1326,13 +1323,15 @@ ${CHECKDOC}: ${LOCS_AND_REFS_EL}
 #+end_src
 
 ** all
-- ~make all~ builds the package
+- ~make all~ returns the path of the elisp package after ~lint~, ~checkdoc~ and ~elc~ steps.
 
 #+begin_src makefile
 .DEFAULT_GOAL := all
 .PHONY: all
-all:
-	${MAKE} env CMD="${MAKE} lint checkdoc elc"
+all: ${BUILD}
+	${TRAP}
+	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
+	echo ${LOCS_AND_REFS_EL}
 #+end_src
 
 ** clean

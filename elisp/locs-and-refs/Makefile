@@ -12,7 +12,7 @@ MAKEFLAGS += --no-print-directory
 
 BUILD := _build
 ${BUILD}:
-	mkdir -vp $@
+	mkdir -p $@
 
 # TRACE
 # - ${TRACE} is a file used to record an execution trace.
@@ -25,12 +25,12 @@ TRACE := ${BUILD}/trace.txt
 TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
 
 # MAIN_ORG
-# - ~${MAIN_ORG}~ is the path to this Org Mode file.
+# - ~${MAIN_ORG}~ is the path to source file.
 
 MAIN_ORG := README.org
 
 # tangle-heading
-# - ~make tangle-heading~ builds ~${BUILD}/tangle-heading~ and ~./tangle-heading~.
+# - ~make tangle-heading~ returns the path to the updated ~./tangle-heading~ script.
 
 .PHONY: tangle-heading
 TANGLE_HEADING := ${BUILD}/tangle-heading
@@ -42,7 +42,7 @@ ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
 	tail -n 1 ${TRACE}
 
 # Makefile
-# - ~make Makefile~ builds ~${BUILD}/Makefile~ and ~./Makefile~.
+# - ~make Makefile~ returns the path to the updated ~./Makefile~.
 
 .PHONY: Makefile
 MAKEFILE := ${BUILD}/Makefile
@@ -54,7 +54,7 @@ ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
 	tail -n 1 ${TRACE}
 
 # packages.scm
-# - ~make packages.scm~ builds ~${BUILD}/packages.scm~ 
+# - ~make packages.scm~ returns the path to the Guix packages available in the environment.
 
 .PHONY: packages.scm
 PACKAGES_SCM := ${BUILD}/packages.scm
@@ -65,7 +65,7 @@ ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
 	echo "$@"
 
 # init.bash
-# - ~make init.bash~ builds ~${BUILD}/init.bash~ 
+# - ~make init.bash~ returns the path to parameters that initialize Bash in the environment.
 
 .PHONY: init.bash
 INIT_BASH := ${BUILD}/init.bash
@@ -100,7 +100,7 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 	fi
 
 # el
-# - ~make el~ builds ~${BUILD}/locs-and-refs.el~ 
+# - ~make el~ returns the path to the elisp package.
 
 .PHONY: el
 LOCS_AND_REFS_EL := ${BUILD}/locs-and-refs.el
@@ -113,7 +113,7 @@ ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
 	echo "$@"
 
 # elc
-# - ~make elc~ builds ~${BUILD}/locs-and-refs.elc~ 
+# - ~make elc~ returns the path to the compiled elisp package.
 
 .PHONY: elc
 LOCS_AND_REFS_ELC := ${BUILD}/locs-and-refs.elc
@@ -128,7 +128,7 @@ ${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
 	echo "$@"
 
 # lint
-# - ~make lint~ builds ~${BUILD}/lint-report.txt~ 
+# - ~make lint~ returns the path to the linting report of the elisp package.
 
 .PHONY: lint
 LINT_REPORT := ${BUILD}/lint-report.txt
@@ -144,7 +144,7 @@ ${LINT_REPORT}: ${LOCS_AND_REFS_EL}
 	echo "$@"
 
 # checkdoc
-# - ~make checkdoc~ builds ~${BUILD}/checkdoc.txt~ 
+# - ~make checkdoc~ returns the path to the analysis of the docstrings of the elisp package.
 
 .PHONY: checkdoc
 CHECKDOC := ${BUILD}/checkdoc.txt
@@ -158,12 +158,14 @@ ${CHECKDOC}: ${LOCS_AND_REFS_EL}
 	echo "$@"
 
 # all
-# - ~make all~ builds the package
+# - ~make all~ returns the path of the elisp package after ~lint~, ~checkdoc~ and ~elc~ steps.
 
 .DEFAULT_GOAL := all
 .PHONY: all
-all:
-	${MAKE} env CMD="${MAKE} lint checkdoc elc"
+all: ${BUILD}
+	${TRAP}
+	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
+	echo ${LOCS_AND_REFS_EL}
 
 # clean
 # - ~make clean~ deletes all generated files.
