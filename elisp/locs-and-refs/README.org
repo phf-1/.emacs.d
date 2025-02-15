@@ -33,6 +33,9 @@ for full functionality.
 :PROPERTIES:
 :header-args+: :tangle tangle-heading :shebang "#!/usr/bin/env -S emacs --script"
 :END:
+- ~./tangle-heading ./file.org file.el directory~ tangles the heading named ~file.el~
+  and move the resulting file under ~directory~.
+- A heading named ~file.el~ is expected to get tangled into a file named ~./file.el~.
 
 #+begin_src emacs-lisp
 (require 'org)
