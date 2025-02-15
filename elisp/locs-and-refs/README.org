@@ -1147,7 +1147,6 @@ MAKEFLAGS += --no-print-directory
 #+end_src
 
 ** BUILD
-
 - ~${BUILD}~ is the directory under which all generated files are installed.
 
 #+begin_src makefile
@@ -1157,7 +1156,6 @@ ${BUILD}:
 #+end_src
 
 ** TRACE
-
 - ${TRACE} is a file used to record an execution trace.
 
 #+begin_src makefile
@@ -1165,23 +1163,20 @@ TRACE := ${BUILD}/trace.txt
 #+end_src
 
 ** TRAP
+- ${TRAP} If something has been written to ${TRACE}, then consider that the rule failed.
 
 #+begin_src makefile
 TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
 #+end_src
 
-** MAIN
-
-- ~${MAIN}~ is the name of the source file.
-- ~${MAIN_ORG}~ is the path to its Org Mode representation.
+** MAIN_ORG
+- ~${MAIN_ORG}~ is the path to this Org Mode file.
 
 #+begin_src makefile
-MAIN := README
-MAIN_ORG := ${MAIN}.org
+MAIN_ORG := README.org
 #+end_src
 
 ** tangle-heading
-
 - ~make tangle-heading~ builds ~${BUILD}/tangle-heading~ and ~./tangle-heading~.
 
 #+begin_src makefile
@@ -1196,7 +1191,6 @@ ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
 #+end_src 
 
 ** Makefile
-
 - ~make Makefile~ builds ~${BUILD}/Makefile~ and ~./Makefile~.
 
 #+begin_src makefile
@@ -1211,7 +1205,6 @@ ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
 #+end_src 
 
 ** packages.scm
-
 - ~make packages.scm~ builds ~${BUILD}/packages.scm~ 
 
 #+begin_src makefile
@@ -1225,7 +1218,6 @@ ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
 #+end_src 
 
 ** init.bash
-
 - ~make init.bash~ builds ~${BUILD}/init.bash~ 
 
 #+begin_src makefile
@@ -1239,7 +1231,6 @@ ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
 #+end_src 
 
 ** env
-
 - ~make env~ starts the environment.
 
 #+begin_src makefile
@@ -1266,7 +1257,6 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 #+end_src
 
 ** el
-
 - ~make el~ builds ~${BUILD}/locs-and-refs.el~ 
 
 #+begin_src makefile
@@ -1282,7 +1272,6 @@ ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
 #+end_src 
 
 ** elc
-
 - ~make elc~ builds ~${BUILD}/locs-and-refs.elc~ 
 
 #+begin_src makefile
@@ -1300,7 +1289,6 @@ ${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
 #+end_src
 
 ** lint
-
 - ~make lint~ builds ~${BUILD}/lint-report.txt~ 
 
 #+begin_src makefile
@@ -1319,7 +1307,6 @@ ${LINT_REPORT}: ${LOCS_AND_REFS_EL}
 #+end_src
 
 ** checkdoc
-
 - ~make checkdoc~ builds ~${BUILD}/checkdoc.txt~ 
 
 #+begin_src makefile
@@ -1336,7 +1323,6 @@ ${CHECKDOC}: ${LOCS_AND_REFS_EL}
 #+end_src
 
 ** all
-
 - ~make all~ builds the package
 
 #+begin_src makefile
@@ -1347,7 +1333,6 @@ all:
 #+end_src
 
 ** clean
-
 - ~make clean~ deletes all generated files.
 
 #+begin_src makefile

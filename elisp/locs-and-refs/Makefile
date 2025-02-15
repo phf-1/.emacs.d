@@ -8,7 +8,6 @@ MAKEFLAGS += --no-print-directory
 .SILENT:
 
 # BUILD
-
 # - ~${BUILD}~ is the directory under which all generated files are installed.
 
 BUILD := _build
@@ -16,25 +15,21 @@ ${BUILD}:
 	mkdir -vp $@
 
 # TRACE
-
 # - ${TRACE} is a file used to record an execution trace.
 
 TRACE := ${BUILD}/trace.txt
 
 # TRAP
+# - ${TRAP} If something has been written to ${TRACE}, then consider that the rule failed.
 
 TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
 
-# MAIN
+# MAIN_ORG
+# - ~${MAIN_ORG}~ is the path to this Org Mode file.
 
-# - ~${MAIN}~ is the name of the source file.
-# - ~${MAIN_ORG}~ is the path to its Org Mode representation.
-
-MAIN := README
-MAIN_ORG := ${MAIN}.org
+MAIN_ORG := README.org
 
 # tangle-heading
-
 # - ~make tangle-heading~ builds ~${BUILD}/tangle-heading~ and ~./tangle-heading~.
 
 .PHONY: tangle-heading
@@ -47,7 +42,6 @@ ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
 	tail -n 1 ${TRACE}
 
 # Makefile
-
 # - ~make Makefile~ builds ~${BUILD}/Makefile~ and ~./Makefile~.
 
 .PHONY: Makefile
@@ -60,7 +54,6 @@ ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
 	tail -n 1 ${TRACE}
 
 # packages.scm
-
 # - ~make packages.scm~ builds ~${BUILD}/packages.scm~ 
 
 .PHONY: packages.scm
@@ -72,7 +65,6 @@ ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
 	echo "$@"
 
 # init.bash
-
 # - ~make init.bash~ builds ~${BUILD}/init.bash~ 
 
 .PHONY: init.bash
@@ -84,7 +76,6 @@ ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
 	echo "$@"
 
 # env
-
 # - ~make env~ starts the environment.
 
 .PHONY: env
@@ -109,7 +100,6 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 	fi
 
 # el
-
 # - ~make el~ builds ~${BUILD}/locs-and-refs.el~ 
 
 .PHONY: el
@@ -123,7 +113,6 @@ ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
 	echo "$@"
 
 # elc
-
 # - ~make elc~ builds ~${BUILD}/locs-and-refs.elc~ 
 
 .PHONY: elc
@@ -139,7 +128,6 @@ ${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
 	echo "$@"
 
 # lint
-
 # - ~make lint~ builds ~${BUILD}/lint-report.txt~ 
 
 .PHONY: lint
@@ -156,7 +144,6 @@ ${LINT_REPORT}: ${LOCS_AND_REFS_EL}
 	echo "$@"
 
 # checkdoc
-
 # - ~make checkdoc~ builds ~${BUILD}/checkdoc.txt~ 
 
 .PHONY: checkdoc
@@ -171,7 +158,6 @@ ${CHECKDOC}: ${LOCS_AND_REFS_EL}
 	echo "$@"
 
 # all
-
 # - ~make all~ builds the package
 
 .DEFAULT_GOAL := all
@@ -180,7 +166,6 @@ all:
 	${MAKE} env CMD="${MAKE} lint checkdoc elc"
 
 # clean
-
 # - ~make clean~ deletes all generated files.
 
 .PHONY: clean
