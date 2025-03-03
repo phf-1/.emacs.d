@@ -71,6 +71,8 @@
 (global-auto-revert-mode t)
 (put 'narrow-to-region 'disabled nil)
 (setq load-prefer-newer t)
+(setq custom-file (locate-user-emacs-file "custom-vars.el"))
+(load custom-file 'noerror 'nomessage)
 (provide 'user-editing)
 #+end_src
 
@@ -461,7 +463,7 @@ With prefix ARG, undedicate it."
    ("C-r" . consult-ripgrep)
    ("C-c f" . consult-find)
    ("M-." . xref-find-definitions) ;see configuration below.
-   ("M-i" . consult-imenu)
+   ("M-i" . consult-outline)
    ("C-x b" . consult-buffer)
    ("C--" . consult-mark)
    ("C-y" . consult-yank-replace)
@@ -526,13 +528,72 @@ $0`(yas-escape-text yas-selected-text)`")
 1. In-buffer completion is enhanced with a small completion popup.
 
 #+begin_src emacs-lisp
-(use-package corfu :demand
+(use-package corfu
+  :demand
+  :bind (:map corfu-map
+              ("M-SPC"      . corfu-insert-separator)
+              ("TAB"        . corfu-next)
+              ([tab]        . corfu-next)
+              ("S-TAB"      . corfu-previous)
+              ([backtab]    . corfu-previous)
+              ("RET"        . corfu-insert))
+  :custom
+  (corfu-cycle t)
+  (corfu-auto nil)
+  (corfu-quit-no-match 'separator)
+  (corfu-auto-prefix 2)
+  (corfu-auto-delay 0.1)
+  (corfu-popupinfo-delay '(0.5 . 0.2))
+  (corfu-preview-current 'insert)
+  (corfu-preselect 'prompt)
+  (corfu-on-exact-match nil)
   :config
-  (setq corfu-cycle t)
-  (setq corfu-auto t)
-  (setq corfu-separator ?\s)
-  (setq corfu-scroll-margin 5)
-  (global-corfu-mode))
+  (corfu-history-mode 1)
+  (corfu-popupinfo-mode 1)
+  (global-corfu-mode 1))
+#+end_src
+
+* corfu-candidate-overlay
+
+#+begin_src emacs-lisp
+(use-package corfu-candidate-overlay :demand
+  :after corfu
+  :bind (("C-<tab>" . completion-at-point)
+         ("C-!" . corfu-candidate-overlay-complete-at-point))
+  :config
+  ;; enable corfu-candidate-overlay mode globally
+  ;; this relies on having corfu-auto set to nil
+  (corfu-candidate-overlay-mode +1))
+#+end_src
+
+* cape
+
+#+begin_src emacs-lisp
+(use-package cape :demand
+  :bind ("C-c f" . cape-file)
+  :init
+  ;; Add `completion-at-point-functions', used by `completion-at-point'.
+  (defun my/add-shell-completion ()
+    (interactive)
+    (add-to-list 'completion-at-point-functions 'cape-history)
+    (add-to-list 'completion-at-point-functions 'pcomplete-completions-at-point))
+  (add-hook 'shell-mode-hook #'my/add-shell-completion nil t)
+
+
+  (setq-local completion-at-point-functions
+              (list (cape-capf-super #'cape-dabbrev #'cape-dict #'cape-keyword)))
+
+  :config
+  ;; Make capfs composable
+  (advice-add #'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
+  (advice-add #'comint-completion-at-point :around #'cape-wrap-nonexclusive)
+
+  ;; Silence then pcomplete capf, no errors or messages!
+  (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-silent)
+
+  ;; Ensure that pcomplete does not write to the buffer
+  ;; and behaves as a pure `completion-at-point-function'.
+  (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-purify))
 #+end_src
 
 * dabbrev
@@ -923,29 +984,40 @@ and return an error indicator."
   :bind
   (("C-c C-l" . org-insert-link)
    ("M-RET" . org-insert-heading)
-   ("M-<right>" . org-metaright))
+   ("M-<right>" . org-metaright)
+   ("M-p" . org-copy-outline-path-to-kill-ring))
+
+  :custom
+  ;; TODO Org Mode maintainer.
+  ;(org-element--cache-self-verify nil)
+  ;(org-element--cache-self-verify-frequency 1.0)
+  (org-startup-folded 'show2levels)
+  (org-ellipsis " ")
+  (org-hide-leading-stars t)
+  (org-startup-indented t)
+  (org-src-fontify-natively t)
+  (org-id-link-to-org-use-id t)
+  (org-link-keep-stored-after-insertion t)
+  (org-imenu-depth 100)
+  (org-src-preserve-indentation t)
+  (org-hide-emphasis-markers t)
+  (org-todo-keywords
+   '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
+  (org-todo-keyword-faces
+   '(("TODO" . (:foreground "red" :family "JetBrains Mono" :height 0.9))
+     ("WAITING" . (:foreground "orange" :family "JetBrains Mono" :height 0.9))
+     ("FAILED" . (:foreground "purple" :family "JetBrains Mono" :height 0.9))
+     ("DONE" . (:foreground "green" :family "JetBrains Mono" :height 0.9))
+     ("CANCELED" . (:foreground "grey" :family "JetBrains Mono" :height 0.9))))
+  (org-log-into-drawer t)
+  (org-clock-into-drawer t)
 
   :config
   ;; (setq org-element--cache-self-verify 'backtrace)
-  (setq org-element--cache-self-verify nil)
   (add-to-list 'org-src-lang-modes '("js" . js-ts))
   (add-to-list 'org-src-lang-modes '("json" . js-ts))
   (add-to-list 'org-src-lang-modes '("heex" . heex-ts))
-  (setq org-ellipsis " ")
-  (setq org-hide-leading-stars t)
-  (setq org-startup-indented t)
-  (setq org-src-preserve-indentation t)
-  (setq org-hide-emphasis-markers t)
-  (setq org-todo-keywords
-        '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
-  (setq org-todo-keyword-faces
-        '(("TODO" . (:foreground "red" :family "JetBrains Mono" :height 0.9))
-          ("WAITING" . (:foreground "orange" :family "JetBrains Mono" :height 0.9))
-          ("FAILED" . (:foreground "purple" :family "JetBrains Mono" :height 0.9))
-          ("DONE" . (:foreground "green" :family "JetBrains Mono" :height 0.9))
-          ("CANCELED" . (:foreground "grey" :family "JetBrains Mono" :height 0.9))))
-  (setq org-log-into-drawer t)
-  (setq org-clock-into-drawer t)
+
   (org-babel-do-load-languages
    'org-babel-load-languages
    '((emacs-lisp . t)
@@ -959,9 +1031,6 @@ and return an error indicator."
      (R . t)
      (python . t)
      (js . t)))
-  (setq org-src-fontify-natively t)
-  (setq org-id-link-to-org-use-id t)
-  (setq org-link-keep-stored-after-insertion t)
 
   (defun org-for-all-headings-add-id ()
     "Generate ID for any headings that are missing one"
@@ -972,7 +1041,12 @@ and return an error indicator."
          (when (null ID)
            (org-entry-put (point) "ID" (org-id-new)))))))
 
-  (setq org-imenu-depth 10)
+  (defun org-copy-outline-path-to-kill-ring ()
+    "Copy the current outline path formatted for Org mode to the kill ring."
+    (interactive)
+    (let ((path (org-format-outline-path (org-get-outline-path t) 10000)))
+      (kill-new path)
+      (message "Outline path copied to kill ring: %s" path)))
 
   (require 'org-patches))
 #+end_src
@@ -984,9 +1058,7 @@ and return an error indicator."
   :hook (makefile-mode . user--indent-makefile-code-blocks-with-tabs)
   :config
   (defun user--indent-makefile-code-blocks-with-tabs ()
-    (setq indent-tabs-mode t)
-    (setq whitespace-style
-          (remove 'tabs whitespace-style))))
+    (setq indent-tabs-mode t)))
 #+end_src
 
 * org-agenda
@@ -1062,6 +1134,46 @@ and return an error indicator."
   (setq epg-gpg-program (expand-file-name "~/.guix-profile/bin/gpg")))
 #+end_src
 
+* circe
+
+#+begin_src emacs-lisp
+(use-package circe
+  :demand
+  :custom
+  (circe-use-cycle-completion t)
+  (circe-case-insensitive-completion t)
+  (circe-format-say "{nick}: {body}")
+  (circe-format-self-say "{nick}: {body}")
+  (circe-display-activity nil)
+  (circe-network-options
+   `(("Libera Chat"
+      :nick "phfrohring"
+      :channels ("#emacs" "#guix")
+      :nickserv-password (getenv "NICKSERVPWD"))))
+  (circe-reduce-lurker-spam t)
+  :hook
+  (circe-channel-mode-hook . enable-circe-color-nicks))
+#+end_src
+
+* beacon
+
+#+begin_src emacs-lisp
+(use-package beacon
+  :disabled ;Does not work for some reason with the current setup.
+  :config
+  (beacon-mode 1))
+#+end_src
+
+* guix
+
+#+begin_src emacs-lisp
+(use-package guix
+  :after '(geiser)
+  :init
+  (with-eval-after-load 'geiser-guile
+    (add-to-list 'geiser-guile-load-path (expand-file-name "~/src/guix"))))
+#+end_src
+
 * local extension
 
 #+begin_src emacs-lisp
@@ -1081,5 +1193,4 @@ Set %s to a local elisp file to run it after init.el"
 # Local Variables:
 # org-confirm-babel-evaluate: nil
 # fill-column: 85
-# eval: (add-hook 'after-save-hook #'org-babel-tangle)
 # End:

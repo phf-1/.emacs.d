@@ -1,0 +1,20 @@
+# key: prompt-question
+# name: prompt-question
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+* Context
+** Org Mode
+
+1. This content uses the Org Mode markup language.
+2. The grammar of the markup is defined here: https://orgmode.org/worg/org-syntax.html
+3. You must use the Org Mode markup language for your responses.
+
+** XXX
+
+#+begin_example
+
+#+end_example
+
+* Question
+
+$0

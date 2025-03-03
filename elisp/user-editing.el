@@ -12,4 +12,6 @@
 (global-auto-revert-mode t)
 (put 'narrow-to-region 'disabled nil)
 (setq load-prefer-newer t)
+(setq custom-file (locate-user-emacs-file "custom-vars.el"))
+(load custom-file 'noerror 'nomessage)
 (provide 'user-editing)

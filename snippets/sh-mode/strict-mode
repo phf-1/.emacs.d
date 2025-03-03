@@ -4,7 +4,19 @@
 # --
 #! /usr/bin/env bash
 
-set -euo pipefail
-IFS=$'\n\t'
+THIS_NAME="\${0##*/}"
+read -r -d '' DOC <<EOF
+\${THIS_NAME} ip_range
+\${THIS_NAME} 192.168.1.0/24
+EOF
 
-$0
+set -euo pipefail
+
+IP_RANGE="\${1:-}"
+if [[ -z "\${IP_RANGE}" ]]; then
+    echo "ip_range not specified."    
+    echo "\$DOC"
+    exit 1
+fi
+
+nmap -sn "\${IP_RANGE}"
