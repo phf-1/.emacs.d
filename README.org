@@ -342,6 +342,9 @@ With prefix ARG, undedicate it."
 
 #+begin_src emacs-lisp
 (use-package tab-bar :demand
+  :bind
+  (("C-*" . tab-bar-switch-to-next-tab)
+   ("C-ù" . tab-bar-switch-to-prev-tab))
   :config
   (tab-bar-mode))
 #+end_src
@@ -463,7 +466,7 @@ With prefix ARG, undedicate it."
    ("C-r" . consult-ripgrep)
    ("C-c f" . consult-find)
    ("M-." . xref-find-definitions) ;see configuration below.
-   ("M-i" . consult-outline)
+   ("M-i" . consult-imenu)
    ("C-x b" . consult-buffer)
    ("C--" . consult-mark)
    ("C-y" . consult-yank-replace)
@@ -1142,17 +1145,43 @@ and return an error indicator."
   :custom
   (circe-use-cycle-completion t)
   (circe-case-insensitive-completion t)
-  (circe-format-say "{nick}: {body}")
-  (circe-format-self-say "{nick}: {body}")
+  (circe-format-say "{nick:-16s}: {body}")
+  (circe-format-self-say "<{nick:-16s}>: {body}")
   (circe-display-activity nil)
   (circe-network-options
    `(("Libera Chat"
       :nick "phfrohring"
       :channels ("#emacs" "#guix")
-      :nickserv-password (getenv "NICKSERVPWD"))))
+      :nickserv-password ,(getenv "NICKSERVPWD"))))
   (circe-reduce-lurker-spam t)
   :hook
   (circe-channel-mode-hook . enable-circe-color-nicks))
+#+end_src
+
+* pomodoro
+:LOGBOOK:
+CLOCK: [2025-03-04 Tue 12:26]--[2025-03-04 Tue 12:27] =>  0:01
+CLOCK: [2025-03-04 Tue 12:24]--[2025-03-04 Tue 12:25] =>  0:01
+CLOCK: [2025-03-04 Tue 12:21]--[2025-03-04 Tue 12:22] =>  0:01
+:END:
+
+
+#+begin_src emacs-lisp
+(use-package org-pomodoro
+  :init
+  (setq org-pomodoro-sounds-dir (expand-file-name (file-name-concat user-emacs-directory "sounds")))
+  :custom
+  (org-pomodoro-length 60)
+  (org-pomodoro-short-break-length 5)
+  (org-pomodoro-long-break-length 15)
+  (org-pomodoro-long-break-frequency 3)
+  (org-pomodoro-start-sound-p nil)
+  (org-pomodoro-keep-killed-pomodoro-time t)
+  (org-pomodoro-start-sound (concat org-pomodoro-sounds-dir "/braam-braamamma.wav"))
+  (org-pomodoro-finished-sound (concat org-pomodoro-sounds-dir "/short-sad_little_sonar.wav"))
+  (org-pomodoro-long-break-sound (concat org-pomodoro-sounds-dir "/braam-braamamma.wav"))
+  (org-pomodoro-short-break-sound (concat org-pomodoro-sounds-dir "/braam-braamamma.wav"))
+  (org-pomodoro-play-sounds t))
 #+end_src
 
 * beacon
