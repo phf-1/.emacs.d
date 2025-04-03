@@ -988,7 +988,9 @@ and return an error indicator."
   (("C-c C-l" . org-insert-link)
    ("M-RET" . org-insert-heading)
    ("M-<right>" . org-metaright)
-   ("M-p" . org-copy-outline-path-to-kill-ring))
+   ("M-p" . org-copy-outline-path-to-kill-ring)
+   ("C-c i" . org-clock-in)
+   ("C-c o" . org-clock-out))
 
   :custom
   ;; TODO Org Mode maintainer.
@@ -997,7 +999,7 @@ and return an error indicator."
   (org-startup-folded 'show2levels)
   (org-ellipsis " ")
   (org-hide-leading-stars t)
-  (org-startup-indented t)
+  (org-startup-indented nil)
   (org-src-fontify-natively t)
   (org-id-link-to-org-use-id t)
   (org-link-keep-stored-after-insertion t)
