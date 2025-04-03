@@ -269,9 +269,14 @@ Structures are defined by as is ~Point~:
 func : X Y → C
 f ≡ (trl--point-use func) : Point → C
 (f pt) ≡ (func (point-x pt) (point-y pt))"
+
   (lambda (pt)
-    (unless (trl--point-p pt) (error "PT is not a Point"))
-    (funcall func (trl--point-x pt) (trl--point-y pt))))
+    (pcase pt
+      (`(trl--point ,x ,y)
+       (funcall func x y))
+
+      (_
+       (error "PT is not a Point. PT ≡ %s" pt)))))
 
 (defmacro trl--point-func (name lambda-expr)
   "Define a named function NAME that applies LAMBDA-EXPR to a point."
@@ -284,13 +289,13 @@ f ≡ (trl--point-use func) : Point → C
 which can be used as in:
 
 #+begin_src emacs-lisp
-(let (pt-a pt-b)
-  (setq pt-a (trl--point-mk 10 20))
-  (unless (trl--point-p pt-a) (error))
-  (unless (eq (trl--point-x pt-a) 10) (error))
-  (unless (eq (trl--point-y pt-a) 20) (error))
+(let (pt)
+  (setq pt (trl--point-mk 10 20))
+  (unless (trl--point-p pt) (error))
+  (unless (eq (trl--point-x pt) 10) (error))
+  (unless (eq (trl--point-y pt) 20) (error))
   (trl--point-func "trl--point-add" (lambda (x y) (+ x y)))
-  (unless (eq (trl--point-add 1) 30) (error)))
+  (unless (eq (trl--point-add pt) 30) (error)))
 #+end_src
 
 ** Minor mode
