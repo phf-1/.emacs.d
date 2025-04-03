@@ -1,0 +1,575 @@
+#+PROPERTY: header-args :noweb yes :comments org :mkdirp yes
+
+* TODO Objective
+:PROPERTIES:
+:ID:       2b6a2d42-bfd0-4658-b25a-b1b7000d1b01
+:END:
+
+#+name: commentary
+#+begin_src emacs-lisp
+TODO
+#+end_src
+
+* tangle-heading
+:PROPERTIES:
+:header-args+: :tangle tangle-heading :shebang "#!/usr/bin/env -S emacs --script"
+:END:
+
+- ~./tangle-heading file.org file.el directory~
+  - Give ~file.org~
+  - tangles the heading named ~file.el~ into ~./file.el~
+  - moves the resulting file under ~directory~
+
+#+begin_src emacs-lisp
+(require 'org)
+(require 'ob-core)
+
+(setq org-id-track-globally nil)
+
+;; Set Scheme implementation to Guile
+(require 'ob-scheme)
+(setq-default geiser-scheme-implementation 'guile)
+
+(setq make-backup-files nil)
+(setq auto-save-default nil)
+
+(defun user--org-remove-property-drawers ()
+  "After tangling, remove all :PROPERTIES: drawers."
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "^.*:PROPERTIES:$" nil t)
+      (let ((start (line-beginning-position)))
+	(when (re-search-forward "^.*:END:\n" nil t)
+	  (delete-region start (point)))))
+    (when (buffer-modified-p)
+      (save-buffer))))
+(add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
+
+(defun org-babel-spec-to-string (spec)
+  "Insert SPEC into the current file.
+
+Insert the source-code specified by SPEC into the current source
+code file.  This function uses `comment-region' which assumes
+that the appropriate major-mode is set.  SPEC has the form:
+
+  (start-line file link source-name params body comment)"
+  (pcase-let*
+      ((`(,start ,file ,link ,source ,info ,body ,comment) spec)
+       (comments (cdr (assq :comments info)))
+       (link? (or (string= comments "both") (string= comments "link")
+		  (string= comments "yes") (string= comments "noweb")))
+       (link-data `(("start-line" . ,(number-to-string start))
+		    ("file" . ,file)
+		    ("link" . ,link)
+		    ("source-name" . ,source)))
+       (insert-comment (lambda (text)
+			 (when (and comments
+				    (not (string= comments "no"))
+				    (org-string-nw-p text))
+			   (if org-babel-tangle-uncomment-comments
+			       ;; Plain comments: no processing.
+			       (insert text)
+			     ;; Ensure comments are made to be comments.  Also ignore
+			     ;; invisible characters when commenting.
+			     (comment-region
+			      (point)
+			      (progn (insert (org-no-properties text))
+				     (point))))))))
+    (when comment (funcall insert-comment comment))
+    (when link?
+      (funcall insert-comment
+	       (org-fill-template
+		org-babel-tangle-comment-format-beg link-data)))
+    (insert body "\n")
+    (when link?
+      (funcall insert-comment
+	       (org-fill-template
+		org-babel-tangle-comment-format-end link-data)))))
+
+(defun tangle-headline-to-dest (name dest)
+  (let (pos)
+    (when (not (file-directory-p dest)) (error "Destination directory `%s' does not exist." dest))
+    (org-with-wide-buffer
+     (save-excursion
+       (setq pos (org-find-exact-headline-in-buffer name (current-buffer) t))
+       (when (null pos) (error "Heading named `%s' not found." name))
+       (goto-char pos)
+       (org-narrow-to-subtree)
+       (org-babel-tangle)
+       (when (not (file-exists-p name)) (error "Tangling `%s' did not build matching file." name))
+       (rename-file name (concat (file-name-as-directory dest) name) t)))))
+
+;; Silence messages.
+(fset 'message (lambda (&rest args) nil))
+
+(let ((org-file (pop argv))
+      (heading-name (pop argv))
+      (dest-dir (pop argv)))
+  (with-current-buffer (find-file-noselect org-file)
+    (tangle-headline-to-dest heading-name dest-dir)))
+#+end_src
+
+* packages.scm
+:PROPERTIES:
+:header-args+: :tangle packages.scm
+:END:
+
+- List of Guix packages.
+
+** locale
+
+- Guix package that provides utf8 locale.
+
+#+name: locale
+#+begin_src scheme
+(use-modules (gnu packages base))
+(define locale
+  (make-glibc-utf8-locales
+   glibc
+   #:locales (list "en_US")
+   #:name "glibc-en-utf8-locales"))
+#+end_src
+
+** elisp-packages
+
+- List of Elisp guix packages.
+
+#+name: elisp-packages
+#+begin_src scheme
+(use-modules (gnu packages emacs-xyz))
+(define elisp-packages (list emacs-package-lint))
+#+end_src
+
+** binaries
+
+- List of Guix packages that provides binaries.
+
+#+name: binaries
+#+begin_src scheme
+(use-modules
+ (gnu packages base)
+ (gnu packages bash)
+ (gnu packages emacs)
+ (gnu packages rust-apps)
+ (gnu packages certs)
+ (gnu packages admin)
+ (gnu packages build-tools))
+
+(define binaries
+  (list
+
+   ;; build dependencies
+   ;; bash-minimal
+   bash
+   coreutils
+   gnu-make
+   emacs-minimal
+   sed
+   nss-certs
+
+   ;; runtime dependencies
+   ripgrep
+   fd))
+#+end_src
+
+** ■
+
+#+begin_src scheme
+`(,locale ,@elisp-packages ,@binaries)
+#+end_src
+
+* init.bash
+:PROPERTIES:
+:header-args+: :tangle init.bash
+:END:
+
+- File that contains Bash environment variable declarations.
+
+#+begin_src bash
+export LC_ALL=en_US.UTF-8
+#+end_src
+
+* total-recall.el
+:PROPERTIES:
+:header-args+: :tangle total-recall.el
+:END:
+** Header
+
+#+begin_src emacs-lisp
+;;; total-recall.el --- Spaced repetitions for Emacs -*- lexical-binding: t; -*-
+;;
+;; Copyright (C) 2025 Pierre-Henry FRÖHRING
+;; Author: Pierre-Henry FRÖHRING <contact@phfrohring.com>
+;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
+;; Homepage: https://github.com/phf-1/total-recall
+;; Package-Version: 0.20
+;; Package-Requires: ((emacs "27.1"))
+;; SPDX-License-Identifier: GPL-3.0-or-later
+;;
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This file is NOT part of GNU Emacs.
+;;
+;;; Commentary:
+;;
+;; <<commentary>>
+;;
+;;; Code:
+#+end_src
+
+** Dependencies
+
+- This section loads this package's dependencies.
+
+#+begin_src emacs-lisp
+(unless (sqlite-available-p) (error "Emacs must be compiled with built-in support for accessing SQLite databases."))
+(require 'cl-lib)
+(require 'org)
+#+end_src
+
+** Configuration
+
+- This section lists the user's defined custom parameters.
+
+#+begin_src emacs-lisp
+(defgroup trl nil
+  "Customization options for trl mode.
+This mode provides spaced repetitions capabilities to Emacs."
+  :group 'convenience
+  :prefix "trl-")
+
+(defcustom trl-database (file-name-concat user-emacs-directory "total-recall.sqlite3")
+  "Path of the database."
+  :type 'string
+  :group 'trl)
+#+end_src
+
+** Structure
+
+Structures are defined by as is ~Point~:
+
+#+begin_src emacs-lisp
+(cl-defstruct
+    (trl--point
+     (:constructor trl--point-mk
+		   (x y
+		      &aux
+		      (_ (unless (integerp x)
+			   (error "X must be an integer: %s" x)))
+		      (_ (unless (integerp y)
+			   (error "Y must be an integer: %s" y))))))
+  x
+  y)
+
+(defun trl--point-use (func)
+  "Build a function that applies FUNC to a point.
+func : X Y → C
+f ≡ (trl--point-use func) : Point → C
+(f pt) ≡ (func (point-x pt) (point-y pt))"
+  (lambda (pt)
+    (unless (trl--point-p pt) (error "PT is not a Point"))
+    (funcall func (trl--point-x pt) (trl--point-y pt))))
+
+(defmacro trl--point-func (name lambda-expr)
+  "Define a named function NAME that applies LAMBDA-EXPR to a point."
+  `(let (func)
+     (setq func (trl--point-use ,lambda-expr))
+     (defun ,(intern name) (pt)
+       (funcall func pt))))
+#+end_src
+
+which can be used as in:
+
+#+begin_src emacs-lisp
+(let (pt-a pt-b)
+  (setq pt-a (trl--point-mk 10 20))
+  (unless (trl--point-p pt-a) (error))
+  (unless (eq (trl--point-x pt-a) 10) (error))
+  (unless (eq (trl--point-y pt-a) 20) (error))
+  (trl--point-func "trl--point-add" (lambda (x y) (+ x y)))
+  (unless (eq (trl--point-add 1) 30) (error)))
+#+end_src
+
+** Minor mode
+
+#+begin_src emacs-lisp
+(defun trl--activate ()
+  "Activate the main functionality of trl mode."
+)
+
+(defun trl--deactivate ()
+  "Deactivate the main functionality of trl mode."
+)
+#+end_src
+
+#+begin_src emacs-lisp
+;;;###autoload
+(define-minor-mode trl-mode
+  "Locations and References for Emacs.
+
+<<commentary>>"
+  :init-value nil
+  :lighter " TR"
+  :keymap nil
+  :group 'trl
+  :global t
+  (if trl-mode
+      (trl--activate)
+    (trl--deactivate)))
+#+end_src
+
+** Footer
+
+#+begin_src emacs-lisp
+(provide 'trl)
+
+;;; total-recall.el ends here
+
+;; Local Variables:
+;; coding: utf-8
+;; byte-compile-docstring-max-column: 80
+;; require-final-newline: t
+;; sentence-end-double-space: nil
+;; indent-tabs-mode: nil
+;; End:
+#+end_src
+
+* Makefile
+:PROPERTIES:
+:header-args+: :tangle Makefile
+:END:
+** Configuration
+
+- List of Makefile configurations.
+
+#+begin_src makefile
+SHELL := bash
+.SHELLFLAGS := -ceuo pipefail
+MAKEFLAGS += --no-print-directory
+.ONESHELL:
+.SILENT:
+#+end_src
+
+** help
+
+- make help # Print this help.
+
+#+begin_src makefile
+.PHONY: help
+help:
+	grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+#+end_src
+
+** BUILD
+
+- ${BUILD} is the directory under which all generated files are installed.
+
+#+begin_src makefile
+BUILD := _build
+${BUILD}:
+	mkdir -p $@
+#+end_src
+
+** TRACE
+
+- ${TRACE} is a file used to record an execution trace.
+
+#+begin_src makefile
+TRACE := ${BUILD}/trace.txt
+#+end_src
+
+** TRAP
+
+- ${TRAP} If something has been written to ${TRACE}, then consider that the rule failed.
+
+#+begin_src makefile
+TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
+#+end_src
+
+** MAIN_ORG
+
+- ${MAIN_ORG} is the path to source file.
+
+#+begin_src makefile
+MAIN_ORG := README.org
+#+end_src
+
+** tangle-heading
+
+- make tangle-heading # Returns the path to the updated ./tangle-heading script.
+
+#+begin_src makefile
+.PHONY: tangle-heading
+TANGLE_HEADING := ${BUILD}/tangle-heading
+tangle-heading: ${TANGLE_HEADING}
+${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
+	cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
+	tail -n 1 ${TRACE}
+#+end_src
+
+** Makefile
+
+- make Makefile # Returns the path to the updated ./Makefile.
+
+#+begin_src makefile
+.PHONY: Makefile
+MAKEFILE := ${BUILD}/Makefile
+Makefile: ${MAKEFILE}
+${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
+	cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
+	tail -n 1 ${TRACE}
+#+end_src
+
+** packages.scm
+
+- make packages.scm # Returns the path to the Guix packages available in the environment.
+
+#+begin_src makefile
+.PHONY: packages.scm
+PACKAGES_SCM := ${BUILD}/packages.scm
+packages.scm: ${PACKAGES_SCM}
+${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
+	echo "$@"
+#+end_src
+
+** init.bash
+
+- make init.bash # Returns the path to parameters that initialize Bash in the environment.
+
+#+begin_src makefile
+.PHONY: init.bash
+INIT_BASH := ${BUILD}/init.bash
+init.bash: ${INIT_BASH}
+${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
+	echo "$@"
+#+end_src
+
+** env
+
+- make env # Starts the environment.
+
+#+begin_src makefile
+.PHONY: env
+GUIX := guix
+GUIX_SHELL := ${GUIX} shell --container \
+	-F \
+	-N \
+	--file=${PACKAGES_SCM} \
+	--preserve='^TERM$$' \
+	-- bash --init-file ${INIT_BASH}
+env: ${PACKAGES_SCM} ${INIT_BASH}
+	CMD="${CMD}"
+	if [[ ! -v GUIX_ENVIRONMENT ]]; then
+	  if [[ "$${CMD}" == "" ]]; then
+	    ${GUIX_SHELL} -i;
+	  else
+	    ${GUIX_SHELL} -c "${CMD}";
+	  fi
+	else
+	  ${CMD}
+	  :
+	fi
+#+end_src
+
+** el
+
+- make el # Returns the path to the elisp package.
+
+#+begin_src makefile
+.PHONY: el
+LOCS_AND_REFS_EL := ${BUILD}/total-recall.el
+el: ${LOCS_AND_REFS_EL}
+${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} total-recall.el ${BUILD} &> ${TRACE}
+	sed -i '1,2d' ${LOCS_AND_REFS_EL} &>> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src
+
+** elc
+
+- make elc # Returns the path to the compiled elisp package.
+
+#+begin_src makefile
+.PHONY: elc
+LOCS_AND_REFS_ELC := ${BUILD}/total-recall.elc
+elc: ${LOCS_AND_REFS_ELC}
+${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
+	${TRAP}
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
+	-f batch-byte-compile $< &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src
+
+** lint
+
+- make lint # Returns the path to the linting report of the elisp package.
+
+#+begin_src makefile
+.PHONY: lint
+LINT_REPORT := ${BUILD}/lint-report.txt
+lint: ${LINT_REPORT}
+${LINT_REPORT}: ${LOCS_AND_REFS_EL}
+	${TRAP}
+	emacs --batch \
+	--file $< \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
+	--eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src
+
+** checkdoc
+
+- make checkdoc # Returns the path to the analysis of the docstrings of the elisp package.
+
+#+begin_src makefile
+.PHONY: checkdoc
+CHECKDOC := ${BUILD}/checkdoc.txt
+checkdoc: ${CHECKDOC}
+${CHECKDOC}: ${LOCS_AND_REFS_EL}
+	${TRAP}
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(checkdoc-file "$<")' &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src
+
+** all
+
+- make all # Returns the path of the elisp package after lint, checkdoc and elc steps.
+
+#+begin_src makefile
+.PHONY: all
+all: ${BUILD}
+	${TRAP}
+	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
+	echo ${LOCS_AND_REFS_EL}
+#+end_src
+
+** clean
+
+- make clean # Deletes all generated files.
+
+#+begin_src makefile
+.PHONY: clean
+clean:
+	rm -rfv ${BUILD}
+#+end_src
