@@ -163,7 +163,7 @@ that the appropriate major-mode is set.  SPEC has the form:
    bash
    coreutils
    gnu-make
-   emacs-minimal
+   emacs
    sed
    nss-certs
 
@@ -226,8 +226,8 @@ export LC_ALL=en_US.UTF-8
 
 #+begin_src emacs-lisp
 (unless (sqlite-available-p) (error "Emacs must be compiled with built-in support for accessing SQLite databases."))
-(require 'cl-lib)
 (require 'org)
+(require 'ert)
 #+end_src
 
 ** Configuration
@@ -249,21 +249,37 @@ This mode provides spaced repetitions capabilities to Emacs."
 
 ** Structure
 
-Structures are defined by as is ~Point~:
+Structures are defined by as is ~Point~.
+
+*** Point
+
+- Given x,y : Integer, then: pt ≡ point-mk(x y) : Point.
+- Given x, then: point-p(x) = t ⇔ x : Point.
+- Given f : X Y → C, then: φ ≡ point-use(f) : Point → C such that φ(pt) ≡ f(x y)
+- Given name : String, f : X Y → C, then: name ≡ point-func(name f) : Point → C such that name(pt) ≡ f(x y)
+- pt#x :≡ point-x(pt)  ∧ pt#x = x
+- pt#y :≡ point-y(pt)  ∧ pt#y = y
+- pt1, pt2 : Point, point-eq(pt1 pt2) ≡ (pt1#x = pt2#x) ∧ (pt1#y = pt2#y)
+
+**** point-mk
 
 #+begin_src emacs-lisp
-(cl-defstruct
-    (trl--point
-     (:constructor trl--point-mk
-		   (x y
-		      &aux
-		      (_ (unless (integerp x)
-			   (error "X must be an integer: %s" x)))
-		      (_ (unless (integerp y)
-			   (error "Y must be an integer: %s" y))))))
-  x
-  y)
+(defun trl--point-mk (x y)
+  (unless (integerp x) (error "x is not an integer."))
+  (unless (integerp y) (error "y is not an integer."))
+  (list :point x y))
+#+end_src
 
+**** point-p
+
+#+begin_src emacs-lisp
+(defun trl--point-p (pt)
+  (eq (car-safe pt) :point))
+#+end_src
+
+**** point-use
+
+#+begin_src emacs-lisp
 (defun trl--point-use (func)
   "Build a function that applies FUNC to a point.
 func : X Y → C
@@ -272,12 +288,15 @@ f ≡ (trl--point-use func) : Point → C
 
   (lambda (pt)
     (pcase pt
-      (`(trl--point ,x ,y)
+      (`(:point ,x ,y)
        (funcall func x y))
-
       (_
        (error "PT is not a Point. PT ≡ %s" pt)))))
+#+end_src
 
+**** point-func
+
+#+begin_src emacs-lisp
 (defmacro trl--point-func (name lambda-expr)
   "Define a named function NAME that applies LAMBDA-EXPR to a point."
   `(let (func)
@@ -286,16 +305,39 @@ f ≡ (trl--point-use func) : Point → C
        (funcall func pt))))
 #+end_src
 
-which can be used as in:
+**** point-x
 
 #+begin_src emacs-lisp
-(let (pt)
-  (setq pt (trl--point-mk 10 20))
-  (unless (trl--point-p pt) (error))
-  (unless (eq (trl--point-x pt) 10) (error))
-  (unless (eq (trl--point-y pt) 20) (error))
-  (trl--point-func "trl--point-add" (lambda (x y) (+ x y)))
-  (unless (eq (trl--point-add pt) 30) (error)))
+(trl--point-func "trl--point-x" (lambda (x y) x))
+#+end_src
+
+**** point-y
+
+#+begin_src emacs-lisp
+(trl--point-func "trl--point-y" (lambda (x y) y))
+#+end_src
+
+**** point-eq
+
+#+begin_src emacs-lisp
+(defun trl--point-eq (pt1 pt2)
+  (and
+   (eq (trl--point-x pt1) (trl--point-x pt2))
+   (eq (trl--point-y pt1) (trl--point-y pt2))))
+#+end_src
+
+**** test
+
+#+begin_src emacs-lisp
+(ert-deftest trl--point-test ()
+  (let (pt)
+    (setq pt (trl--point-mk 10 20))
+    (should (trl--point-p pt))
+    (should (eq (trl--point-x pt) 10))
+    (should (eq (trl--point-y pt) 20))
+    (should (trl--point-eq pt pt))
+    (trl--point-func "trl--point-quad-norm" (lambda (x y) (+ (* x x) (* y y))))
+    (should (eq (trl--point-quad-norm pt) 500))))
 #+end_src
 
 ** Minor mode
@@ -493,12 +535,12 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 
 #+begin_src makefile
 .PHONY: el
-LOCS_AND_REFS_EL := ${BUILD}/total-recall.el
-el: ${LOCS_AND_REFS_EL}
-${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
+TOTAL_RECALL_EL := ${BUILD}/total-recall.el
+el: ${TOTAL_RECALL_EL}
+${TOTAL_RECALL_EL}: ${MAIN_ORG} | ${BUILD}
 	${TRAP}
 	./tangle-heading ${MAIN_ORG} total-recall.el ${BUILD} &> ${TRACE}
-	sed -i '1,2d' ${LOCS_AND_REFS_EL} &>> ${TRACE}
+	sed -i '1,2d' ${TOTAL_RECALL_EL} &>> ${TRACE}
 	[[ -s ${TRACE} ]] && exit 1
 	echo "$@"
 #+end_src
@@ -509,9 +551,9 @@ ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
 
 #+begin_src makefile
 .PHONY: elc
-LOCS_AND_REFS_ELC := ${BUILD}/total-recall.elc
-elc: ${LOCS_AND_REFS_ELC}
-${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
+TOTAL_RECALL_ELC := ${BUILD}/total-recall.elc
+elc: ${TOTAL_RECALL_ELC}
+${TOTAL_RECALL_ELC}: ${TOTAL_RECALL_EL}
 	${TRAP}
 	emacs -Q --batch \
 	--eval '(setq org-id-track-globally nil)' \
@@ -529,7 +571,7 @@ ${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
 .PHONY: lint
 LINT_REPORT := ${BUILD}/lint-report.txt
 lint: ${LINT_REPORT}
-${LINT_REPORT}: ${LOCS_AND_REFS_EL}
+${LINT_REPORT}: ${TOTAL_RECALL_EL}
 	${TRAP}
 	emacs --batch \
 	--file $< \
@@ -548,12 +590,29 @@ ${LINT_REPORT}: ${LOCS_AND_REFS_EL}
 .PHONY: checkdoc
 CHECKDOC := ${BUILD}/checkdoc.txt
 checkdoc: ${CHECKDOC}
-${CHECKDOC}: ${LOCS_AND_REFS_EL}
+${CHECKDOC}: ${TOTAL_RECALL_EL}
 	${TRAP}
 	emacs -Q --batch \
 	--eval '(setq org-id-track-globally nil)' \
 	--eval '(checkdoc-file "$<")' &> ${TRACE}
 	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src
+
+** test
+
+- make test # Returns the path to the analysis of the docstrings of the elisp package.
+
+#+begin_src makefile
+.PHONY: test
+TEST := ${BUILD}/test-log.txt
+test: ${TEST}
+${TEST}: ${TOTAL_RECALL_EL}
+	${TRAP}
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(load-file "$<")' \
+	--eval '(ert-run-tests-batch-and-exit t)' &> $@
 	echo "$@"
 #+end_src
 
@@ -566,7 +625,7 @@ ${CHECKDOC}: ${LOCS_AND_REFS_EL}
 all: ${BUILD}
 	${TRAP}
 	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
-	echo ${LOCS_AND_REFS_EL}
+	echo ${TOTAL_RECALL_EL}
 #+end_src
 
 ** clean
