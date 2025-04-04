@@ -257,8 +257,10 @@ Structures are defined by as is ~Point~.
 - Given x, then: point-p(x) = t ⇔ x : Point.
 - Given f : X Y → C, then: φ ≡ point-use(f) : Point → C such that φ(pt) ≡ f(x y)
 - Given name : String, f : X Y → C, then: name ≡ point-func(name f) : Point → C such that name(pt) ≡ f(x y)
-- pt#x :≡ point-x(pt)  ∧ pt#x = x
-- pt#y :≡ point-y(pt)  ∧ pt#y = y
+- pt#x :≡ point-x(pt)
+- pt#x = x
+- pt#y :≡ point-y(pt)
+- pt#y = y
 - pt1, pt2 : Point, point-eq(pt1 pt2) ≡ (pt1#x = pt2#x) ∧ (pt1#y = pt2#y)
 
 **** point-mk
@@ -343,22 +345,32 @@ f ≡ (trl--point-use func) : Point → C
 ** total-recall
 
 - ~M-x total-recall~
-  1. Let OrgFiles be the set of org files under the home directory.
-  2. all-exercises : List(<Path List(Exercise)>)
-     1. For org-file in OrgFiles
-	1. all-exercises :≡ all-exercises + <org-file list-exercises(org-file)>
-  3. ui :≡ popup frame.
-  4. while all-exercises
-     1. <path exercises> :≡ all-exercises.pop()
-     2. while exercises
-	1. exercise :≡ exercises.pop()
-	2. if scheduled_today(exercise)
-	   1. ui.display(path exercise)
-	   2. receive msg
-	      1. :success ⇒ record success
-	      2. :failure ⇒ record failure
-	      3. :skip ⇒ record skip
-  5. ui.kill()
+  - home-dir : Path to a directory.
+  - db-path : Path to the database.
+  - db :≡ db-mk(db-path)
+  - now :≡ date.now()
+  - exercises :≡ list-exercises(home-dir) : List(Exercise)
+  - ui :≡ ui-mk()
+  - case exercises
+    - [] ⇒ ui.display(:no-exercises)
+    - _ ⇒
+      - while exercises
+	- exercise :≡ exercises.pop()
+	- if exercise.scheduled(db) < now
+	  - case ui.display(exercise)
+	    - :stop ⇒
+	      - ui.kill()
+	      - exercises :≡ []
+	    - :success ⇒ db.save(success-row(exercise))
+	    - :failure ⇒ db.save(failure-row(exercise))
+	    - :skip ⇒ db.save(skip-row(exercise))
+  - ui.kill()
+
+#+begin_src emacs-lisp
+(defun total-recall ()
+  (interactive)
+  (message "total-recall"))
+#+end_src
 
 ** Minor mode
 
