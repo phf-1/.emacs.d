@@ -134,12 +134,12 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 
 
 .PHONY: el
-LOCS_AND_REFS_EL := ${BUILD}/total-recall.el
-el: ${LOCS_AND_REFS_EL}
-${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
+TOTAL_RECALL_EL := ${BUILD}/total-recall.el
+el: ${TOTAL_RECALL_EL}
+${TOTAL_RECALL_EL}: ${MAIN_ORG} | ${BUILD}
 	${TRAP}
 	./tangle-heading ${MAIN_ORG} total-recall.el ${BUILD} &> ${TRACE}
-	sed -i '1,2d' ${LOCS_AND_REFS_EL} &>> ${TRACE}
+	sed -i '1,2d' ${TOTAL_RECALL_EL} &>> ${TRACE}
 	[[ -s ${TRACE} ]] && exit 1
 	echo "$@"
 
@@ -149,9 +149,9 @@ ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
 
 
 .PHONY: elc
-LOCS_AND_REFS_ELC := ${BUILD}/total-recall.elc
-elc: ${LOCS_AND_REFS_ELC}
-${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
+TOTAL_RECALL_ELC := ${BUILD}/total-recall.elc
+elc: ${TOTAL_RECALL_ELC}
+${TOTAL_RECALL_ELC}: ${TOTAL_RECALL_EL}
 	${TRAP}
 	emacs -Q --batch \
 	--eval '(setq org-id-track-globally nil)' \
@@ -168,7 +168,7 @@ ${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
 .PHONY: lint
 LINT_REPORT := ${BUILD}/lint-report.txt
 lint: ${LINT_REPORT}
-${LINT_REPORT}: ${LOCS_AND_REFS_EL}
+${LINT_REPORT}: ${TOTAL_RECALL_EL}
 	${TRAP}
 	emacs --batch \
 	--file $< \
@@ -186,12 +186,28 @@ ${LINT_REPORT}: ${LOCS_AND_REFS_EL}
 .PHONY: checkdoc
 CHECKDOC := ${BUILD}/checkdoc.txt
 checkdoc: ${CHECKDOC}
-${CHECKDOC}: ${LOCS_AND_REFS_EL}
+${CHECKDOC}: ${TOTAL_RECALL_EL}
 	${TRAP}
 	emacs -Q --batch \
 	--eval '(setq org-id-track-globally nil)' \
 	--eval '(checkdoc-file "$<")' &> ${TRACE}
 	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+
+# test
+
+# - make test # Returns the path to the analysis of the docstrings of the elisp package.
+
+
+.PHONY: test
+TEST := ${BUILD}/test-log.txt
+test: ${TEST}
+${TEST}: ${TOTAL_RECALL_EL}
+	${TRAP}
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(load-file "$<")' \
+	--eval '(ert-run-tests-batch-and-exit t)' &> $@
 	echo "$@"
 
 # all
@@ -203,7 +219,7 @@ ${CHECKDOC}: ${LOCS_AND_REFS_EL}
 all: ${BUILD}
 	${TRAP}
 	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
-	echo ${LOCS_AND_REFS_EL}
+	echo ${TOTAL_RECALL_EL}
 
 # clean
 

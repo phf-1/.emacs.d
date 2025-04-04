@@ -340,6 +340,26 @@ f ≡ (trl--point-use func) : Point → C
     (should (eq (trl--point-quad-norm pt) 500))))
 #+end_src
 
+** total-recall
+
+- ~M-x total-recall~
+  1. Let OrgFiles be the set of org files under the home directory.
+  2. all-exercises : List(<Path List(Exercise)>)
+     1. For org-file in OrgFiles
+	1. all-exercises :≡ all-exercises + <org-file list-exercises(org-file)>
+  3. ui :≡ popup frame.
+  4. while all-exercises
+     1. <path exercises> :≡ all-exercises.pop()
+     2. while exercises
+	1. exercise :≡ exercises.pop()
+	2. if scheduled_today(exercise)
+	   1. ui.display(path exercise)
+	   2. receive msg
+	      1. :success ⇒ record success
+	      2. :failure ⇒ record failure
+	      3. :skip ⇒ record skip
+  5. ui.kill()
+
 ** Minor mode
 
 #+begin_src emacs-lisp
