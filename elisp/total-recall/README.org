@@ -342,34 +342,129 @@ f ≡ (trl--point-use func) : Point → C
     (should (eq (trl--point-quad-norm pt) 500))))
 #+end_src
 
-** total-recall
+** trl--success-row
 
-- ~M-x total-recall~
-  - home-dir : Path to a directory.
-  - db-path : Path to the database.
-  - db :≡ db-mk(db-path)
-  - now :≡ date.now()
-  - exercises :≡ list-exercises(home-dir) : List(Exercise)
-  - ui :≡ ui-mk()
-  - case exercises
-    - [] ⇒ ui.display(:no-exercises)
-    - _ ⇒
-      - while exercises
-	- exercise :≡ exercises.pop()
-	- if exercise.scheduled(db) < now
-	  - case ui.display(exercise)
-	    - :stop ⇒
-	      - ui.kill()
-	      - exercises :≡ []
-	    - :success ⇒ db.save(success-row(exercise))
-	    - :failure ⇒ db.save(failure-row(exercise))
-	    - :skip ⇒ db.save(skip-row(exercise))
-  - ui.kill()
+#+begin_src emacs-lisp
+(defun trl--success-row (exercise time)
+  nil)
+#+end_src
+
+** trl--failure-row
+
+#+begin_src emacs-lisp
+(defun trl--failure-row (exercise time)
+  nil)
+#+end_src
+
+** trl--skip-row
+
+#+begin_src emacs-lisp
+(defun trl--skip-row (exercise time)
+  nil)
+#+end_src
+
+** trl--exercise-scheduled
+
+#+begin_src emacs-lisp
+(defun trl--exercise-scheduled (exercise db)
+  (current-time))
+#+end_src
+
+** trl--ui-mk
+
+#+begin_src emacs-lisp
+(defun trl--ui-mk ()
+  (let ((frame (make-frame '((width . 80) (height . 24))))
+	(buffer (get-buffer-create "*total-recall*")))
+    (select-frame-set-input-focus frame)
+    (switch-to-buffer buffer)
+    (erase-buffer)
+    (insert "Welcome to Total Recall\n")
+    `(:ui ,frame ,buffer)))
+#+end_src
+
+** trl--ui-display
+
+#+begin_src emacs-lisp
+(defun trl--ui-display (ui msg)
+  (pcase ui
+    (`(:ui ,frame ,buffer)
+     (pcase msg
+       (:no-exercises
+	(save-window-excursion
+	  (select-frame-set-input-focus frame)
+	  (switch-to-buffer buffer)
+	  (erase-buffer)
+	  (insert "No exercises.\n"))
+	:noop)))))
+#+end_src
+
+** trl--ui-kill
+
+#+begin_src emacs-lisp
+(defun trl--ui-kill (ui)
+  (pcase ui
+    (`(:ui ,frame ,buffer)
+     (kill-buffer buffer)
+     (delete-frame frame))))
+#+end_src
+
+** trl--db-open
+
+#+begin_src emacs-lisp
+(defun trl--db-open (path)
+  (sqlite-open path))
+#+end_src
+
+** trl--db-save
+
+#+begin_src emacs-lisp
+(defun trl--db-save (db row)
+  nil)
+#+end_src
+
+** trl--db-close
+
+#+begin_src emacs-lisp
+(defun trl--db-close (db)
+  nil)
+#+end_src
+
+** trl--list-exercises
+
+#+begin_src emacs-lisp
+(defun trl--list-exercises (path)
+  '())
+#+end_src
+
+** total-recall
 
 #+begin_src emacs-lisp
 (defun total-recall ()
   (interactive)
-  (message "total-recall"))
+  (let ((exercises (trl--list-exercises (expand-file-name "~")))
+	(db (trl--db-open trl-database))
+	(now (current-time))
+	(ui (trl--ui-mk))
+	exercise
+	scheduled)
+    (if (null exercises)
+	(trl--ui-display ui :no-exercises)
+      (while exercises
+	(setq exercise (pop exercises))
+	(setq scheduled (trl--exercise-scheduled exercise db))
+	(when (> (time-subtract now scheduled) 0)
+	  (pcase (trl--ui-display ui exercise)
+	    (:stop
+	     (trl--ui-kill ui)
+	     (setq exercises '()))
+	    (:success
+	     (trl--db-save db (trl--success-row exercise now)))
+	    (:failure
+	     (trl--db-save db (trl--failure-row exercise now)))
+	    (:skip
+	     (trl--db-save db (trl--skip-row exercise now)))))))
+    (run-at-time 2 nil (lambda () (trl--ui-kill ui)))))
 #+end_src
 
 ** Minor mode
