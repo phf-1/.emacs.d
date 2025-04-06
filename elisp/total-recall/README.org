@@ -39,8 +39,8 @@ TODO
     (goto-char (point-min))
     (while (re-search-forward "^.*:PROPERTIES:$" nil t)
       (let ((start (line-beginning-position)))
-	(when (re-search-forward "^.*:END:\n" nil t)
-	  (delete-region start (point)))))
+        (when (re-search-forward "^.*:END:\n" nil t)
+          (delete-region start (point)))))
     (when (buffer-modified-p)
       (save-buffer))))
 (add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
@@ -57,34 +57,34 @@ that the appropriate major-mode is set.  SPEC has the form:
       ((`(,start ,file ,link ,source ,info ,body ,comment) spec)
        (comments (cdr (assq :comments info)))
        (link? (or (string= comments "both") (string= comments "link")
-		  (string= comments "yes") (string= comments "noweb")))
+                  (string= comments "yes") (string= comments "noweb")))
        (link-data `(("start-line" . ,(number-to-string start))
-		    ("file" . ,file)
-		    ("link" . ,link)
-		    ("source-name" . ,source)))
+                    ("file" . ,file)
+                    ("link" . ,link)
+                    ("source-name" . ,source)))
        (insert-comment (lambda (text)
-			 (when (and comments
-				    (not (string= comments "no"))
-				    (org-string-nw-p text))
-			   (if org-babel-tangle-uncomment-comments
-			       ;; Plain comments: no processing.
-			       (insert text)
-			     ;; Ensure comments are made to be comments.  Also ignore
-			     ;; invisible characters when commenting.
-			     (comment-region
-			      (point)
-			      (progn (insert (org-no-properties text))
-				     (point))))))))
+                         (when (and comments
+                                    (not (string= comments "no"))
+                                    (org-string-nw-p text))
+                           (if org-babel-tangle-uncomment-comments
+                               ;; Plain comments: no processing.
+                               (insert text)
+                             ;; Ensure comments are made to be comments.  Also ignore
+                             ;; invisible characters when commenting.
+                             (comment-region
+                              (point)
+                              (progn (insert (org-no-properties text))
+                                     (point))))))))
     (when comment (funcall insert-comment comment))
     (when link?
       (funcall insert-comment
-	       (org-fill-template
-		org-babel-tangle-comment-format-beg link-data)))
+               (org-fill-template
+                org-babel-tangle-comment-format-beg link-data)))
     (insert body "\n")
     (when link?
       (funcall insert-comment
-	       (org-fill-template
-		org-babel-tangle-comment-format-end link-data)))))
+               (org-fill-template
+                org-babel-tangle-comment-format-end link-data)))))
 
 (defun tangle-headline-to-dest (name dest)
   (let (pos)
@@ -363,50 +363,145 @@ f ≡ (trl--point-use func) : Point → C
   nil)
 #+end_src
 
-** trl--exercise-scheduled
+** UI
 
-#+begin_src emacs-lisp
-(defun trl--exercise-scheduled (exercise db)
-  (current-time))
-#+end_src
+- ui ≡ ui-mk() : UI.
+- Given x, then: ui-p(x) = t ⇔ x : UI.
+- Given f : Buffer Frame → C, then: φ ≡ ui-use(f) : UI → C such that φ(ui) ≡ f(buffer frame)
+- Given name : String, f :  Buffer Frame → C, then: name ≡ ui-func(name f) : UI → C such that name(ui) ≡ f(buffer frame)
+- ui#buffer = buffer
+  - ui#buffer :≡ ui-buffer(ui)
+- ui#frame = frame
+  - ui#frame :≡ ui-frame(ui)
+- ui1, ui2 : UI, ui-eq(ui1 ui2) ≡ (ui1#buffer = ui2#buffer) ∧ (ui1#frame = ui2#frame)
 
-** trl--ui-mk
+**** ui-mk
 
 #+begin_src emacs-lisp
 (defun trl--ui-mk ()
   (let ((frame (make-frame '((width . 80) (height . 24))))
-	(buffer (get-buffer-create "*total-recall*")))
+        (buffer (get-buffer-create "*total-recall*")))
     (select-frame-set-input-focus frame)
     (switch-to-buffer buffer)
-    (erase-buffer)
-    (insert "Welcome to Total Recall\n")
-    `(:ui ,frame ,buffer)))
+    (org-mode)
+  (list :ui buffer frame)))
 #+end_src
 
-** trl--ui-display
+**** ui-p
+
+#+begin_src emacs-lisp
+(defun trl--ui-p (ui)
+  (eq (car-safe ui) :ui))
+#+end_src
+
+**** ui-use
+
+#+begin_src emacs-lisp
+(defun trl--ui-use (func)
+  "Build a function that applies FUNC to a ui.
+func :  Buffer Frame → C
+f ≡ (trl--ui-use func) : UI → C
+(f ui) ≡ (func (ui-buffer ui) (ui-frame ui))"
+
+  (lambda (ui)
+    (pcase ui
+      (`(:ui ,buffer ,frame)
+       (funcall func buffer frame))
+      (_
+       (error "UI is not a UI. UI ≡ %s" ui)))))
+#+end_src
+
+**** ui-func
+
+#+begin_src emacs-lisp
+(defmacro trl--ui-func (name lambda-expr)
+  "Define a named function NAME that applies LAMBDA-EXPR to a ui."
+  `(let (func)
+     (setq func (trl--ui-use ,lambda-expr))
+     (defun ,(intern name) (ui)
+       (funcall func ui))))
+#+end_src
+
+**** ui-buffer
+
+#+begin_src emacs-lisp
+(trl--ui-func "trl--ui-buffer" (lambda (buffer frame) buffer))
+#+end_src
+
+**** ui-frame
+
+#+begin_src emacs-lisp
+(trl--ui-func "trl--ui-frame" (lambda (buffer frame) frame))
+#+end_src
+
+**** ui-eq
+
+#+begin_src emacs-lisp
+(defun trl--ui-eq (ui1 ui2)
+  (and
+   (eq (trl--ui-buffer ui1) (trl--ui-buffer ui2))
+   (eq (trl--ui-frame ui1) (trl--ui-frame ui2))))
+#+end_src
+
+**** ui-display
 
 #+begin_src emacs-lisp
 (defun trl--ui-display (ui msg)
-  (pcase ui
-    (`(:ui ,frame ,buffer)
-     (pcase msg
-       (:no-exercises
-	(save-window-excursion
-	  (select-frame-set-input-focus frame)
-	  (switch-to-buffer buffer)
-	  (erase-buffer)
-	  (insert "No exercises.\n"))
-	:noop)))))
+  (unless (trl--ui-p ui) (error "UI is not a ui."))
+  (let ((buffer (trl--ui-buffer ui))
+        (frame (trl--ui-frame ui)))
+    (select-frame-set-input-focus frame)
+    (switch-to-buffer buffer)
+    (erase-buffer)
+    (insert "*Total Recall*\n\n\n")
+    (pcase msg
+      (:no-exercises
+       (save-window-excursion
+         (insert "No exercises.\n"))
+       :noop)
+      ((pred trl--exercise-p)
+       (let ((id (trl--exercise-id msg))
+             (question (trl--exercise-question msg))
+             (answer (trl--exercise-answer msg)))
+         (insert "*Question*\n\n")
+         (insert (format "%s\n\n" question))
+         (insert-button "SHOW" 'action (lambda (b) (message "SHOW button clicked")))
+         (insert "  ")
+         (insert-button "SKIP" 'action (lambda (b) (message "SKIP button clicked")))
+         (insert "  ")
+         (insert-button "STOP" 'action (lambda (b) (message "STOP button clicked")))
+         (insert "\n\n\n")
+         (insert "*Answer*\n\n")
+         (insert (format "%s\n\n" answer))
+         (insert-button "SUCCESS" 'action (lambda (b) (message "SUCCESS button clicked")))
+         (insert "  ")
+         (insert-button "FAILURE" 'action (lambda (b) (message "FAILURE button clicked")))
+         (insert "\n\n\n")
+         (insert "*Source*\n\n")
+         (insert (format "[[ref:%s][goto the source]]\n\n\n" id))
+         (goto-char (point-min)))))))
 #+end_src
 
-** trl--ui-kill
+**** ui-kill
 
 #+begin_src emacs-lisp
 (defun trl--ui-kill (ui)
   (pcase ui
-    (`(:ui ,frame ,buffer)
+    (`(:ui ,buffer ,frame)
      (kill-buffer buffer)
      (delete-frame frame))))
+#+end_src
+
+**** test
+
+#+begin_src emacs-lisp
+(ert-deftest trl--ui-test ()
+  (let (ui)
+    (setq ui (trl--ui-mk))
+    (should (trl--ui-p ui))
+    (should (eq (trl--ui-buffer ui) (trl--ui-buffer ui)))
+    (should (eq (trl--ui-frame ui) (trl--ui-frame ui)))
+    (should (trl--ui-eq ui ui))))
 #+end_src
 
 ** trl--db-open
@@ -430,11 +525,116 @@ f ≡ (trl--point-use func) : Point → C
   nil)
 #+end_src
 
+** Exercise
+
+- Given id,question,answer : String, then: ex ≡ exercise-mk(id question answer) : Exercise.
+- Given x, then: exercise-p(x) = t ⇔ x : Exercise.
+- Given f : Id Question Answer → C, then: φ ≡ exercise-use(f) : Exercise → C such that φ(ex) ≡ f(x y)
+- Given name : String, f : Id Question Answer → C, then: name ≡ exercise-func(name f) : Exercise → C such that name(ex) ≡ f(id question answer)
+- ex#id = id
+  - ex#id :≡ exercise-id(ex)
+- ex#question = question
+  - ex#question :≡ exercise-question(ex)
+- ex#answer = answer
+  - ex#answer :≡ exercise-answer(ex)
+- ex1, ex2 : Exercise, exercise-eq(ex1 ex2) ≡ (ex1#id = ex2#id)
+
+*** exercise-mk
+
+#+begin_src emacs-lisp
+(defun trl--exercise-mk (id question answer)
+  (unless (stringp id) (error "id is not an string."))
+  (unless (stringp question) (error "question is not an string."))
+  (unless (stringp answer) (error "answer is not an string."))
+  (list :exercise id question answer))
+#+end_src
+
+*** exercise-p
+
+#+begin_src emacs-lisp
+(defun trl--exercise-p (ex)
+  (eq (car-safe ex) :exercise))
+#+end_src
+
+*** exercise-use
+
+#+begin_src emacs-lisp
+(defun trl--exercise-use (func)
+  "Build a function that applies FUNC to a exercise.
+func : Id Question Answer → C
+f ≡ (trl--exercise-use func) : Exercise → C
+(f ex) ≡ (func (exercise-id ex) (exercise-question ex) (exercise-answer ex))"
+
+  (lambda (ex)
+    (pcase ex
+      (`(:exercise ,id ,question ,answer)
+       (funcall func id question answer))
+      (_
+       (error "PT is not a Exercise. PT ≡ %s" ex)))))
+#+end_src
+
+*** exercise-func
+
+#+begin_src emacs-lisp
+(defmacro trl--exercise-func (name lambda-expr)
+  "Define a named function NAME that applies LAMBDA-EXPR to a exercise."
+  `(let (func)
+     (setq func (trl--exercise-use ,lambda-expr))
+     (defun ,(intern name) (ex)
+       (funcall func ex))))
+#+end_src
+
+*** exercise-id
+
+#+begin_src emacs-lisp
+(trl--exercise-func "trl--exercise-id" (lambda (id question answer) id))
+#+end_src
+
+*** exercise-question
+
+#+begin_src emacs-lisp
+(trl--exercise-func "trl--exercise-question" (lambda (id question answer) question))
+#+end_src
+
+*** exercise-answer
+
+#+begin_src emacs-lisp
+(trl--exercise-func "trl--exercise-answer" (lambda (id answer answer) answer))
+#+end_src
+
+*** exercise-eq
+
+#+begin_src emacs-lisp
+(defun trl--exercise-eq (ex1 ex2)
+  (eq (trl--exercise-id ex1)
+      (trl--exercise-id ex2)))
+#+end_src
+
+*** trl--exercise-scheduled
+
+#+begin_src emacs-lisp
+(defun trl--exercise-scheduled (exercise db)
+  (time-subtract (current-time) 10))
+#+end_src
+
+*** test
+
+#+begin_src emacs-lisp
+(ert-deftest trl--exercise-test ()
+  (let (ex)
+    (setq ex (trl--exercise-mk "id" "question" "answer"))
+    (should (trl--exercise-p ex))
+    (should (string= (trl--exercise-id ex) "id"))
+    (should (string= (trl--exercise-question ex) "question"))
+    (should (string= (trl--exercise-answer ex) "answer"))
+    (should (trl--exercise-eq ex ex))))
+#+end_src
+
 ** trl--list-exercises
 
 #+begin_src emacs-lisp
 (defun trl--list-exercises (path)
-  '())
+  (list (trl--exercise-mk "id" "question" "answer")))
 #+end_src
 
 ** total-recall
@@ -443,27 +643,27 @@ f ≡ (trl--point-use func) : Point → C
 (defun total-recall ()
   (interactive)
   (let ((exercises (trl--list-exercises (expand-file-name "~")))
-	(db (trl--db-open trl-database))
-	(now (current-time))
-	(ui (trl--ui-mk))
-	exercise
-	scheduled)
+        (db (trl--db-open trl-database))
+        (now (current-time))
+        (ui (trl--ui-mk))
+        exercise
+        scheduled)
     (if (null exercises)
-	(trl--ui-display ui :no-exercises)
+        (trl--ui-display ui :no-exercises)
       (while exercises
-	(setq exercise (pop exercises))
-	(setq scheduled (trl--exercise-scheduled exercise db))
-	(when (> (time-subtract now scheduled) 0)
-	  (pcase (trl--ui-display ui exercise)
-	    (:stop
-	     (trl--ui-kill ui)
-	     (setq exercises '()))
-	    (:success
-	     (trl--db-save db (trl--success-row exercise now)))
-	    (:failure
-	     (trl--db-save db (trl--failure-row exercise now)))
-	    (:skip
-	     (trl--db-save db (trl--skip-row exercise now)))))))
+        (setq exercise (pop exercises))
+        (setq scheduled (trl--exercise-scheduled exercise db))
+        (when (time-less-p scheduled now)
+          (pcase (trl--ui-display ui exercise)
+            (:stop
+             (trl--ui-kill ui)
+             (setq exercises '()))
+            (:success
+             (trl--db-save db (trl--success-row exercise now)))
+            (:failure
+             (trl--db-save db (trl--failure-row exercise now)))
+            (:skip
+             (trl--db-save db (trl--skip-row exercise now)))))))
     (run-at-time 2 nil (lambda () (trl--ui-kill ui)))))
 #+end_src
 
@@ -534,7 +734,7 @@ MAKEFLAGS += --no-print-directory
 #+begin_src makefile
 .PHONY: help
 help:
-	grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+        grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 #+end_src
 
 ** BUILD
@@ -544,7 +744,7 @@ help:
 #+begin_src makefile
 BUILD := _build
 ${BUILD}:
-	mkdir -p $@
+        mkdir -p $@
 #+end_src
 
 ** TRACE
@@ -580,10 +780,10 @@ MAIN_ORG := README.org
 TANGLE_HEADING := ${BUILD}/tangle-heading
 tangle-heading: ${TANGLE_HEADING}
 ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
-	cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
-	tail -n 1 ${TRACE}
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
+        cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
+        tail -n 1 ${TRACE}
 #+end_src
 
 ** Makefile
@@ -595,10 +795,10 @@ ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
 MAKEFILE := ${BUILD}/Makefile
 Makefile: ${MAKEFILE}
 ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
-	cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
-	tail -n 1 ${TRACE}
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
+        cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
+        tail -n 1 ${TRACE}
 #+end_src
 
 ** packages.scm
@@ -610,9 +810,9 @@ ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
 PACKAGES_SCM := ${BUILD}/packages.scm
 packages.scm: ${PACKAGES_SCM}
 ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
-	echo "$@"
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
+        echo "$@"
 #+end_src
 
 ** init.bash
@@ -624,9 +824,9 @@ ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
 INIT_BASH := ${BUILD}/init.bash
 init.bash: ${INIT_BASH}
 ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
-	echo "$@"
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
+        echo "$@"
 #+end_src
 
 ** env
@@ -637,23 +837,23 @@ ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
 .PHONY: env
 GUIX := guix
 GUIX_SHELL := ${GUIX} shell --container \
-	-F \
-	-N \
-	--file=${PACKAGES_SCM} \
-	--preserve='^TERM$$' \
-	-- bash --init-file ${INIT_BASH}
+        -F \
+        -N \
+        --file=${PACKAGES_SCM} \
+        --preserve='^TERM$$' \
+        -- bash --init-file ${INIT_BASH}
 env: ${PACKAGES_SCM} ${INIT_BASH}
-	CMD="${CMD}"
-	if [[ ! -v GUIX_ENVIRONMENT ]]; then
-	  if [[ "$${CMD}" == "" ]]; then
-	    ${GUIX_SHELL} -i;
-	  else
-	    ${GUIX_SHELL} -c "${CMD}";
-	  fi
-	else
-	  ${CMD}
-	  :
-	fi
+        CMD="${CMD}"
+        if [[ ! -v GUIX_ENVIRONMENT ]]; then
+          if [[ "$${CMD}" == "" ]]; then
+            ${GUIX_SHELL} -i;
+          else
+            ${GUIX_SHELL} -c "${CMD}";
+          fi
+        else
+          ${CMD}
+          :
+        fi
 #+end_src
 
 ** el
@@ -665,11 +865,11 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 TOTAL_RECALL_EL := ${BUILD}/total-recall.el
 el: ${TOTAL_RECALL_EL}
 ${TOTAL_RECALL_EL}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} total-recall.el ${BUILD} &> ${TRACE}
-	sed -i '1,2d' ${TOTAL_RECALL_EL} &>> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} total-recall.el ${BUILD} &> ${TRACE}
+        sed -i '1,2d' ${TOTAL_RECALL_EL} &>> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** elc
@@ -681,13 +881,13 @@ ${TOTAL_RECALL_EL}: ${MAIN_ORG} | ${BUILD}
 TOTAL_RECALL_ELC := ${BUILD}/total-recall.elc
 elc: ${TOTAL_RECALL_ELC}
 ${TOTAL_RECALL_ELC}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
-	-f batch-byte-compile $< &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        emacs -Q --batch \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
+        -f batch-byte-compile $< &> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** lint
@@ -699,14 +899,14 @@ ${TOTAL_RECALL_ELC}: ${TOTAL_RECALL_EL}
 LINT_REPORT := ${BUILD}/lint-report.txt
 lint: ${LINT_REPORT}
 ${LINT_REPORT}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs --batch \
-	--file $< \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
-	--eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        emacs --batch \
+        --file $< \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
+        --eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** checkdoc
@@ -718,12 +918,12 @@ ${LINT_REPORT}: ${TOTAL_RECALL_EL}
 CHECKDOC := ${BUILD}/checkdoc.txt
 checkdoc: ${CHECKDOC}
 ${CHECKDOC}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(checkdoc-file "$<")' &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        emacs -Q --batch \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval '(checkdoc-file "$<")' &> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** test
@@ -735,12 +935,12 @@ ${CHECKDOC}: ${TOTAL_RECALL_EL}
 TEST := ${BUILD}/test-log.txt
 test: ${TEST}
 ${TEST}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(load-file "$<")' \
-	--eval '(ert-run-tests-batch-and-exit t)' &> $@
-	echo "$@"
+        ${TRAP}
+        emacs -Q --batch \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval '(load-file "$<")' \
+        --eval '(ert-run-tests-batch-and-exit t)' &> $@
+        echo "$@"
 #+end_src
 
 ** all
@@ -750,9 +950,9 @@ ${TEST}: ${TOTAL_RECALL_EL}
 #+begin_src makefile
 .PHONY: all
 all: ${BUILD}
-	${TRAP}
-	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
-	echo ${TOTAL_RECALL_EL}
+        ${TRAP}
+        ${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
+        echo ${TOTAL_RECALL_EL}
 #+end_src
 
 ** clean
@@ -762,5 +962,5 @@ all: ${BUILD}
 #+begin_src makefile
 .PHONY: clean
 clean:
-	rm -rfv ${BUILD}
+        rm -rfv ${BUILD}
 #+end_src
