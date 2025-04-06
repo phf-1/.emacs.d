@@ -342,25 +342,41 @@ f ≡ (trl--point-use func) : Point → C
     (should (eq (trl--point-quad-norm pt) 500))))
 #+end_src
 
-** trl--success-row
+** time-to-iso8601
 
 #+begin_src emacs-lisp
-(defun trl--success-row (exercise time)
-  nil)
+(defun trl--time-to-iso8601 (time)
+  (format-time-string "%Y-%m-%dT%H:%M:%SZ" (time-convert time 'list) t))
 #+end_src
 
-** trl--failure-row
+** Row
+
+*** row-mk
 
 #+begin_src emacs-lisp
-(defun trl--failure-row (exercise time)
-  nil)
+(defun trl--row-mk (exercise time)
+  (list :row (trl--exercise-rcv exercise :id) (trl--time-to-iso8601 time)))
 #+end_src
 
-** trl--skip-row
+*** success-row-mk
 
 #+begin_src emacs-lisp
-(defun trl--skip-row (exercise time)
-  nil)
+(defun trl--success-row-mk (exercise time)
+  (cons :success (trl--row-mk exercise time)))
+#+end_src
+
+*** failure-row-mk
+
+#+begin_src emacs-lisp
+(defun trl--failure-row-mk (exercise time)
+  (cons :failure (trl--row-mk exercise time)))
+#+end_src
+
+*** skip-row-mk
+
+#+begin_src emacs-lisp
+(defun trl--skip-row-mk (exercise time)
+  (cons :skip (trl--row-mk exercise time)))
 #+end_src
 
 ** UI
@@ -394,133 +410,68 @@ f ≡ (trl--point-use func) : Point → C
   (eq (car-safe ui) :ui))
 #+end_src
 
-**** ui-use
+**** ui-rcv
 
 #+begin_src emacs-lisp
-(defun trl--ui-use (func)
-  "Build a function that applies FUNC to a ui.
-func :  Buffer Frame → C
-f ≡ (trl--ui-use func) : UI → C
-(f ui) ≡ (func (ui-buffer ui) (ui-frame ui))"
-
-  (lambda (ui)
-    (pcase ui
-      (`(:ui ,buffer ,frame)
-       (funcall func buffer frame))
-      (_
-       (error "UI is not a UI. UI ≡ %s" ui)))))
-#+end_src
-
-**** ui-func
-
-#+begin_src emacs-lisp
-(defmacro trl--ui-func (name lambda-expr)
-  "Define a named function NAME that applies LAMBDA-EXPR to a ui."
-  `(let (func)
-     (setq func (trl--ui-use ,lambda-expr))
-     (defun ,(intern name) (ui)
-       (funcall func ui))))
-#+end_src
-
-**** ui-buffer
-
-#+begin_src emacs-lisp
-(trl--ui-func "trl--ui-buffer" (lambda (buffer frame) buffer))
-#+end_src
-
-**** ui-frame
-
-#+begin_src emacs-lisp
-(trl--ui-func "trl--ui-frame" (lambda (buffer frame) frame))
-#+end_src
-
-**** ui-eq
-
-#+begin_src emacs-lisp
-(defun trl--ui-eq (ui1 ui2)
-  (and
-   (eq (trl--ui-buffer ui1) (trl--ui-buffer ui2))
-   (eq (trl--ui-frame ui1) (trl--ui-frame ui2))))
-#+end_src
-
-**** ui-display
-
-#+begin_src emacs-lisp
-(defun trl--ui-display (ui msg)
+(defun trl--ui-rcv (ui msg)
   (unless (trl--ui-p ui) (error "UI is not a ui."))
-  (let ((buffer (trl--ui-buffer ui))
-        (frame (trl--ui-frame ui)))
+
+  (pcase-let ((`(:ui ,buffer ,frame) ui))
     (select-frame-set-input-focus frame)
     (switch-to-buffer buffer)
     (erase-buffer)
     (insert "*Total Recall*\n\n\n")
+
     (pcase msg
       (:no-exercises
        (save-window-excursion
          (insert "No exercises.\n"))
        :noop)
-      (`(:question ,ex)
-       (let ((id (trl--exercise-id ex))
-             (question (trl--exercise-question ex)))
+
+      (`(:display :question ,ex)
+       (let ((id (trl--exercise-rcv ex :id))
+             (question (trl--exercise-rcv ex :question)))
          (insert "*Source*\n\n")
          (insert (format "[[ref:%s][goto the source]]\n\n\n" id))
          (insert "*Question*\n\n")
          (insert (format "%s\n\n" question))
          (goto-char (point-min))))
-      (`(:answer ,ex)
-       (let ((id (trl--exercise-id ex))
-             (question (trl--exercise-question ex))
-             (answer (trl--exercise-answer ex)))
+
+      (`(:display :answer ,ex)
+       (let ((id (trl--exercise-rcv ex :id))
+             (question (trl--exercise-rcv ex :question))
+             (answer (trl--exercise-rcv ex :answer)))
          (insert "*Source*\n\n")
          (insert (format "[[ref:%s][goto the source]]\n\n\n" id))
          (insert "*Question*\n\n")
          (insert (format "%s\n\n\n" question))
          (insert "*Answer*\n\n")
          (insert (format "%s\n\n" answer))
-         (goto-char (point-min)))))))
+         (goto-char (point-min))))
+
+      (:kill
+       (kill-buffer buffer)
+       (delete-frame frame)
+       :noop))))
 #+end_src
 
-**** ui-kill
+** DB
+*** db-mk
 
 #+begin_src emacs-lisp
-(defun trl--ui-kill (ui)
-  (pcase ui
-    (`(:ui ,buffer ,frame)
-     (kill-buffer buffer)
-     (delete-frame frame))))
-#+end_src
-
-**** test
-
-#+begin_src emacs-lisp
-(ert-deftest trl--ui-test ()
-  (let (ui)
-    (setq ui (trl--ui-mk))
-    (should (trl--ui-p ui))
-    (should (eq (trl--ui-buffer ui) (trl--ui-buffer ui)))
-    (should (eq (trl--ui-frame ui) (trl--ui-frame ui)))
-    (should (trl--ui-eq ui ui))))
-#+end_src
-
-** trl--db-open
-
-#+begin_src emacs-lisp
-(defun trl--db-open (path)
+(defun trl--db-mk (path)
   (sqlite-open path))
 #+end_src
 
-** trl--db-save
+*** db-rcv
 
 #+begin_src emacs-lisp
-(defun trl--db-save (db row)
-  nil)
-#+end_src
-
-** trl--db-close
-
-#+begin_src emacs-lisp
-(defun trl--db-close (db)
-  nil)
+(defun trl--db-rcv (db msg)
+  (pcase msg
+    (`(:save ,row)
+     nil)
+    (:close
+     nil)))
 #+end_src
 
 ** Exercise
@@ -554,85 +505,29 @@ f ≡ (trl--ui-use func) : UI → C
   (eq (car-safe ex) :exercise))
 #+end_src
 
-*** exercise-use
+*** exercise-rcv
 
 #+begin_src emacs-lisp
-(defun trl--exercise-use (func)
-  "Build a function that applies FUNC to a exercise.
-func : Id Question Answer → C
-f ≡ (trl--exercise-use func) : Exercise → C
-(f ex) ≡ (func (exercise-id ex) (exercise-question ex) (exercise-answer ex))"
-
-  (lambda (ex)
-    (pcase ex
-      (`(:exercise ,id ,question ,answer)
-       (funcall func id question answer))
-      (_
-       (error "PT is not a Exercise. PT ≡ %s" ex)))))
+(defun trl--exercise-rcv (exercise msg)
+  (pcase-let ((`(:exercise ,id ,question ,answer) exercise))
+    (pcase msg
+      (:id id)
+      (:question question)
+      (:answer answer)
+      (`(:scheduled ,db)
+       (time-subtract (current-time) (* 60 60))))))
 #+end_src
 
-*** exercise-func
+** Path
+
+*** path-rcv
 
 #+begin_src emacs-lisp
-(defmacro trl--exercise-func (name lambda-expr)
-  "Define a named function NAME that applies LAMBDA-EXPR to a exercise."
-  `(let (func)
-     (setq func (trl--exercise-use ,lambda-expr))
-     (defun ,(intern name) (ex)
-       (funcall func ex))))
-#+end_src
-
-*** exercise-id
-
-#+begin_src emacs-lisp
-(trl--exercise-func "trl--exercise-id" (lambda (id question answer) id))
-#+end_src
-
-*** exercise-question
-
-#+begin_src emacs-lisp
-(trl--exercise-func "trl--exercise-question" (lambda (id question answer) question))
-#+end_src
-
-*** exercise-answer
-
-#+begin_src emacs-lisp
-(trl--exercise-func "trl--exercise-answer" (lambda (id answer answer) answer))
-#+end_src
-
-*** exercise-eq
-
-#+begin_src emacs-lisp
-(defun trl--exercise-eq (ex1 ex2)
-  (eq (trl--exercise-id ex1)
-      (trl--exercise-id ex2)))
-#+end_src
-
-*** exercise-scheduled
-
-#+begin_src emacs-lisp
-(defun trl--exercise-scheduled (exercise db)
-  (time-subtract (current-time) (* 60 60)))
-#+end_src
-
-*** test
-
-#+begin_src emacs-lisp
-(ert-deftest trl--exercise-test ()
-  (let (ex)
-    (setq ex (trl--exercise-mk "id" "question" "answer"))
-    (should (trl--exercise-p ex))
-    (should (string= (trl--exercise-id ex) "id"))
-    (should (string= (trl--exercise-question ex) "question"))
-    (should (string= (trl--exercise-answer ex) "answer"))
-    (should (trl--exercise-eq ex ex))))
-#+end_src
-
-** trl--list-exercises
-
-#+begin_src emacs-lisp
-(defun trl--list-exercises (path)
-  (list (trl--exercise-mk "id" "question" "answer")))
+(defun trl--path-rcv (path msg)
+  (let ((path-abs (expand-file-name path)))
+    (pcase msg
+      (:list-exercises
+       (list (trl--exercise-mk "id" "question" "answer"))))))
 #+end_src
 
 ** total-recall
@@ -640,20 +535,20 @@ f ≡ (trl--exercise-use func) : Exercise → C
 #+begin_src emacs-lisp
 (defun total-recall ()
   (interactive)
-  (let ((exercises (trl--list-exercises (expand-file-name "~")))
-        (db (trl--db-open trl-database))
+  (let ((exercises (trl--path-rcv "~" :list-exercises))
+        (db (trl--db-mk trl-database))
         (now (current-time))
         (ui (trl--ui-mk))
         exercise
         scheduled
         choice)
     (if (null exercises)
-        (trl--ui-display ui :no-exercises)
+        (trl--ui-rcv ui :no-exercises)
       (while exercises
         (setq exercise (pop exercises))
-        (setq scheduled (trl--exercise-scheduled exercise db))
+        (setq scheduled (trl--exercise-rcv exercise `(:scheduled ,db)))
         (when (time-less-p scheduled now)
-          (trl--ui-display ui (list :question exercise))
+          (trl--ui-rcv ui `(:display :question ,exercise))
 
           (setq choice
                 (car
@@ -665,7 +560,7 @@ f ≡ (trl--exercise-use func) : Exercise → C
 
           (pcase choice
             (?r
-             (trl--ui-display ui (list :answer exercise))
+             (trl--ui-rcv ui `(:display :answer ,exercise))
 
              (setq choice
                    (car
@@ -676,10 +571,11 @@ f ≡ (trl--exercise-use func) : Exercise → C
 
              (pcase choice
                (?s
-                (trl--db-save db (trl--success-row exercise now)))
+                (trl--db-rcv db `(:save ,(trl--success-row-mk exercise now))))
                (?f
-                (trl--db-save db (trl--failure-row exercise now)))))))))
-    (run-at-time 2 nil (lambda () (trl--ui-kill ui)))))
+                (trl--db-rcv db `(:save ,(trl--failure-row-mk exercise now))))))))))
+
+    (run-at-time 2 nil (lambda () (trl--ui-rcv ui :kill)))))
 #+end_src
 
 ** Minor mode
