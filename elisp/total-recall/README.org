@@ -459,26 +459,24 @@ f ≡ (trl--ui-use func) : UI → C
        (save-window-excursion
          (insert "No exercises.\n"))
        :noop)
-      ((pred trl--exercise-p)
-       (let ((id (trl--exercise-id msg))
-             (question (trl--exercise-question msg))
-             (answer (trl--exercise-answer msg)))
-         (insert "*Question*\n\n")
-         (insert (format "%s\n\n" question))
-         (insert-button "SHOW" 'action (lambda (b) (message "SHOW button clicked")))
-         (insert "  ")
-         (insert-button "SKIP" 'action (lambda (b) (message "SKIP button clicked")))
-         (insert "  ")
-         (insert-button "STOP" 'action (lambda (b) (message "STOP button clicked")))
-         (insert "\n\n\n")
-         (insert "*Answer*\n\n")
-         (insert (format "%s\n\n" answer))
-         (insert-button "SUCCESS" 'action (lambda (b) (message "SUCCESS button clicked")))
-         (insert "  ")
-         (insert-button "FAILURE" 'action (lambda (b) (message "FAILURE button clicked")))
-         (insert "\n\n\n")
+      (`(:question ,ex)
+       (let ((id (trl--exercise-id ex))
+             (question (trl--exercise-question ex)))
          (insert "*Source*\n\n")
          (insert (format "[[ref:%s][goto the source]]\n\n\n" id))
+         (insert "*Question*\n\n")
+         (insert (format "%s\n\n" question))
+         (goto-char (point-min))))
+      (`(:answer ,ex)
+       (let ((id (trl--exercise-id ex))
+             (question (trl--exercise-question ex))
+             (answer (trl--exercise-answer ex)))
+         (insert "*Source*\n\n")
+         (insert (format "[[ref:%s][goto the source]]\n\n\n" id))
+         (insert "*Question*\n\n")
+         (insert (format "%s\n\n\n" question))
+         (insert "*Answer*\n\n")
+         (insert (format "%s\n\n" answer))
          (goto-char (point-min)))))))
 #+end_src
 
@@ -610,11 +608,11 @@ f ≡ (trl--exercise-use func) : Exercise → C
       (trl--exercise-id ex2)))
 #+end_src
 
-*** trl--exercise-scheduled
+*** exercise-scheduled
 
 #+begin_src emacs-lisp
 (defun trl--exercise-scheduled (exercise db)
-  (time-subtract (current-time) 10))
+  (time-subtract (current-time) (* 60 60)))
 #+end_src
 
 *** test
@@ -647,23 +645,40 @@ f ≡ (trl--exercise-use func) : Exercise → C
         (now (current-time))
         (ui (trl--ui-mk))
         exercise
-        scheduled)
+        scheduled
+        choice)
     (if (null exercises)
         (trl--ui-display ui :no-exercises)
       (while exercises
         (setq exercise (pop exercises))
         (setq scheduled (trl--exercise-scheduled exercise db))
         (when (time-less-p scheduled now)
-          (pcase (trl--ui-display ui exercise)
-            (:stop
-             (trl--ui-kill ui)
-             (setq exercises '()))
-            (:success
-             (trl--db-save db (trl--success-row exercise now)))
-            (:failure
-             (trl--db-save db (trl--failure-row exercise now)))
-            (:skip
-             (trl--db-save db (trl--skip-row exercise now)))))))
+          (trl--ui-display ui (list :question exercise))
+
+          (setq choice
+                (car
+                 (read-multiple-choice
+                  "What would you like to do?"
+                  '((?r "Reveal answer" "Display the answer to the question")
+                    (?s "Skip" "Skip this exercise")
+                    (?q "Quit" "Quit Total Recall.")))))
+
+          (pcase choice
+            (?r
+             (trl--ui-display ui (list :answer exercise))
+
+             (setq choice
+                   (car
+                    (read-multiple-choice
+                           "What would you like to do?"
+                           '((?s "Success" "You have successfully answered the question.")
+                             (?f "Failure" "You have failed to answer the question.")))))
+
+             (pcase choice
+               (?s
+                (trl--db-save db (trl--success-row exercise now)))
+               (?f
+                (trl--db-save db (trl--failure-row exercise now)))))))))
     (run-at-time 2 nil (lambda () (trl--ui-kill ui)))))
 #+end_src
 
