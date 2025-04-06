@@ -202,7 +202,7 @@ export LC_ALL=en_US.UTF-8
 ;; Author: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Homepage: https://github.com/phf-1/total-recall
-;; Package-Version: 0.20
+;; Package-Version: 0.1
 ;; Package-Requires: ((emacs "27.1"))
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -235,7 +235,7 @@ export LC_ALL=en_US.UTF-8
 - This section lists the user's defined custom parameters.
 
 #+begin_src emacs-lisp
-(defgroup trl nil
+(defgroup total-recall nil
   "Customization options for trl mode.
 This mode provides spaced repetitions capabilities to Emacs."
   :group 'convenience
@@ -244,7 +244,22 @@ This mode provides spaced repetitions capabilities to Emacs."
 (defcustom trl-database (file-name-concat user-emacs-directory "total-recall.sqlite3")
   "Path of the database."
   :type 'string
-  :group 'trl)
+  :group 'total-recall)
+
+(defcustom trl-ripgrep-cmd "rg"
+  "The name or path of the Ripgrep executable used for searching."
+  :type 'string
+  :group 'total-recall)
+
+(defcustom trl-root-dir (expand-file-name "~")
+  "The root directory where Ripgrep searches for matches."
+  :type 'string
+  :group 'total-recall)
+
+(defcustom trl-exercise-type-id "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
+  "The type id of the heading representing an exercise."
+  :type 'string
+  :group 'total-recall)
 #+end_src
 
 ** Structure
@@ -349,6 +364,28 @@ f ≡ (trl--point-use func) : Point → C
   (format-time-string "%Y-%m-%dT%H:%M:%SZ" (time-convert time 'list) t))
 #+end_src
 
+** Search
+*** search-rcv
+
+Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
+
+#+begin_src emacs-lisp
+(defun trl--search-rcv (msg)
+  (pcase msg
+    (`(:search ,dir ,ext ,type-id)
+     (let (cmd matches)
+       (setq cmd (format "%s -g '*.%s' -i --no-heading -n --color=never '%s' %s" "rg" ext type-id dir))
+       (with-temp-buffer
+         (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
+         (goto-char (point-min))
+         (while (not (eobp))
+           (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+                  (match (split-string line ":")))
+             (push (car match) matches))
+           (forward-line 1))
+         matches)))))
+#+end_src
+
 ** Row
 
 *** row-mk
@@ -391,7 +428,7 @@ f ≡ (trl--point-use func) : Point → C
   - ui#frame :≡ ui-frame(ui)
 - ui1, ui2 : UI, ui-eq(ui1 ui2) ≡ (ui1#buffer = ui2#buffer) ∧ (ui1#frame = ui2#frame)
 
-**** ui-mk
+*** ui-mk
 
 #+begin_src emacs-lisp
 (defun trl--ui-mk ()
@@ -403,14 +440,14 @@ f ≡ (trl--point-use func) : Point → C
   (list :ui buffer frame)))
 #+end_src
 
-**** ui-p
+*** ui-p
 
 #+begin_src emacs-lisp
 (defun trl--ui-p (ui)
   (eq (car-safe ui) :ui))
 #+end_src
 
-**** ui-rcv
+*** ui-rcv
 
 #+begin_src emacs-lisp
 (defun trl--ui-rcv (ui msg)
@@ -491,11 +528,12 @@ f ≡ (trl--point-use func) : Point → C
 *** exercise-mk
 
 #+begin_src emacs-lisp
-(defun trl--exercise-mk (id question answer)
+(defun trl--exercise-mk (name id question answer)
+  (unless (stringp name) (error "name is not a string"))
   (unless (stringp id) (error "id is not an string."))
   (unless (stringp question) (error "question is not an string."))
   (unless (stringp answer) (error "answer is not an string."))
-  (list :exercise id question answer))
+  (list :exercise name id question answer))
 #+end_src
 
 *** exercise-p
@@ -509,8 +547,9 @@ f ≡ (trl--point-use func) : Point → C
 
 #+begin_src emacs-lisp
 (defun trl--exercise-rcv (exercise msg)
-  (pcase-let ((`(:exercise ,id ,question ,answer) exercise))
+  (pcase-let ((`(:exercise ,name ,id ,question ,answer) exercise))
     (pcase msg
+      (:name name)
       (:id id)
       (:question question)
       (:answer answer)
@@ -520,14 +559,69 @@ f ≡ (trl--point-use func) : Point → C
 
 ** Path
 
+*** dir-rcv
+
+#+begin_src emacs-lisp
+(defun trl--dir-rcv (dir msg)
+  (pcase msg
+    (:list-exercises
+     (mapcan
+      (lambda (file-path) (trl--file-rcv file-path :list-exercises))
+      (trl--search-rcv `(:search ,dir "org" ,trl-exercise-type-id))))))
+#+end_src
+
+*** file-rcv
+
+#+begin_src emacs-lisp
+(defun trl--file-rcv (file msg)
+  (pcase msg
+    (:list-exercises
+     (with-temp-buffer
+       (insert-file-contents file)
+       (org-mode)
+       (org-show-all)
+       (let ((org-element-use-cache nil)
+             exercises)
+         (org-map-entries
+          (lambda ()
+            (let ((id (org-entry-get nil "ID"))
+                  (name (org-get-heading t t t t))
+                  question answer)
+              (org-narrow-to-subtree)
+              (org-next-visible-heading 1)
+              (unless (org-at-heading-p) (error "Question not found."))
+              (org-mark-subtree)
+              (setq question
+                    (string-trim
+                     (buffer-substring-no-properties (point) (mark))))
+              (org-goto-sibling)
+              (unless (org-at-heading-p) (error "Answer not found."))
+              (org-mark-subtree)
+              (setq answer
+                    (string-trim
+                     (buffer-substring-no-properties (point) (mark))))
+              (push (trl--exercise-mk name id question answer) exercises)
+              (widen)))
+          (format "TYPE=\"%s\"" trl-type-id))
+         (reverse exercises))))))
+#+end_src
+
 *** path-rcv
+
+1. path
+2. files :≡ [path/**/file.org such that ∃ heading with type = exercise id]
+3. path/**/file.org → [heading with type = exercise id]
+4. heading → path id question answer
+   1. path ≡ file.org/xxx/yyy
 
 #+begin_src emacs-lisp
 (defun trl--path-rcv (path msg)
-  (let ((path-abs (expand-file-name path)))
-    (pcase msg
-      (:list-exercises
-       (list (trl--exercise-mk "id" "question" "answer"))))))
+  (cond
+   ((file-directory-p path)
+    (trl--dir-rcv path msg))
+
+   ((file-exists-p path)
+    (trl--file-rcv path msg))))
 #+end_src
 
 ** total-recall
@@ -535,7 +629,7 @@ f ≡ (trl--point-use func) : Point → C
 #+begin_src emacs-lisp
 (defun total-recall ()
   (interactive)
-  (let ((exercises (trl--path-rcv "~" :list-exercises))
+  (let ((exercises (trl--path-rcv trl-root-dir :list-exercises))
         (db (trl--db-mk trl-database))
         (now (current-time))
         (ui (trl--ui-mk))

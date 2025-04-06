@@ -167,7 +167,7 @@ that the appropriate major-mode is set.  SPEC has the form:
 
 (define binaries
   (list
-   
+
    ;; build dependencies
    ;; bash-minimal
    bash
@@ -604,6 +604,9 @@ specified location."
 #+end_src
 
 *** files
+:PROPERTIES:
+:ID:       c630d94f-987c-420a-9ef7-c78211a8a813
+:END:
 
 - RegEx → List(Match)
 
@@ -1068,7 +1071,7 @@ A click on a button opens the associated file."
 
 (defun locs-and-refs--delete-search-results-buffer (frame)
   "Kill L&R search buffers associated with FRAME."
-  (let ((prefix locs-and-refs-results-buffer-prefix))    
+  (let ((prefix locs-and-refs-results-buffer-prefix))
     (dolist (buffer (frame-parameter frame 'buffer-list))
       (when (and (buffer-live-p buffer)
                  (string-prefix-p prefix (buffer-name buffer)))
@@ -1087,7 +1090,7 @@ A click on a button opens the associated file."
   "Deactivate the main functionality of locs-and-refs mode."
   (remove-hook 'after-change-major-mode-hook #'locs-and-refs--activate-buffer)
   (remove-hook 'after-change-functions #'locs-and-refs--mutated)
-  (remove #'locs-and-refs--delete-search-results-buffer delete-frame-functions)  
+  (remove #'locs-and-refs--delete-search-results-buffer delete-frame-functions)
   (dolist (buffer (buffer-list))
     (with-current-buffer buffer
       (remove-overlays nil nil 'lar t)
@@ -1206,7 +1209,7 @@ MAKEFLAGS += --no-print-directory
 #+begin_src makefile
 .PHONY: help
 help:
-	grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+        grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 #+end_src
 
 ** BUILD
@@ -1216,7 +1219,7 @@ help:
 #+begin_src makefile
 BUILD := _build
 ${BUILD}:
-	mkdir -p $@
+        mkdir -p $@
 #+end_src
 
 ** TRACE
@@ -1252,11 +1255,11 @@ MAIN_ORG := README.org
 TANGLE_HEADING := ${BUILD}/tangle-heading
 tangle-heading: ${TANGLE_HEADING}
 ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
-	cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
-	tail -n 1 ${TRACE}
-#+end_src 
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
+        cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
+        tail -n 1 ${TRACE}
+#+end_src
 
 ** Makefile
 
@@ -1267,11 +1270,11 @@ ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
 MAKEFILE := ${BUILD}/Makefile
 Makefile: ${MAKEFILE}
 ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
-	cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
-	tail -n 1 ${TRACE}
-#+end_src 
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
+        cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
+        tail -n 1 ${TRACE}
+#+end_src
 
 ** packages.scm
 
@@ -1282,10 +1285,10 @@ ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
 PACKAGES_SCM := ${BUILD}/packages.scm
 packages.scm: ${PACKAGES_SCM}
 ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
-	echo "$@"
-#+end_src 
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
+        echo "$@"
+#+end_src
 
 ** init.bash
 
@@ -1296,10 +1299,10 @@ ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
 INIT_BASH := ${BUILD}/init.bash
 init.bash: ${INIT_BASH}
 ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
-	echo "$@"
-#+end_src 
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
+        echo "$@"
+#+end_src
 
 ** env
 
@@ -1309,23 +1312,23 @@ ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
 .PHONY: env
 GUIX := guix
 GUIX_SHELL := ${GUIX} shell --container \
-	-F \
-	-N \
-	--file=${PACKAGES_SCM} \
-	--preserve='^TERM$$' \
-	-- bash --init-file ${INIT_BASH}
+        -F \
+        -N \
+        --file=${PACKAGES_SCM} \
+        --preserve='^TERM$$' \
+        -- bash --init-file ${INIT_BASH}
 env: ${PACKAGES_SCM} ${INIT_BASH}
-	CMD="${CMD}"
-	if [[ ! -v GUIX_ENVIRONMENT ]]; then
-	  if [[ "$${CMD}" == "" ]]; then
-	    ${GUIX_SHELL} -i;
-	  else
-	    ${GUIX_SHELL} -c "${CMD}";
-	  fi
-	else
-	  ${CMD}
-	  :
-	fi
+        CMD="${CMD}"
+        if [[ ! -v GUIX_ENVIRONMENT ]]; then
+          if [[ "$${CMD}" == "" ]]; then
+            ${GUIX_SHELL} -i;
+          else
+            ${GUIX_SHELL} -c "${CMD}";
+          fi
+        else
+          ${CMD}
+          :
+        fi
 #+end_src
 
 ** el
@@ -1337,12 +1340,12 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 LOCS_AND_REFS_EL := ${BUILD}/locs-and-refs.el
 el: ${LOCS_AND_REFS_EL}
 ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} locs-and-refs.el ${BUILD} &> ${TRACE}
-	sed -i '1,2d' ${LOCS_AND_REFS_EL} &>> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
-#+end_src 
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} locs-and-refs.el ${BUILD} &> ${TRACE}
+        sed -i '1,2d' ${LOCS_AND_REFS_EL} &>> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
+#+end_src
 
 ** elc
 
@@ -1353,13 +1356,13 @@ ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
 LOCS_AND_REFS_ELC := ${BUILD}/locs-and-refs.elc
 elc: ${LOCS_AND_REFS_ELC}
 ${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
-	${TRAP}	
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
-	-f batch-byte-compile $< &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        emacs -Q --batch \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
+        -f batch-byte-compile $< &> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** lint
@@ -1371,14 +1374,14 @@ ${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
 LINT_REPORT := ${BUILD}/lint-report.txt
 lint: ${LINT_REPORT}
 ${LINT_REPORT}: ${LOCS_AND_REFS_EL}
-	${TRAP}	
-	emacs --batch \
-	--file $< \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
-	--eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        emacs --batch \
+        --file $< \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
+        --eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** checkdoc
@@ -1390,12 +1393,12 @@ ${LINT_REPORT}: ${LOCS_AND_REFS_EL}
 CHECKDOC := ${BUILD}/checkdoc.txt
 checkdoc: ${CHECKDOC}
 ${CHECKDOC}: ${LOCS_AND_REFS_EL}
-	${TRAP}	
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(checkdoc-file "$<")' &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        emacs -Q --batch \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval '(checkdoc-file "$<")' &> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** all
@@ -1405,9 +1408,9 @@ ${CHECKDOC}: ${LOCS_AND_REFS_EL}
 #+begin_src makefile
 .PHONY: all
 all: ${BUILD}
-	${TRAP}
-	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
-	echo ${LOCS_AND_REFS_EL}
+        ${TRAP}
+        ${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
+        echo ${LOCS_AND_REFS_EL}
 #+end_src
 
 ** clean
@@ -1417,6 +1420,5 @@ all: ${BUILD}
 #+begin_src makefile
 .PHONY: clean
 clean:
-	rm -rfv ${BUILD}
+        rm -rfv ${BUILD}
 #+end_src
-
