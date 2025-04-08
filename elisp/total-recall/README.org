@@ -639,7 +639,7 @@ MSG can be (:save ROW) to save a row or :close to close the database."
          (org-map-entries
           (lambda ()
             (let ((id (org-entry-get nil "ID"))
-                  (name (org-get-heading t t t t))
+                  (name (org-format-outline-path (org-get-outline-path t) 10000 (file-name-base file)))
                   question answer)
               (save-restriction
                 (org-narrow-to-subtree)
@@ -793,17 +793,7 @@ MAKEFLAGS += --no-print-directory
 .SILENT:
 #+end_src
 
-** help
-
-- make help # Print this help.
-
-#+begin_src makefile
-.PHONY: help
-help:
-        grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
-#+end_src
-
-** BUILD
+*** BUILD
 
 - ${BUILD} is the directory under which all generated files are installed.
 
@@ -813,7 +803,7 @@ ${BUILD}:
         mkdir -p $@
 #+end_src
 
-** TRACE
+*** TRACE
 
 - ${TRACE} is a file used to record an execution trace.
 
@@ -821,7 +811,7 @@ ${BUILD}:
 TRACE := ${BUILD}/trace.txt
 #+end_src
 
-** TRAP
+*** TRAP
 
 - ${TRAP} If something has been written to ${TRACE}, then consider that the rule failed.
 
@@ -829,12 +819,22 @@ TRACE := ${BUILD}/trace.txt
 TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
 #+end_src
 
-** MAIN_ORG
+*** MAIN_ORG
 
 - ${MAIN_ORG} is the path to source file.
 
 #+begin_src makefile
 MAIN_ORG := README.org
+#+end_src
+
+** help
+
+- make help # Print this help.
+
+#+begin_src makefile
+.PHONY: help
+help:
+        grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 #+end_src
 
 ** tangle-heading
