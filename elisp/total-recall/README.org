@@ -261,6 +261,16 @@ This mode provides spaced repetitions capabilities to Emacs."
   "The type id of the heading representing an exercise."
   :type 'string
   :group 'total-recall)
+
+(defcustom trl-window-width 160
+  "xxx"
+  :type 'integer
+  :group 'total-recall)
+
+(defcustom trl-window-height 90
+  "xxx"
+  :type 'integer
+  :group 'total-recall)
 #+end_src
 
 ** Structure
@@ -433,7 +443,7 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
 
 #+begin_src emacs-lisp
 (defun trl--ui-mk ()
-  (let ((frame (make-frame '((width . 80) (height . 24))))
+  (let ((frame (make-frame `((width . ,trl-window-width) (height . ,trl-window-height))))
         (buffer (get-buffer-create "*total-recall*")))
   (list :ui buffer frame)))
 #+end_src
