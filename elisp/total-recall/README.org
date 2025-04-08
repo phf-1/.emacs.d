@@ -227,6 +227,7 @@ export LC_ALL=en_US.UTF-8
 #+begin_src emacs-lisp
 (unless (sqlite-available-p) (error "Emacs must be compiled with built-in support for accessing SQLite databases."))
 (require 'org)
+(require 'time-date)
 (require 'ert)
 #+end_src
 
@@ -520,6 +521,10 @@ MSG can be (:save ROW) to save a row or :close to close the database."
     (:close
      (sqlite-close db)
      t)
+    (`(:select :rows ,id)
+     (sqlite-select db
+                    "SELECT type, time FROM exercise_log WHERE exercise_id = ? ORDER BY time ASC"
+                    (list id)))
     (_ (error "Unknown message: %S" msg))))
 #+end_src
 
@@ -566,7 +571,34 @@ MSG can be (:save ROW) to save a row or :close to close the database."
       (:question question)
       (:answer answer)
       (`(:scheduled ,db)
-       (time-subtract (current-time) (* 60 60))))))
+       (let (rows last-failure-index nbr last-success-time)
+         (setq rows (trl--db-rcv db `(:select :rows ,id)))
+
+         (setq last-failure-index
+               (let ((idx -1))
+                 (dotimes (i (length rows) idx)
+                   (when (string= (nth 0 (nth i rows)) ":failure")
+                     (setq idx i)))))
+         (setq nbr
+               (if (< last-failure-index 0)
+                   (length rows)
+                 (- (length rows) (1+ last-failure-index))))
+
+         (setq last-success-time
+               (when (> nbr 0)
+                 (let ((last-row (nth (1- (length rows)) rows)))
+                   (if (string= (nth 0 last-row) ":success")
+                       (nth 1 last-row)
+                     (error "Last row is not a success despite NBR > 0")))))
+
+         (if (zerop nbr)
+             (encode-time 0 0 0 1 1 1970 0)
+
+           (let* ((delta-days (expt 2 nbr))
+                  (delta-secs (* delta-days 24 60 60))
+                  (t-secs (time-to-seconds (parse-iso8601-time-string last-success-time)))
+                  (result-secs (+ t-secs delta-secs)))
+             (seconds-to-time result-secs))))))))
 #+end_src
 
 ** Path
