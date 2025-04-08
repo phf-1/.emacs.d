@@ -256,7 +256,7 @@ This mode provides spaced repetitions capabilities to Emacs."
   :type 'string
   :group 'total-recall)
 
-(defcustom trl-exercise-type-id "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
+(defcustom trl-type-id "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
   "The type id of the heading representing an exercise."
   :type 'string
   :group 'total-recall)
@@ -383,7 +383,7 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
                   (match (split-string line ":")))
              (push (car match) matches))
            (forward-line 1))
-         matches)))))
+         (delete-dups matches))))))
 #+end_src
 
 ** Row
@@ -434,9 +434,6 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
 (defun trl--ui-mk ()
   (let ((frame (make-frame '((width . 80) (height . 24))))
         (buffer (get-buffer-create "*total-recall*")))
-    (select-frame-set-input-focus frame)
-    (switch-to-buffer buffer)
-    (org-mode)
   (list :ui buffer frame)))
 #+end_src
 
@@ -456,6 +453,7 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
   (pcase-let ((`(:ui ,buffer ,frame) ui))
     (select-frame-set-input-focus frame)
     (switch-to-buffer buffer)
+    (org-mode)
     (erase-buffer)
     (insert "*Total Recall*\n\n\n")
 
@@ -466,24 +464,21 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
        :noop)
 
       (`(:display :question ,ex)
-       (let ((id (trl--exercise-rcv ex :id))
+       (let ((name (trl--exercise-rcv ex :name))
+             (id (trl--exercise-rcv ex :id))
              (question (trl--exercise-rcv ex :question)))
-         (insert "*Source*\n\n")
-         (insert (format "[[ref:%s][goto the source]]\n\n\n" id))
-         (insert "*Question*\n\n")
-         (insert (format "%s\n\n" question))
+         (insert (format "[[ref:%s][%s]]\n\n\n" id name))
+         (insert (format "%s\n\n\n" question))
          (goto-char (point-min))))
 
       (`(:display :answer ,ex)
-       (let ((id (trl--exercise-rcv ex :id))
+       (let ((name (trl--exercise-rcv ex :name))
+             (id (trl--exercise-rcv ex :id))
              (question (trl--exercise-rcv ex :question))
              (answer (trl--exercise-rcv ex :answer)))
-         (insert "*Source*\n\n")
-         (insert (format "[[ref:%s][goto the source]]\n\n\n" id))
-         (insert "*Question*\n\n")
+         (insert (format "[[ref:%s][%s]]\n\n\n" id name))
          (insert (format "%s\n\n\n" question))
-         (insert "*Answer*\n\n")
-         (insert (format "%s\n\n" answer))
+         (insert (format "%s\n\n\n" answer))
          (goto-char (point-min))))
 
       (:kill
@@ -504,11 +499,28 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
 
 #+begin_src emacs-lisp
 (defun trl--db-rcv (db msg)
+  "Handle messages for a SQLite database DB.
+MSG can be (:save ROW) to save a row or :close to close the database."
+
+  (unless (sqlite-select db "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
+    (sqlite-execute db
+                    "CREATE TABLE exercise_log (
+                       type TEXT NOT NULL,
+                       exercise_id TEXT NOT NULL,
+                       time TEXT NOT NULL)"))
   (pcase msg
     (`(:save ,row)
-     nil)
+     (pcase row
+       (`(,(and type (or :success :failure)) :row ,id ,time)
+        (sqlite-execute db
+                        "INSERT INTO exercise_log (type, exercise_id, time) VALUES (?, ?, ?)"
+                        (list (symbol-name type) id time))
+        t)
+       (_ (error "Invalid row format: %S" row))))
     (:close
-     nil)))
+     (sqlite-close db)
+     t)
+    (_ (error "Unknown message: %S" msg))))
 #+end_src
 
 ** Exercise
@@ -567,7 +579,7 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
     (:list-exercises
      (mapcan
       (lambda (file-path) (trl--file-rcv file-path :list-exercises))
-      (trl--search-rcv `(:search ,dir "org" ,trl-exercise-type-id))))))
+      (trl--search-rcv `(:search ,dir "org" ,trl-type-id))))))
 #+end_src
 
 *** file-rcv
@@ -581,38 +593,45 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
        (org-mode)
        (org-show-all)
        (let ((org-element-use-cache nil)
-             exercises)
+             (exercises '()))
          (org-map-entries
           (lambda ()
             (let ((id (org-entry-get nil "ID"))
                   (name (org-get-heading t t t t))
                   question answer)
-              (org-narrow-to-subtree)
-              (org-next-visible-heading 1)
-              (unless (org-at-heading-p) (error "Question not found."))
-              (org-mark-subtree)
-              (setq question
-                    (string-trim
-                     (buffer-substring-no-properties (point) (mark))))
-              (org-goto-sibling)
-              (unless (org-at-heading-p) (error "Answer not found."))
-              (org-mark-subtree)
-              (setq answer
-                    (string-trim
-                     (buffer-substring-no-properties (point) (mark))))
-              (push (trl--exercise-mk name id question answer) exercises)
-              (widen)))
+              (save-restriction
+                (org-narrow-to-subtree)
+
+                (org-next-visible-heading 1)
+                (unless (org-at-heading-p) (error "Question not found."))
+                (save-restriction
+                  (org-narrow-to-subtree)
+                  (let ((init-lvl (org-current-level)))
+                    (while (> (org-current-level) 1) (org-promote-subtree))
+                    (org-mark-subtree)
+                    (setq question
+                          (string-trim
+                           (buffer-substring-no-properties (point) (mark))))
+                    (while (< (org-current-level) init-lvl) (org-demote-subtree))))
+
+                (org-goto-sibling)
+                (unless (org-at-heading-p) (error "Answer not found."))
+                (save-restriction
+                  (org-narrow-to-subtree)
+                  (let ((init-lvl (org-current-level)))
+                    (while (> (org-current-level) 1) (org-promote-subtree))
+                    (org-mark-subtree)
+                    (setq answer
+                          (string-trim
+                           (buffer-substring-no-properties (point) (mark))))
+                    (while (< (org-current-level) init-lvl) (org-demote-subtree))))
+
+                (push (trl--exercise-mk name id question answer) exercises))))
           (format "TYPE=\"%s\"" trl-type-id))
          (reverse exercises))))))
 #+end_src
 
 *** path-rcv
-
-1. path
-2. files :≡ [path/**/file.org such that ∃ heading with type = exercise id]
-3. path/**/file.org → [heading with type = exercise id]
-4. heading → path id question answer
-   1. path ≡ file.org/xxx/yyy
 
 #+begin_src emacs-lisp
 (defun trl--path-rcv (path msg)
@@ -669,7 +688,7 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
                (?f
                 (trl--db-rcv db `(:save ,(trl--failure-row-mk exercise now))))))))))
 
-    (run-at-time 2 nil (lambda () (trl--ui-rcv ui :kill)))))
+    (trl--ui-rcv ui :kill)))
 #+end_src
 
 ** Minor mode
