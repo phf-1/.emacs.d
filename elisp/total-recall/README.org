@@ -1,4 +1,4 @@
-#+PROPERTY: header-args :noweb yes :comments org :mkdirp yes
+#+PROPERTY: header-args :noweb yes :mkdirp yes
 
 * Objective
 :PROPERTIES:
@@ -255,10 +255,14 @@ export LC_ALL=en_US.UTF-8
 
 ** Dependencies
 
-This section loads this package's dependencies.
+#+begin_src emacs-lisp
+;; The dependencies section loads the package's dependencies.
+#+end_src
 
 #+begin_src emacs-lisp
-(unless (sqlite-available-p) (error "Emacs must be compiled with built-in support for accessing SQLite databases."))
+;; Ensure SQLite support is available.
+(unless (sqlite-available-p)
+  (error "Emacs must be compiled with built-in support for SQLite databases"))
 (require 'org)
 (require 'time-date)
 (require 'ert)
@@ -266,62 +270,66 @@ This section loads this package's dependencies.
 
 ** Configuration
 
-This section lists the user's defined custom parameters.
+#+begin_src emacs-lisp
+;; The configuration section provides user-customizable parameters.
+#+end_src
 
 #+begin_src emacs-lisp
 (defgroup total-recall nil
   "Customization options for Total Recall.
-This mode provides `total-recall' that equips Emacs with spaced repetitions capabilities."
+This mode provides `total-recall' for spaced repetition in Emacs."
   :group 'convenience
   :prefix "trl-")
 
 (defcustom trl-database (file-name-concat user-emacs-directory "total-recall.sqlite3")
-  "Path to the database."
+  "Path to the SQLite database for storing exercise data."
   :type 'string
   :group 'total-recall)
 
 (defcustom trl-ripgrep-cmd "rg"
-  "The name or path of the Ripgrep executable."
+  "Name or path of the Ripgrep executable."
   :type 'string
   :group 'total-recall)
 
 (defcustom trl-root-dir (expand-file-name "~")
-  "The root directory where Ripgrep searches for matches."
+  "Root directory where Ripgrep searches for Org files."
   :type 'string
   :group 'total-recall)
 
 (defcustom trl-type-id "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
-  "The type id of the heading representing an exercise."
+  "Type ID for Org headings representing exercises."
   :type 'string
   :group 'total-recall)
 
 (defcustom trl-window-width 160
-  "The width in characters of the UI."
+  "Width of the Total Recall UI in characters."
   :type 'integer
   :group 'total-recall)
 
 (defcustom trl-window-height 90
-  "The height in characters of the UI."
+  "Height of the Total Recall UI in characters."
   :type 'integer
   :group 'total-recall)
 #+end_src
 
 ** COMMENT Structure
 
-Structures are defined as is ~Point~.
+Structures are defined, such as ~Point~.
 
 *** Point
 
-A point is a pair of integers x an y.
 #+begin_src emacs-lisp
+;; Structures for representing a 2D point.
 #+end_src
 
 **** point-mk
 
 #+begin_src emacs-lisp
 (defun trl--point-mk (x y)
-  (unless (integerp x) (error "x is not an integer."))
-  (unless (integerp y) (error "y is not an integer."))
+  "Create a point structure with coordinates X and Y.
+Both X and Y must be integers."
+  (unless (integerp x) (error "X is not an integer"))
+  (unless (integerp y) (error "Y is not an integer"))
   (list :point x y))
 #+end_src
 
@@ -329,6 +337,7 @@ A point is a pair of integers x an y.
 
 #+begin_src emacs-lisp
 (defun trl--point-p (pt)
+  "Return t if PT is a point structure, nil otherwise."
   (eq (car-safe pt) :point))
 #+end_src
 
@@ -336,14 +345,12 @@ A point is a pair of integers x an y.
 
 #+begin_src emacs-lisp
 (defun trl--point-rcv (pt msg)
+  "Handle messages for point PT.
+MSG can be :x, :y, or (:eq OTHER) to compare with another point."
   (pcase-let ((`(:point ,x ,y) pt))
     (pcase msg
-      (:x
-       x)
-
-      (:y
-       y)
-
+      (:x x)
+      (:y y)
       (`(:eq ,other)
        (or (eq pt other)
            (and (eq x (trl--point-x other))
@@ -353,19 +360,24 @@ A point is a pair of integers x an y.
 **** point-x
 
 #+begin_src emacs-lisp
-(defun trl--point-x (pt) (trl--point-rcv pt :x))
+(defun trl--point-x (pt)
+  "Return the x-coordinate of point PT."
+  (trl--point-rcv pt :x))
 #+end_src
 
 **** point-y
 
 #+begin_src emacs-lisp
-(defun trl--point-y (pt) (trl--point-rcv pt :y))
+(defun trl--point-y (pt)
+  "Return the y-coordinate of point PT."
+  (trl--point-rcv pt :y))
 #+end_src
 
 **** point-eq
 
 #+begin_src emacs-lisp
 (defun trl--point-eq (pt1 pt2)
+  "Return t if points PT1 and PT2 are equal, nil otherwise."
   (trl--point-rcv pt1 `(:eq ,pt2)))
 #+end_src
 
@@ -373,38 +385,40 @@ A point is a pair of integers x an y.
 
 #+begin_src emacs-lisp
 (ert-deftest trl--point-test ()
-  (let (pt)
-    (setq pt (trl--point-mk 10 20))
+  "Test the point structure and its operations."
+  (let ((pt (trl--point-mk 10 20)))
     (should (trl--point-p pt))
     (should (eq (trl--point-x pt) 10))
     (should (eq (trl--point-y pt) 20))
     (should (trl--point-eq pt pt))))
 #+end_src
 
-** time-to-iso8601
 
-Given a Lisp timestamp, return the associated ISO8601 string.
+** Utils
+
+*** time-to-iso8601
 
 #+begin_src emacs-lisp
 (defun trl--time-to-iso8601 (time)
+  "Convert Lisp timestamp TIME to an ISO 8601 string."
   (format-time-string "%Y-%m-%dT%H:%M:%SZ" (time-convert time 'list) t))
 #+end_src
 
 ** Search
 
-The search engine lists all Org files that have at least on exercise.
-#+begin_src emacs-lisp
-#+end_src
-
 #+begin_src emacs-lisp
 (defun trl--search (dir ext type-id)
-  (let (cmd matches)
-    (setq cmd (format "%s -g '*.%s' -i --no-heading -n --color=never '%s' %s" "rg" ext type-id dir))
+  "Search directory DIR for files with extension EXT containing TYPE-ID.
+Return a list of unique file paths."
+  (let ((cmd (format "%s -g '*.%s' -i --no-heading -n --color=never '%s' %s"
+                     trl-ripgrep-cmd ext type-id dir))
+        matches)
     (with-temp-buffer
       (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
       (goto-char (point-min))
       (while (not (eobp))
-        (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+        (let* ((line (buffer-substring-no-properties
+                      (line-beginning-position) (line-end-position)))
                (match (split-string line ":")))
           (push (car match) matches))
         (forward-line 1))
@@ -413,22 +427,19 @@ The search engine lists all Org files that have at least on exercise.
 
 ** Row
 
-A row encodes the fact that an exercise has been reviewed successfully or not at a
-given time.
-#+begin_src emacs-lisp
-#+end_src
-
 *** row-mk
 
 #+begin_src emacs-lisp
 (defun trl--row-mk (exercise time)
-  (list :row (trl--exercise-rcv exercise :id) (trl--time-to-iso8601 time)))
+  "Create a row structure for EXERCISE reviewed at TIME."
+  (list :row (trl--exercise-id exercise) (trl--time-to-iso8601 time)))
 #+end_src
 
 *** row-p
 
 #+begin_src emacs-lisp
 (defun trl--row-p (row)
+  "Return t if ROW is a row structure, nil otherwise."
   (eq (car-safe row) :row))
 #+end_src
 
@@ -436,6 +447,7 @@ given time.
 
 #+begin_src emacs-lisp
 (defun trl--success-row-mk (exercise time)
+  "Create a success row for EXERCISE reviewed at TIME."
   (cons :success (trl--row-mk exercise time)))
 #+end_src
 
@@ -443,6 +455,7 @@ given time.
 
 #+begin_src emacs-lisp
 (defun trl--success-row-p (row)
+  "Return t if ROW is a success row, nil otherwise."
   (eq (car-safe row) :success))
 #+end_src
 
@@ -450,6 +463,7 @@ given time.
 
 #+begin_src emacs-lisp
 (defun trl--failure-row-mk (exercise time)
+  "Create a failure row for EXERCISE reviewed at TIME."
   (cons :failure (trl--row-mk exercise time)))
 #+end_src
 
@@ -457,6 +471,7 @@ given time.
 
 #+begin_src emacs-lisp
 (defun trl--failure-row-p (row)
+  "Return t if ROW is a failure row, nil otherwise."
   (eq (car-safe row) :failure))
 #+end_src
 
@@ -464,6 +479,7 @@ given time.
 
 #+begin_src emacs-lisp
 (defun trl--skip-row-mk (exercise time)
+  "Create a skip row for EXERCISE reviewed at TIME."
   (cons :skip (trl--row-mk exercise time)))
 #+end_src
 
@@ -471,28 +487,28 @@ given time.
 
 #+begin_src emacs-lisp
 (defun trl--skip-row-p (row)
+  "Return t if ROW is a skip row, nil otherwise."
   (eq (car-safe row) :skip))
 #+end_src
 
 ** UI
 
-A ui is a buffer and a frame designed to display an exercise.
-#+begin_src emacs-lisp
-#+end_src
-
 *** ui-mk
 
 #+begin_src emacs-lisp
 (defun trl--ui-mk ()
-  (let ((frame (make-frame `((width . ,trl-window-width) (height . ,trl-window-height))))
+  "Create a UI structure with a frame and buffer."
+  (let ((frame (make-frame `((width . ,trl-window-width)
+                             (height . ,trl-window-height))))
         (buffer (get-buffer-create "*total-recall*")))
-  (list :ui buffer frame)))
+    (list :ui buffer frame)))
 #+end_src
 
 *** ui-p
 
 #+begin_src emacs-lisp
 (defun trl--ui-p (ui)
+  "Return t if UI is a UI structure, nil otherwise."
   (eq (car-safe ui) :ui))
 #+end_src
 
@@ -500,39 +516,36 @@ A ui is a buffer and a frame designed to display an exercise.
 
 #+begin_src emacs-lisp
 (defun trl--ui-rcv (ui msg)
-  (unless (trl--ui-p ui) (error "UI is not a ui."))
-
+  "Handle messages for UI.
+MSG can be :no-exercises, (:display :question EX), (:display :answer EX), or :kill."
+  (unless (trl--ui-p ui) (error "Not a UI structure"))
   (pcase-let ((`(:ui ,buffer ,frame) ui))
     (select-frame-set-input-focus frame)
     (switch-to-buffer buffer)
     (org-mode)
     (erase-buffer)
-    (insert "*Total Recall*\n\n\n")
-
+    (insert "* Total Recall *\n\n\n")
     (pcase msg
       (:no-exercises
        (save-window-excursion
-         (insert "No exercises.\n"))
+         (insert "No exercises found.\n"))
        :noop)
-
       (`(:display :question ,ex)
-       (let ((name (trl--exercise-rcv ex :name))
-             (id (trl--exercise-rcv ex :id))
-             (question (trl--exercise-rcv ex :question)))
+       (let ((name (trl--exercise-name ex))
+             (id (trl--exercise-id ex))
+             (question (trl--exercise-question ex)))
          (insert (format "[[ref:%s][%s]]\n\n\n" id name))
          (insert (format "%s\n\n\n" question))
          (goto-char (point-min))))
-
       (`(:display :answer ,ex)
-       (let ((name (trl--exercise-rcv ex :name))
-             (id (trl--exercise-rcv ex :id))
-             (question (trl--exercise-rcv ex :question))
-             (answer (trl--exercise-rcv ex :answer)))
+       (let ((name (trl--exercise-name ex))
+             (id (trl--exercise-id ex))
+             (question (trl--exercise-question ex))
+             (answer (trl--exercise-answer ex)))
          (insert (format "[[ref:%s][%s]]\n\n\n" id name))
          (insert (format "%s\n\n\n" question))
          (insert (format "%s\n\n\n" answer))
          (goto-char (point-min))))
-
       (:kill
        (kill-buffer buffer)
        (delete-frame frame)
@@ -542,37 +555,42 @@ A ui is a buffer and a frame designed to display an exercise.
 *** ui-no-exercises
 
 #+begin_src emacs-lisp
-(defun trl--ui-no-exercises (ui) (trl--ui-rcv ui :no-exercises))
+(defun trl--ui-no-exercises (ui)
+  "Display a 'no exercises' message in UI."
+  (trl--ui-rcv ui :no-exercises))
 #+end_src
 
 *** ui-display-question
 
 #+begin_src emacs-lisp
-(defun trl--ui-display-question (ui exercise) (trl--ui-rcv ui `(:display :question ,exercise)))
+(defun trl--ui-display-question (ui exercise)
+  "Display the question of EXERCISE in UI."
+  (trl--ui-rcv ui `(:display :question ,exercise)))
 #+end_src
 
 *** ui-display-answer
 
 #+begin_src emacs-lisp
-(defun trl--ui-display-answer (ui exercise) (trl--ui-rcv ui `(:display :answer ,exercise)))
+(defun trl--ui-display-answer (ui exercise)
+  "Display the question and answer of EXERCISE in UI."
+  (trl--ui-rcv ui `(:display :answer ,exercise)))
 #+end_src
 
 *** ui-kill
 
 #+begin_src emacs-lisp
-(defun trl--ui-kill (ui) (trl--ui-rcv ui :kill))
+(defun trl--ui-kill (ui)
+  "Close the UI, killing its buffer and frame."
+  (trl--ui-rcv ui :kill))
 #+end_src
 
 ** DB
-
-Persist user's data accross executions.
-#+begin_src emacs-lisp
-#+end_src
 
 *** db-mk
 
 #+begin_src emacs-lisp
 (defun trl--db-mk (path)
+  "Open an SQLite database at PATH."
   (sqlite-open path))
 #+end_src
 
@@ -580,6 +598,7 @@ Persist user's data accross executions.
 
 #+begin_src emacs-lisp
 (defun trl--db-p (x)
+  "Return t if X is an SQLite database, nil otherwise."
   (sqlitep x))
 #+end_src
 
@@ -587,9 +606,8 @@ Persist user's data accross executions.
 
 #+begin_src emacs-lisp
 (defun trl--db-rcv (db msg)
-  "Handle messages for a SQLite database DB.
-MSG can be (:save ROW) to save a row or :close to close the database."
-
+  "Handle messages for SQLite database DB.
+MSG can be (:save ROW), :close, or (:select :rows ID)."
   (unless (sqlite-select db "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
     (sqlite-execute db
                     "CREATE TABLE exercise_log (
@@ -618,35 +636,39 @@ MSG can be (:save ROW) to save a row or :close to close the database."
 *** db-save
 
 #+begin_src emacs-lisp
-(defun trl--db-save (db row) (trl--db-rcv db `(:save ,row)))
+(defun trl--db-save (db row)
+  "Save ROW to database DB."
+  (trl--db-rcv db `(:save ,row)))
 #+end_src
 
 *** db-select
 
 #+begin_src emacs-lisp
-(defun trl--db-select (db id) (trl--db-rcv db `(:select :rows ,id)))
+(defun trl--db-select (db id)
+  "Retrieve rows for exercise ID from database DB."
+  (trl--db-rcv db `(:select :rows ,id)))
 #+end_src
 
 *** db-close
 
 #+begin_src emacs-lisp
-(defun trl--db-close (db) (trl--db-rcv db :close))
+(defun trl--db-close (db)
+  "Close database DB."
+  (trl--db-rcv db :close))
 #+end_src
 
 ** Exercise
-
-An exercise has a name, an id, a question and an answer.
-#+begin_src emacs-lisp
-#+end_src
 
 *** exercise-mk
 
 #+begin_src emacs-lisp
 (defun trl--exercise-mk (name id question answer)
-  (unless (stringp name) (error "name is not a string"))
-  (unless (stringp id) (error "id is not an string."))
-  (unless (stringp question) (error "question is not an string."))
-  (unless (stringp answer) (error "answer is not an string."))
+  "Create an exercise with NAME, ID, QUESTION, and ANSWER.
+All arguments must be strings."
+  (unless (stringp name) (error "Name is not a string"))
+  (unless (stringp id) (error "ID is not a string"))
+  (unless (stringp question) (error "Question is not a string"))
+  (unless (stringp answer) (error "Answer is not a string"))
   (list :exercise name id question answer))
 #+end_src
 
@@ -654,6 +676,7 @@ An exercise has a name, an id, a question and an answer.
 
 #+begin_src emacs-lisp
 (defun trl--exercise-p (ex)
+  "Return t if EX is an exercise structure, nil otherwise."
   (eq (car-safe ex) :exercise))
 #+end_src
 
@@ -661,6 +684,8 @@ An exercise has a name, an id, a question and an answer.
 
 #+begin_src emacs-lisp
 (defun trl--exercise-rcv (exercise msg)
+  "Handle messages for EXERCISE.
+MSG can be :name, :id, :question, :answer, or (:scheduled DB)."
   (pcase-let ((`(:exercise ,name ,id ,question ,answer) exercise))
     (pcase msg
       (:name name)
@@ -669,8 +694,7 @@ An exercise has a name, an id, a question and an answer.
       (:answer answer)
       (`(:scheduled ,db)
        (let (rows last-failure-index nbr last-success-time)
-         (setq rows (trl--db-rcv db `(:select :rows ,id)))
-
+         (setq rows (trl--db-select db id))
          (setq last-failure-index
                (let ((idx -1))
                  (dotimes (i (length rows) idx)
@@ -680,17 +704,14 @@ An exercise has a name, an id, a question and an answer.
                (if (< last-failure-index 0)
                    (length rows)
                  (- (length rows) (1+ last-failure-index))))
-
          (setq last-success-time
                (when (> nbr 0)
                  (let ((last-row (nth (1- (length rows)) rows)))
                    (if (string= (nth 0 last-row) ":success")
                        (nth 1 last-row)
                      (error "Last row is not a success despite NBR > 0")))))
-
          (if (zerop nbr)
              (encode-time 0 0 0 1 1 1970 0)
-
            (let* ((delta-days (expt 2 (- nbr 1)))
                   (delta-secs (* delta-days 24 60 60))
                   (t-secs (time-to-seconds (parse-iso8601-time-string last-success-time)))
@@ -701,55 +722,72 @@ An exercise has a name, an id, a question and an answer.
 *** exercise-name
 
 #+begin_src emacs-lisp
-(defun trl--exercise-name (exercise) (trl--exercise-rcv exercise :name))
+(defun trl--exercise-name (exercise)
+  "Return the name of EXERCISE."
+  (trl--exercise-rcv exercise :name))
 #+end_src
 
 *** exercise-id
 
 #+begin_src emacs-lisp
-(defun trl--exercise-id (exercise) (trl--exercise-rcv exercise :id))
+(defun trl--exercise-id (exercise)
+  "Return the ID of EXERCISE."
+  (trl--exercise-rcv exercise :id))
 #+end_src
 
 *** exercise-question
 
 #+begin_src emacs-lisp
-(defun trl--exercise-question (exercise) (trl--exercise-rcv exercise :question))
+(defun trl--exercise-question (exercise)
+  "Return the question of EXERCISE."
+  (trl--exercise-rcv exercise :question))
 #+end_src
 
 *** exercise-answer
 
 #+begin_src emacs-lisp
-(defun trl--exercise-answer (exercise) (trl--exercise-rcv exercise :answer))
+(defun trl--exercise-answer (exercise)
+  "Return the answer of EXERCISE."
+  (trl--exercise-rcv exercise :answer))
 #+end_src
 
 *** exercise-scheduled
 
 #+begin_src emacs-lisp
-(defun trl--exercise-scheduled (exercise db) (trl--exercise-rcv exercise `(:scheduled ,db)))
+(defun trl--exercise-scheduled (exercise db)
+  "Return the scheduled review time for EXERCISE using database DB."
+  (trl--exercise-rcv exercise `(:scheduled ,db)))
 #+end_src
 
-** Path
+** FS
 
-A path is either a directory or a regular file.
-#+begin_src emacs-lisp
-#+end_src
-
-*** path-rcv
+*** fs-rcv
 
 #+begin_src emacs-lisp
-(defun trl--path-rcv (path msg)
+(defun trl--fs-rcv (path msg)
+  "Handle messages for PATH.
+MSG determines the action, delegating to directory or file handlers."
   (cond
    ((file-directory-p path)
     (trl--dir-rcv path msg))
-
    ((file-exists-p path)
     (trl--file-rcv path msg))))
+#+end_src
+
+*** fs-list-exercises
+
+#+begin_src emacs-lisp
+(defun trl--fs-list-exercises (path)
+  "List exercises in PATH."
+  (trl--fs-rcv path :list-exercises))
 #+end_src
 
 *** dir-rcv
 
 #+begin_src emacs-lisp
 (defun trl--dir-rcv (dir msg)
+  "Handle messages for directory DIR.
+MSG can be :list-exercises to retrieve exercises."
   (pcase msg
     (:list-exercises
      (mapcan
@@ -760,13 +798,17 @@ A path is either a directory or a regular file.
 *** dir-list-exercises
 
 #+begin_src emacs-lisp
-(defun trl--dir-list-exercises (dir) (trl--dir-rcv dir :list-exercises))
+(defun trl--dir-list-exercises (dir)
+  "List exercises in Org files under directory DIR."
+  (trl--dir-rcv dir :list-exercises))
 #+end_src
 
 *** file-rcv
 
 #+begin_src emacs-lisp
 (defun trl--file-rcv (file msg)
+  "Handle messages for FILE.
+MSG can be :list-exercises to extract exercises from FILE."
   (pcase msg
     (:list-exercises
      (with-temp-buffer
@@ -782,9 +824,8 @@ A path is either a directory or a regular file.
                   question answer)
               (save-restriction
                 (org-narrow-to-subtree)
-
                 (org-next-visible-heading 1)
-                (unless (org-at-heading-p) (error "Question not found."))
+                (unless (org-at-heading-p) (error "Question not found"))
                 (save-restriction
                   (org-narrow-to-subtree)
                   (let ((init-lvl (org-current-level)))
@@ -794,9 +835,8 @@ A path is either a directory or a regular file.
                           (string-trim
                            (buffer-substring-no-properties (point) (mark))))
                     (while (< (org-current-level) init-lvl) (org-demote-subtree))))
-
                 (org-goto-sibling)
-                (unless (org-at-heading-p) (error "Answer not found."))
+                (unless (org-at-heading-p) (error "Answer not found"))
                 (save-restriction
                   (org-narrow-to-subtree)
                   (let ((init-lvl (org-current-level)))
@@ -806,7 +846,6 @@ A path is either a directory or a regular file.
                           (string-trim
                            (buffer-substring-no-properties (point) (mark))))
                     (while (< (org-current-level) init-lvl) (org-demote-subtree))))
-
                 (push (trl--exercise-mk name id question answer) exercises))))
           (format "TYPE=\"%s\"" trl-type-id))
          (reverse exercises))))))
@@ -815,7 +854,9 @@ A path is either a directory or a regular file.
 *** file-list-exercises
 
 #+begin_src emacs-lisp
-(defun trl--file-list-exercises (file) (trl--file-rcv file :list-exercises))
+(defun trl--file-list-exercises (file)
+  "List exercises in Org FILE."
+  (trl--file-rcv file :list-exercises))
 #+end_src
 
 ** total-recall
@@ -827,7 +868,7 @@ A path is either a directory or a regular file.
 
 <<commentary>>"
   (interactive)
-  (let ((exercises (trl--path-rcv trl-root-dir :list-exercises))
+  (let ((exercises (trl--fs-list-exercises trl-root-dir))
         (db (trl--db-mk trl-database))
         (now (current-time))
         (ui (trl--ui-mk))
@@ -836,45 +877,45 @@ A path is either a directory or a regular file.
         scheduled
         choice)
     (if (null exercises)
-        (trl--ui-rcv ui :no-exercises)
+        (trl--ui-no-exercises ui)
       (while exercises
         (setq exercise (pop exercises))
-        (setq scheduled (trl--exercise-rcv exercise `(:scheduled ,db)))
+        (setq scheduled (trl--exercise-scheduled exercise db))
         (when (time-less-p scheduled now)
-          (trl--ui-rcv ui `(:display :question ,exercise))
-
+          (trl--ui-display-question ui exercise)
           (setq choice
                 (car
                  (read-multiple-choice
                   "What would you like to do?"
                   '((?r "Reveal answer" "Display the answer to the question")
                     (?s "Skip" "Skip this exercise")
-                    (?q "Quit" "Quit Total Recall.")))))
-
+                    (?q "Quit" "Quit Total Recall")))))
           (pcase choice
             (?r
-             (trl--ui-rcv ui `(:display :answer ,exercise))
-
+             (trl--ui-display-answer ui exercise)
              (setq choice
                    (car
                     (read-multiple-choice
-                           "What would you like to do?"
-                           '((?s "Success" "You have successfully answered the question.")
-                             (?f "Failure" "You have failed to answer the question.")))))
-
+                     "What would you like to do?"
+                     '((?s "Success" "You successfully answered the question")
+                       (?f "Failure" "You failed to answer the question")))))
              (pcase choice
                (?s
-                (trl--db-rcv db `(:save ,(trl--success-row-mk exercise now))))
+                (trl--db-save db (trl--success-row-mk exercise now)))
                (?f
-                (trl--db-rcv db `(:save ,(trl--failure-row-mk exercise now))))))))))
-
-    (trl--ui-rcv ui :kill)))
+                (trl--db-save db (trl--failure-row-mk exercise now)))))
+            (?s
+             (trl--db-save db (trl--skip-row-mk exercise now)))
+            (?q
+             (setq exercises nil))))))
+    (trl--db-close db)
+    (trl--ui-kill ui)))
 #+end_src
 
 ** Footer
 
 #+begin_src emacs-lisp
-(provide 'trl)
+(provide 'total-recall)
 
 ;;; total-recall.el ends here
 
@@ -886,7 +927,6 @@ A path is either a directory or a regular file.
 ;; indent-tabs-mode: nil
 ;; End:
 #+end_src
-
 * Makefile
 :PROPERTIES:
 :header-args+: :tangle Makefile
