@@ -1,13 +1,45 @@
 #+PROPERTY: header-args :noweb yes :comments org :mkdirp yes
 
-* TODO Objective
+* Objective
 :PROPERTIES:
 :ID:       2b6a2d42-bfd0-4658-b25a-b1b7000d1b01
 :END:
 
 #+name: commentary
 #+begin_src emacs-lisp
-TODO
+This package provides `total-recall'.
+
+`M-x total-recall' searches for Org files in the directory
+specified by `trl-root-dir' that contain exercises. It lists the
+exercises and presents a user interface to display them. For
+each exercise, it shows the question first, followed by the
+answer. It then records the user's performance, i.e., whether
+they provided a correct answer. This data is stored in an SQLite
+database at `trl-database', which is used to determine whether
+the exercise should be reviewed sooner or later.
+
+An exercise is any heading in an Org file such that:
+- It has a property `TYPE' which value is `trl-type-id'.
+- It has a property `ID' which value is a UUID.
+- It has two sub-headings.
+  - the first one encodes a question,
+  - and the second on encodes an answer.
+- Its parent file lives under `trl-root-dir'.
+- example:
+
+,* Name
+:PROPERTIES: 
+:TYPE: b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8
+:ID: ced2b42b-bfba-4af5-913c-9d903ac78433
+:END:
+
+,** Question
+
+<content>
+
+,** Answer
+
+<content>
 #+end_src
 
 * tangle-heading
@@ -193,6 +225,7 @@ export LC_ALL=en_US.UTF-8
 :PROPERTIES:
 :header-args+: :tangle total-recall.el
 :END:
+
 ** Header
 
 #+begin_src emacs-lisp
@@ -222,7 +255,7 @@ export LC_ALL=en_US.UTF-8
 
 ** Dependencies
 
-- This section loads this package's dependencies.
+This section loads this package's dependencies.
 
 #+begin_src emacs-lisp
 (unless (sqlite-available-p) (error "Emacs must be compiled with built-in support for accessing SQLite databases."))
@@ -233,22 +266,22 @@ export LC_ALL=en_US.UTF-8
 
 ** Configuration
 
-- This section lists the user's defined custom parameters.
+This section lists the user's defined custom parameters.
 
 #+begin_src emacs-lisp
 (defgroup total-recall nil
-  "Customization options for trl mode.
-This mode provides spaced repetitions capabilities to Emacs."
+  "Customization options for Total Recall.
+This mode provides `total-recall' that equips Emacs with spaced repetitions capabilities."
   :group 'convenience
   :prefix "trl-")
 
 (defcustom trl-database (file-name-concat user-emacs-directory "total-recall.sqlite3")
-  "Path of the database."
+  "Path to the database."
   :type 'string
   :group 'total-recall)
 
 (defcustom trl-ripgrep-cmd "rg"
-  "The name or path of the Ripgrep executable used for searching."
+  "The name or path of the Ripgrep executable."
   :type 'string
   :group 'total-recall)
 
@@ -263,31 +296,25 @@ This mode provides spaced repetitions capabilities to Emacs."
   :group 'total-recall)
 
 (defcustom trl-window-width 160
-  "xxx"
+  "The width in characters of the UI."
   :type 'integer
   :group 'total-recall)
 
 (defcustom trl-window-height 90
-  "xxx"
+  "The height in characters of the UI."
   :type 'integer
   :group 'total-recall)
 #+end_src
 
-** Structure
+** COMMENT Structure
 
-Structures are defined by as is ~Point~.
+Structures are defined as is ~Point~.
 
 *** Point
 
-- Given x,y : Integer, then: pt ≡ point-mk(x y) : Point.
-- Given x, then: point-p(x) = t ⇔ x : Point.
-- Given f : X Y → C, then: φ ≡ point-use(f) : Point → C such that φ(pt) ≡ f(x y)
-- Given name : String, f : X Y → C, then: name ≡ point-func(name f) : Point → C such that name(pt) ≡ f(x y)
-- pt#x :≡ point-x(pt)
-- pt#x = x
-- pt#y :≡ point-y(pt)
-- pt#y = y
-- pt1, pt2 : Point, point-eq(pt1 pt2) ≡ (pt1#x = pt2#x) ∧ (pt1#y = pt2#y)
+A point is a pair of integers x an y.
+#+begin_src emacs-lisp
+#+end_src
 
 **** point-mk
 
@@ -305,53 +332,41 @@ Structures are defined by as is ~Point~.
   (eq (car-safe pt) :point))
 #+end_src
 
-**** point-use
+**** point-rcv
 
 #+begin_src emacs-lisp
-(defun trl--point-use (func)
-  "Build a function that applies FUNC to a point.
-func : X Y → C
-f ≡ (trl--point-use func) : Point → C
-(f pt) ≡ (func (point-x pt) (point-y pt))"
+(defun trl--point-rcv (pt msg)
+  (pcase-let ((`(:point ,x ,y) pt))
+    (pcase msg
+      (:x
+       x)
 
-  (lambda (pt)
-    (pcase pt
-      (`(:point ,x ,y)
-       (funcall func x y))
-      (_
-       (error "PT is not a Point. PT ≡ %s" pt)))))
-#+end_src
+      (:y
+       y)
 
-**** point-func
-
-#+begin_src emacs-lisp
-(defmacro trl--point-func (name lambda-expr)
-  "Define a named function NAME that applies LAMBDA-EXPR to a point."
-  `(let (func)
-     (setq func (trl--point-use ,lambda-expr))
-     (defun ,(intern name) (pt)
-       (funcall func pt))))
+      (`(:eq ,other)
+       (or (eq pt other)
+           (and (eq x (trl--point-x other))
+                (eq y (trl--point-y other))))))))
 #+end_src
 
 **** point-x
 
 #+begin_src emacs-lisp
-(trl--point-func "trl--point-x" (lambda (x y) x))
+(defun trl--point-x (pt) (trl--point-rcv pt :x))
 #+end_src
 
 **** point-y
 
 #+begin_src emacs-lisp
-(trl--point-func "trl--point-y" (lambda (x y) y))
+(defun trl--point-y (pt) (trl--point-rcv pt :y))
 #+end_src
 
 **** point-eq
 
 #+begin_src emacs-lisp
 (defun trl--point-eq (pt1 pt2)
-  (and
-   (eq (trl--point-x pt1) (trl--point-x pt2))
-   (eq (trl--point-y pt1) (trl--point-y pt2))))
+  (trl--point-rcv pt1 `(:eq ,pt2)))
 #+end_src
 
 **** test
@@ -363,12 +378,12 @@ f ≡ (trl--point-use func) : Point → C
     (should (trl--point-p pt))
     (should (eq (trl--point-x pt) 10))
     (should (eq (trl--point-y pt) 20))
-    (should (trl--point-eq pt pt))
-    (trl--point-func "trl--point-quad-norm" (lambda (x y) (+ (* x x) (* y y))))
-    (should (eq (trl--point-quad-norm pt) 500))))
+    (should (trl--point-eq pt pt))))
 #+end_src
 
 ** time-to-iso8601
+
+Given a Lisp timestamp, return the associated ISO8601 string.
 
 #+begin_src emacs-lisp
 (defun trl--time-to-iso8601 (time)
@@ -376,34 +391,45 @@ f ≡ (trl--point-use func) : Point → C
 #+end_src
 
 ** Search
-*** search-rcv
 
-Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
+The search engine lists all Org files that have at least on exercise.
+#+begin_src emacs-lisp
+#+end_src
 
 #+begin_src emacs-lisp
-(defun trl--search-rcv (msg)
-  (pcase msg
-    (`(:search ,dir ,ext ,type-id)
-     (let (cmd matches)
-       (setq cmd (format "%s -g '*.%s' -i --no-heading -n --color=never '%s' %s" "rg" ext type-id dir))
-       (with-temp-buffer
-         (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
-         (goto-char (point-min))
-         (while (not (eobp))
-           (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
-                  (match (split-string line ":")))
-             (push (car match) matches))
-           (forward-line 1))
-         (delete-dups matches))))))
+(defun trl--search (dir ext type-id)
+  (let (cmd matches)
+    (setq cmd (format "%s -g '*.%s' -i --no-heading -n --color=never '%s' %s" "rg" ext type-id dir))
+    (with-temp-buffer
+      (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
+      (goto-char (point-min))
+      (while (not (eobp))
+        (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+               (match (split-string line ":")))
+          (push (car match) matches))
+        (forward-line 1))
+      (delete-dups matches))))
 #+end_src
 
 ** Row
+
+A row encodes the fact that an exercise has been reviewed successfully or not at a
+given time.
+#+begin_src emacs-lisp
+#+end_src
 
 *** row-mk
 
 #+begin_src emacs-lisp
 (defun trl--row-mk (exercise time)
   (list :row (trl--exercise-rcv exercise :id) (trl--time-to-iso8601 time)))
+#+end_src
+
+*** row-p
+
+#+begin_src emacs-lisp
+(defun trl--row-p (row)
+  (eq (car-safe row) :row))
 #+end_src
 
 *** success-row-mk
@@ -413,11 +439,25 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
   (cons :success (trl--row-mk exercise time)))
 #+end_src
 
+*** success-row-p
+
+#+begin_src emacs-lisp
+(defun trl--success-row-p (row)
+  (eq (car-safe row) :success))
+#+end_src
+
 *** failure-row-mk
 
 #+begin_src emacs-lisp
 (defun trl--failure-row-mk (exercise time)
   (cons :failure (trl--row-mk exercise time)))
+#+end_src
+
+*** failure-row-p
+
+#+begin_src emacs-lisp
+(defun trl--failure-row-p (row)
+  (eq (car-safe row) :failure))
 #+end_src
 
 *** skip-row-mk
@@ -427,17 +467,18 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
   (cons :skip (trl--row-mk exercise time)))
 #+end_src
 
+*** skip-row-p
+
+#+begin_src emacs-lisp
+(defun trl--skip-row-p (row)
+  (eq (car-safe row) :skip))
+#+end_src
+
 ** UI
 
-- ui ≡ ui-mk() : UI.
-- Given x, then: ui-p(x) = t ⇔ x : UI.
-- Given f : Buffer Frame → C, then: φ ≡ ui-use(f) : UI → C such that φ(ui) ≡ f(buffer frame)
-- Given name : String, f :  Buffer Frame → C, then: name ≡ ui-func(name f) : UI → C such that name(ui) ≡ f(buffer frame)
-- ui#buffer = buffer
-  - ui#buffer :≡ ui-buffer(ui)
-- ui#frame = frame
-  - ui#frame :≡ ui-frame(ui)
-- ui1, ui2 : UI, ui-eq(ui1 ui2) ≡ (ui1#buffer = ui2#buffer) ∧ (ui1#frame = ui2#frame)
+A ui is a buffer and a frame designed to display an exercise.
+#+begin_src emacs-lisp
+#+end_src
 
 *** ui-mk
 
@@ -498,12 +539,48 @@ Take a look at [[ref:c630d94f-987c-420a-9ef7-c78211a8a813][files]]
        :noop))))
 #+end_src
 
+*** ui-no-exercises
+
+#+begin_src emacs-lisp
+(defun trl--ui-no-exercises (ui) (trl--ui-rcv ui :no-exercises))
+#+end_src
+
+*** ui-display-question
+
+#+begin_src emacs-lisp
+(defun trl--ui-display-question (ui exercise) (trl--ui-rcv ui `(:display :question ,exercise)))
+#+end_src
+
+*** ui-display-answer
+
+#+begin_src emacs-lisp
+(defun trl--ui-display-answer (ui exercise) (trl--ui-rcv ui `(:display :answer ,exercise)))
+#+end_src
+
+*** ui-kill
+
+#+begin_src emacs-lisp
+(defun trl--ui-kill (ui) (trl--ui-rcv ui :kill))
+#+end_src
+
 ** DB
+
+Persist user's data accross executions.
+#+begin_src emacs-lisp
+#+end_src
+
 *** db-mk
 
 #+begin_src emacs-lisp
 (defun trl--db-mk (path)
   (sqlite-open path))
+#+end_src
+
+*** db-p
+
+#+begin_src emacs-lisp
+(defun trl--db-p (x)
+  (sqlitep x))
 #+end_src
 
 *** db-rcv
@@ -538,19 +615,29 @@ MSG can be (:save ROW) to save a row or :close to close the database."
     (_ (error "Unknown message: %S" msg))))
 #+end_src
 
+*** db-save
+
+#+begin_src emacs-lisp
+(defun trl--db-save (db row) (trl--db-rcv db `(:save ,row)))
+#+end_src
+
+*** db-select
+
+#+begin_src emacs-lisp
+(defun trl--db-select (db id) (trl--db-rcv db `(:select :rows ,id)))
+#+end_src
+
+*** db-close
+
+#+begin_src emacs-lisp
+(defun trl--db-close (db) (trl--db-rcv db :close))
+#+end_src
+
 ** Exercise
 
-- Given id,question,answer : String, then: ex ≡ exercise-mk(id question answer) : Exercise.
-- Given x, then: exercise-p(x) = t ⇔ x : Exercise.
-- Given f : Id Question Answer → C, then: φ ≡ exercise-use(f) : Exercise → C such that φ(ex) ≡ f(x y)
-- Given name : String, f : Id Question Answer → C, then: name ≡ exercise-func(name f) : Exercise → C such that name(ex) ≡ f(id question answer)
-- ex#id = id
-  - ex#id :≡ exercise-id(ex)
-- ex#question = question
-  - ex#question :≡ exercise-question(ex)
-- ex#answer = answer
-  - ex#answer :≡ exercise-answer(ex)
-- ex1, ex2 : Exercise, exercise-eq(ex1 ex2) ≡ (ex1#id = ex2#id)
+An exercise has a name, an id, a question and an answer.
+#+begin_src emacs-lisp
+#+end_src
 
 *** exercise-mk
 
@@ -611,7 +698,53 @@ MSG can be (:save ROW) to save a row or :close to close the database."
              (seconds-to-time result-secs))))))))
 #+end_src
 
+*** exercise-name
+
+#+begin_src emacs-lisp
+(defun trl--exercise-name (exercise) (trl--exercise-rcv exercise :name))
+#+end_src
+
+*** exercise-id
+
+#+begin_src emacs-lisp
+(defun trl--exercise-id (exercise) (trl--exercise-rcv exercise :id))
+#+end_src
+
+*** exercise-question
+
+#+begin_src emacs-lisp
+(defun trl--exercise-question (exercise) (trl--exercise-rcv exercise :question))
+#+end_src
+
+*** exercise-answer
+
+#+begin_src emacs-lisp
+(defun trl--exercise-answer (exercise) (trl--exercise-rcv exercise :answer))
+#+end_src
+
+*** exercise-scheduled
+
+#+begin_src emacs-lisp
+(defun trl--exercise-scheduled (exercise db) (trl--exercise-rcv exercise `(:scheduled ,db)))
+#+end_src
+
 ** Path
+
+A path is either a directory or a regular file.
+#+begin_src emacs-lisp
+#+end_src
+
+*** path-rcv
+
+#+begin_src emacs-lisp
+(defun trl--path-rcv (path msg)
+  (cond
+   ((file-directory-p path)
+    (trl--dir-rcv path msg))
+
+   ((file-exists-p path)
+    (trl--file-rcv path msg))))
+#+end_src
 
 *** dir-rcv
 
@@ -621,7 +754,13 @@ MSG can be (:save ROW) to save a row or :close to close the database."
     (:list-exercises
      (mapcan
       (lambda (file-path) (trl--file-rcv file-path :list-exercises))
-      (trl--search-rcv `(:search ,dir "org" ,trl-type-id))))))
+      (trl--search dir "org" trl-type-id)))))
+#+end_src
+
+*** dir-list-exercises
+
+#+begin_src emacs-lisp
+(defun trl--dir-list-exercises (dir) (trl--dir-rcv dir :list-exercises))
 #+end_src
 
 *** file-rcv
@@ -673,22 +812,20 @@ MSG can be (:save ROW) to save a row or :close to close the database."
          (reverse exercises))))))
 #+end_src
 
-*** path-rcv
+*** file-list-exercises
 
 #+begin_src emacs-lisp
-(defun trl--path-rcv (path msg)
-  (cond
-   ((file-directory-p path)
-    (trl--dir-rcv path msg))
-
-   ((file-exists-p path)
-    (trl--file-rcv path msg))))
+(defun trl--file-list-exercises (file) (trl--file-rcv file :list-exercises))
 #+end_src
 
 ** total-recall
 
 #+begin_src emacs-lisp
+;;;###autoload
 (defun total-recall ()
+  "Provide spaced repetitions capabilities to Emacs.
+
+<<commentary>>"
   (interactive)
   (let ((exercises (trl--path-rcv trl-root-dir :list-exercises))
         (db (trl--db-mk trl-database))
@@ -732,34 +869,6 @@ MSG can be (:save ROW) to save a row or :close to close the database."
                 (trl--db-rcv db `(:save ,(trl--failure-row-mk exercise now))))))))))
 
     (trl--ui-rcv ui :kill)))
-#+end_src
-
-** Minor mode
-
-#+begin_src emacs-lisp
-(defun trl--activate ()
-  "Activate the main functionality of trl mode."
-)
-
-(defun trl--deactivate ()
-  "Deactivate the main functionality of trl mode."
-)
-#+end_src
-
-#+begin_src emacs-lisp
-;;;###autoload
-(define-minor-mode trl-mode
-  "Locations and References for Emacs.
-
-<<commentary>>"
-  :init-value nil
-  :lighter " TR"
-  :keymap nil
-  :group 'trl
-  :global t
-  (if trl-mode
-      (trl--activate)
-    (trl--deactivate)))
 #+end_src
 
 ** Footer
