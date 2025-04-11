@@ -260,7 +260,6 @@ export LC_ALL=en_US.UTF-8
   (error "Emacs must be compiled with built-in support for SQLite databases"))
 (require 'org)
 (require 'time-date)
-(require 'ert)
 #+end_src
 
 ** Configuration
@@ -302,88 +301,6 @@ This mode provides `total-recall' for spaced repetition in Emacs."
   :type 'integer
   :group 'total-recall)
 #+end_src
-
-** COMMENT Structure
-
-Structures are defined, such as ~Point~.
-
-*** Point
-
-#+begin_src emacs-lisp
-;; Structures for representing a 2D point.
-#+end_src
-
-**** point-mk
-
-#+begin_src emacs-lisp
-(defun trl--point-mk (x y)
-  "Create a point structure with coordinates X and Y.
-Both X and Y must be integers."
-  (unless (integerp x) (error "X is not an integer"))
-  (unless (integerp y) (error "Y is not an integer"))
-  (list :point x y))
-#+end_src
-
-**** point-p
-
-#+begin_src emacs-lisp
-(defun trl--point-p (pt)
-  "Return t if PT is a point structure, nil otherwise."
-  (eq (car-safe pt) :point))
-#+end_src
-
-**** point-rcv
-
-#+begin_src emacs-lisp
-(defun trl--point-rcv (pt msg)
-  "Handle messages for point PT.
-MSG can be :x, :y, or (:eq OTHER) to compare with another point."
-  (pcase-let ((`(:point ,x ,y) pt))
-    (pcase msg
-      (:x x)
-      (:y y)
-      (`(:eq ,other)
-       (or (eq pt other)
-	   (and (eq x (trl--point-x other))
-		(eq y (trl--point-y other))))))))
-#+end_src
-
-**** point-x
-
-#+begin_src emacs-lisp
-(defun trl--point-x (pt)
-  "Return the x-coordinate of point PT."
-  (trl--point-rcv pt :x))
-#+end_src
-
-**** point-y
-
-#+begin_src emacs-lisp
-(defun trl--point-y (pt)
-  "Return the y-coordinate of point PT."
-  (trl--point-rcv pt :y))
-#+end_src
-
-**** point-eq
-
-#+begin_src emacs-lisp
-(defun trl--point-eq (pt1 pt2)
-  "Return t if points PT1 and PT2 are equal, nil otherwise."
-  (trl--point-rcv pt1 `(:eq ,pt2)))
-#+end_src
-
-**** test
-
-#+begin_src emacs-lisp
-(ert-deftest trl--point-test ()
-  "Test the point structure and its operations."
-  (let ((pt (trl--point-mk 10 20)))
-    (should (trl--point-p pt))
-    (should (eq (trl--point-x pt) 10))
-    (should (eq (trl--point-y pt) 20))
-    (should (trl--point-eq pt pt))))
-#+end_src
-
 
 ** Utils
 
@@ -750,7 +667,7 @@ MSG can be :name, :id, :question, :answer, or (:scheduled DB)."
   (trl--exercise-rcv exercise `(:scheduled ,db)))
 #+end_src
 
-** FS
+** Filesystem
 
 *** fs-rcv
 
@@ -1174,3 +1091,6 @@ all: ${BUILD}
 clean:
 	rm -rfv ${BUILD}
 #+end_src
+
+* Message
+** TODO Version the data saved by sqlite.
