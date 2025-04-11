@@ -1,57 +1,22 @@
-# Configuration
-
-# - List of Makefile configurations.
-
-
 SHELL := bash
 .SHELLFLAGS := -ceuo pipefail
 MAKEFLAGS += --no-print-directory
 .ONESHELL:
 .SILENT:
 
-# help
-
-# - make help # Print this help.
-
-
-.PHONY: help
-help:
-	grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
-
-# BUILD
-
-# - ${BUILD} is the directory under which all generated files are installed.
-
-
 BUILD := _build
 ${BUILD}:
 	mkdir -p $@
 
-# TRACE
-
-# - ${TRACE} is a file used to record an execution trace.
-
-
 TRACE := ${BUILD}/trace.txt
-
-# TRAP
-
-# - ${TRAP} If something has been written to ${TRACE}, then consider that the rule failed.
-
 
 TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
 
-# MAIN_ORG
-
-# - ${MAIN_ORG} is the path to source file.
-
-
 MAIN_ORG := README.org
 
-# tangle-heading
-
-# - make tangle-heading # Returns the path to the updated ./tangle-heading script.
-
+.PHONY: help
+help:
+	grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 
 .PHONY: tangle-heading
 TANGLE_HEADING := ${BUILD}/tangle-heading
@@ -62,11 +27,6 @@ ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
 	cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
 	tail -n 1 ${TRACE}
 
-# Makefile
-
-# - make Makefile # Returns the path to the updated ./Makefile.
-
-
 .PHONY: Makefile
 MAKEFILE := ${BUILD}/Makefile
 Makefile: ${MAKEFILE}
@@ -76,11 +36,6 @@ ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
 	cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
 	tail -n 1 ${TRACE}
 
-# packages.scm
-
-# - make packages.scm # Returns the path to the Guix packages available in the environment.
-
-
 .PHONY: packages.scm
 PACKAGES_SCM := ${BUILD}/packages.scm
 packages.scm: ${PACKAGES_SCM}
@@ -89,11 +44,6 @@ ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
 	./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
 	echo "$@"
 
-# init.bash
-
-# - make init.bash # Returns the path to parameters that initialize Bash in the environment.
-
-
 .PHONY: init.bash
 INIT_BASH := ${BUILD}/init.bash
 init.bash: ${INIT_BASH}
@@ -101,11 +51,6 @@ ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
 	${TRAP}
 	./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
 	echo "$@"
-
-# env
-
-# - make env # Starts the environment.
-
 
 .PHONY: env
 GUIX := guix
@@ -128,25 +73,15 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 	  :
 	fi
 
-# el
-
-# - make el # Returns the path to the elisp package.
-
-
 .PHONY: el
 TOTAL_RECALL_EL := ${BUILD}/total-recall.el
 el: ${TOTAL_RECALL_EL}
 ${TOTAL_RECALL_EL}: ${MAIN_ORG} | ${BUILD}
 	${TRAP}
 	./tangle-heading ${MAIN_ORG} total-recall.el ${BUILD} &> ${TRACE}
-	sed -i '1,2d' ${TOTAL_RECALL_EL} &>> ${TRACE}
+	# sed -i '1,2d' ${TOTAL_RECALL_EL} &>> ${TRACE}
 	[[ -s ${TRACE} ]] && exit 1
 	echo "$@"
-
-# elc
-
-# - make elc # Returns the path to the compiled elisp package.
-
 
 .PHONY: elc
 TOTAL_RECALL_ELC := ${BUILD}/total-recall.elc
@@ -159,11 +94,6 @@ ${TOTAL_RECALL_ELC}: ${TOTAL_RECALL_EL}
 	-f batch-byte-compile $< &> ${TRACE}
 	[[ -s ${TRACE} ]] && exit 1
 	echo "$@"
-
-# lint
-
-# - make lint # Returns the path to the linting report of the elisp package.
-
 
 .PHONY: lint
 LINT_REPORT := ${BUILD}/lint-report.txt
@@ -178,11 +108,6 @@ ${LINT_REPORT}: ${TOTAL_RECALL_EL}
 	[[ -s ${TRACE} ]] && exit 1
 	echo "$@"
 
-# checkdoc
-
-# - make checkdoc # Returns the path to the analysis of the docstrings of the elisp package.
-
-
 .PHONY: checkdoc
 CHECKDOC := ${BUILD}/checkdoc.txt
 checkdoc: ${CHECKDOC}
@@ -193,11 +118,6 @@ ${CHECKDOC}: ${TOTAL_RECALL_EL}
 	--eval '(checkdoc-file "$<")' &> ${TRACE}
 	[[ -s ${TRACE} ]] && exit 1
 	echo "$@"
-
-# test
-
-# - make test # Returns the path to the analysis of the docstrings of the elisp package.
-
 
 .PHONY: test
 TEST := ${BUILD}/test-log.txt
@@ -210,21 +130,11 @@ ${TEST}: ${TOTAL_RECALL_EL}
 	--eval '(ert-run-tests-batch-and-exit t)' &> $@
 	echo "$@"
 
-# all
-
-# - make all # Returns the path of the elisp package after lint, checkdoc and elc steps.
-
-
 .PHONY: all
 all: ${BUILD}
 	${TRAP}
 	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
 	echo ${TOTAL_RECALL_EL}
-
-# clean
-
-# - make clean # Deletes all generated files.
-
 
 .PHONY: clean
 clean:
