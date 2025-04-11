@@ -604,7 +604,7 @@ MSG can be (:save ROW) to save a row or :close to close the database."
          (if (zerop nbr)
              (encode-time 0 0 0 1 1 1970 0)
 
-           (let* ((delta-days (expt 2 nbr))
+           (let* ((delta-days (expt 2 (- nbr 1)))
                   (delta-secs (* delta-days 24 60 60))
                   (t-secs (time-to-seconds (parse-iso8601-time-string last-success-time)))
                   (result-secs (+ t-secs delta-secs)))
@@ -639,7 +639,7 @@ MSG can be (:save ROW) to save a row or :close to close the database."
          (org-map-entries
           (lambda ()
             (let ((id (org-entry-get nil "ID"))
-                  (name (org-format-outline-path (org-get-outline-path t) 10000 (file-name-base file)))
+                  (name (org-format-outline-path (org-get-outline-path t) 10000))
                   question answer)
               (save-restriction
                 (org-narrow-to-subtree)
@@ -694,6 +694,7 @@ MSG can be (:save ROW) to save a row or :close to close the database."
         (db (trl--db-mk trl-database))
         (now (current-time))
         (ui (trl--ui-mk))
+        (use-dialog-box nil)
         exercise
         scheduled
         choice)
