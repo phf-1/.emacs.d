@@ -224,6 +224,7 @@ export LC_ALL=en_US.UTF-8
 * total-recall.el
 :PROPERTIES:
 :header-args+: :tangle total-recall.el
+:ID:       cdbad43e-8627-4918-9881-0340cab623b5
 :END:
 
 ** Header
@@ -308,7 +309,8 @@ This mode provides `total-recall' for spaced repetition in Emacs."
 
 #+begin_src emacs-lisp
 (defun trl--time-to-iso8601 (time)
-  "LispTimestamp → ISO8601"
+  "Convert TIME to an ISO 8601 formatted string.
+TIME is a Lisp timestamp. Returns a string in the format YYYY-MM-DDTHH:MM:SSZ."
   (format-time-string "%Y-%m-%dT%H:%M:%SZ" (time-convert time 'list) t))
 #+end_src
 
@@ -316,7 +318,8 @@ This mode provides `total-recall' for spaced repetition in Emacs."
 
 #+begin_src emacs-lisp
 (defun trl--iso8601-to-time (iso8601)
-  "ISO8601 → LispTimestamp"
+  "Convert ISO8601 string to a Lisp timestamp.
+ISO8601 is a string in ISO 8601 format. Returns a Lisp timestamp."
   (parse-iso8601-time-string iso8601))
 #+end_src
 
@@ -324,6 +327,7 @@ This mode provides `total-recall' for spaced repetition in Emacs."
 
 #+begin_src emacs-lisp
 (defun trl--time-init ()
+  "Return a Lisp timestamp for January 1, 1970, 00:00:00 UTC."
   (encode-time 0 0 0 1 1 1970 0))
 #+end_src
 
@@ -331,13 +335,9 @@ This mode provides `total-recall' for spaced repetition in Emacs."
 
 #+begin_src emacs-lisp
 (defun trl--search (dir ext type-id)
-  "dir:DirectoryPath ext:Extension id:Id → List(FilePath)
-
-DirectoryPath ≡ Path of a directory
-Extension     ≡ String like \"org\"
-Id            ≡ String
-FilePath      ≡ Path of a file that contains id, has for extension ext and lives under dir.
-"
+  "Search for files containing TYPE-ID with extension EXT in directory DIR.
+DIR is a string path to the directory. EXT is a string file extension (e.g., \"org\").
+TYPE-ID is a string identifier to search for. Returns a list of file paths."
   (let ((cmd (format "%s -g '*.%s' -i --no-heading -n --color=never '%s' %s"
                      trl-ripgrep-cmd ext type-id dir))
         matches)
@@ -354,11 +354,13 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 #+end_src
 
 ** Measure
+
 *** measure-mk
 
 #+begin_src emacs-lisp
 (defun trl--measure-mk (id time)
-  "ID LispTimestamp → Measure"
+  "Create a measure structure with ID and TIME.
+ID is a string identifier. TIME is a Lisp timestamp. Returns a measure structure."
   (list :measure id time))
 #+end_src
 
@@ -366,7 +368,7 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--measure-p (measure)
-  "(trl--measure-p measure) = t ≡ measure is a Measure"
+  "Return t if MEASURE is a valid measure structure, else nil."
   (memq (car-safe measure) '(:measure :success :failure :skip)))
 #+end_src
 
@@ -374,7 +376,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--measure-id (measure)
-  "(trl--measure-id measure) = t ≡ measure is a Measure"
+  "Return the ID of MEASURE.
+MEASURE is a measure structure. Returns a string."
   (trl--measure-rcv measure :id))
 #+end_src
 
@@ -382,7 +385,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--measure-time (measure)
-  ""
+  "Return the timestamp of MEASURE.
+MEASURE is a measure structure. Returns a Lisp timestamp."
   (trl--measure-rcv measure :time))
 #+end_src
 
@@ -390,7 +394,9 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--measure-rcv (measure msg)
-  ""
+  "Extract information from MEASURE based on MSG.
+MEASURE is a measure structure. MSG is a symbol (:id or :time).
+Returns the corresponding value."
   (pcase-let (((or `(:measure ,id ,time)
                    `(_ :measure ,id ,time))
                measure))
@@ -404,7 +410,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--success-measure-mk (id time)
-  "ID LispTimestamp → SuccessMeasure"
+  "Create a success measure with ID and TIME.
+ID is a string identifier. TIME is a Lisp timestamp. Returns a success measure."
   (cons :success (trl--measure-mk id time)))
 #+end_src
 
@@ -412,7 +419,7 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--success-measure-p (measure)
-  "(trl--success-measure-p measure) = t ≡ measure is a SuccessMeasure"
+  "Return t if MEASURE is a success measure, else nil."
   (eq (car-safe measure) :success))
 #+end_src
 
@@ -421,7 +428,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--failure-measure-mk (id time)
-  "ID LispTimestamp → FailureMeasure"
+  "Create a failure measure with ID and TIME.
+ID is a string identifier. TIME is a Lisp timestamp. Returns a failure measure."
   (cons :failure (trl--measure-mk id time)))
 #+end_src
 
@@ -429,7 +437,7 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--failure-measure-p (measure)
-  "(trl--success-measure-p measure) = t ≡ measure is a FailureMeasure"
+  "Return t if MEASURE is a failure measure, else nil."
   (eq (car-safe measure) :failure))
 #+end_src
 
@@ -438,7 +446,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--skip-measure-mk (id time)
-  "ID LispTimestamp → SkipMeasure"
+  "Create a skip measure with ID and TIME.
+ID is a string identifier. TIME is a Lisp timestamp. Returns a skip measure."
   (cons :skip (trl--measure-mk id time)))
 #+end_src
 
@@ -446,7 +455,7 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--skip-measure-p (measure)
-  "(trl--skip-measure-p measure) = t ≡ measure is a SkipMeasure"
+  "Return t if MEASURE is a skip measure, else nil."
   (eq (car-safe measure) :skip))
 #+end_src
 
@@ -456,7 +465,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--ui-mk ()
-  "→ UI"
+  "Create a Total Recall UI.
+Returns a UI structure containing a buffer and frame."
   (let ((frame (make-frame `((width . ,trl-window-width)
                              (height . ,trl-window-height))))
         (buffer (get-buffer-create "*total-recall*")))
@@ -467,7 +477,7 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--ui-p (ui)
-  "(trl--ui-p measure) = t ≡ ui is a UI"
+  "Return t if UI is a valid UI structure, else nil."
   (eq (car-safe ui) :ui))
 #+end_src
 
@@ -475,7 +485,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--ui-no-exercises (ui)
-  "Display a `no exercises' message in UI."
+  "Display a 'no exercises' message in UI.
+UI is a UI structure."
   (trl--ui-rcv ui :no-exercises))
 #+end_src
 
@@ -483,7 +494,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--ui-display-question (ui exercise)
-  "Display the question of EXERCISE in UI."
+  "Display EXERCISE's question in UI.
+UI is a UI structure. EXERCISE is an exercise structure."
   (trl--ui-rcv ui `(:display :question ,exercise)))
 #+end_src
 
@@ -491,7 +503,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--ui-display-answer (ui exercise)
-  "Display the question and answer of EXERCISE in UI."
+  "Display EXERCISE's question and answer in UI.
+UI is a UI structure. EXERCISE is an exercise structure."
   (trl--ui-rcv ui `(:display :answer ,exercise)))
 #+end_src
 
@@ -499,7 +512,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--ui-kill (ui)
-  "Close the UI, killing its buffer and frame."
+  "Close UI by killing its buffer and frame.
+UI is a UI structure."
   (trl--ui-rcv ui :kill))
 #+end_src
 
@@ -507,7 +521,9 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--ui-rcv (ui msg)
-  "Handle message MSG for UI."
+  "Handle MSG for UI.
+UI is a UI structure. MSG is a message like :no-exercises, (:display :question EXERCISE),
+(:display :answer EXERCISE), or :kill. Signals an error if UI is invalid."
   (unless (trl--ui-p ui) (error "Not a UI structure"))
   (pcase-let ((`(:ui ,buffer ,frame) ui))
     (select-frame-set-input-focus frame)
@@ -551,7 +567,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--db-mk (path)
-  "Open an SQLite database at PATH."
+  "Open an SQLite database at PATH.
+PATH is a string file path. Returns an SQLite database handle."
   (sqlite-open path))
 #+end_src
 
@@ -559,7 +576,7 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--db-p (x)
-  "Return t if X is an SQLite database, nil otherwise."
+  "Return t if X is an SQLite database handle, else nil."
   (sqlitep x))
 #+end_src
 
@@ -567,7 +584,8 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--db-save (db measure)
-  "DB Measure → True"
+  "Save MEASURE to database DB.
+DB is an SQLite database handle. MEASURE is a measure structure. Returns t."
   (trl--db-rcv db `(:save ,measure)))
 #+end_src
 
@@ -575,10 +593,9 @@ FilePath      ≡ Path of a file that contains id, has for extension ext and liv
 
 #+begin_src emacs-lisp
 (defun trl--db-select (db id)
-  "DB ExerciseID → List(Measure)
-
-ExerciseID ≡ String
-"
+  "Retrieve measures for exercise ID from database DB.
+DB is an SQLite database handle. ID is a string exercise identifier.
+Returns a list of measure structures."
   (trl--db-rcv db `(:select :measures ,id)))
 #+end_src
 
@@ -586,7 +603,8 @@ ExerciseID ≡ String
 
 #+begin_src emacs-lisp
 (defun trl--db-close (db)
-  "Close database DB."
+  "Close database DB.
+DB is an SQLite database handle. Returns t."
   (trl--db-rcv db :close))
 #+end_src
 
@@ -594,8 +612,10 @@ ExerciseID ≡ String
 
 #+begin_src emacs-lisp
 (defun trl--db-rcv (db msg)
-  "Handle messages for SQLite database DB.
-MSG can be (:save MEASURE), :close, or (:select :measures ID)."
+  "Handle MSG for SQLite database DB.
+DB is an SQLite database handle. MSG can be (:save MEASURE), :close,
+(:select :measures ID), (:measure-to-row MEASURE), or (:row-to-measure ROW).
+Returns the result of the operation (e.g., t, list of measures)."
   (unless (sqlite-select db "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
     (sqlite-execute db
                     "CREATE TABLE exercise_log (
@@ -657,7 +677,8 @@ MSG can be (:save MEASURE), :close, or (:select :measures ID)."
 #+begin_src emacs-lisp
 (defun trl--exercise-mk (name id question answer)
   "Create an exercise with NAME, ID, QUESTION, and ANSWER.
-All arguments must be strings."
+NAME, ID, QUESTION, and ANSWER are strings. Signals an error if any argument
+is not a string. Returns an exercise structure."
   (unless (stringp name) (error "Name is not a string"))
   (unless (stringp id) (error "ID is not a string"))
   (unless (stringp question) (error "Question is not a string"))
@@ -669,7 +690,7 @@ All arguments must be strings."
 
 #+begin_src emacs-lisp
 (defun trl--exercise-p (ex)
-  "Return t if EX is an exercise structure, nil otherwise."
+  "Return t if EX is an exercise structure, else nil."
   (eq (car-safe ex) :exercise))
 #+end_src
 
@@ -677,7 +698,8 @@ All arguments must be strings."
 
 #+begin_src emacs-lisp
 (defun trl--exercise-name (exercise)
-  "Return the name of EXERCISE."
+  "Return the name of EXERCISE.
+EXERCISE is an exercise structure. Returns a string."
   (trl--exercise-rcv exercise :name))
 #+end_src
 
@@ -685,7 +707,8 @@ All arguments must be strings."
 
 #+begin_src emacs-lisp
 (defun trl--exercise-id (exercise)
-  "Return the ID of EXERCISE."
+  "Return the ID of EXERCISE.
+EXERCISE is an exercise structure. Returns a string."
   (trl--exercise-rcv exercise :id))
 #+end_src
 
@@ -693,7 +716,8 @@ All arguments must be strings."
 
 #+begin_src emacs-lisp
 (defun trl--exercise-question (exercise)
-  "Return the question of EXERCISE."
+  "Return the question of EXERCISE.
+EXERCISE is an exercise structure. Returns a string."
   (trl--exercise-rcv exercise :question))
 #+end_src
 
@@ -701,7 +725,8 @@ All arguments must be strings."
 
 #+begin_src emacs-lisp
 (defun trl--exercise-answer (exercise)
-  "Return the answer of EXERCISE."
+  "Return the answer of EXERCISE.
+EXERCISE is an exercise structure. Returns a string."
   (trl--exercise-rcv exercise :answer))
 #+end_src
 
@@ -709,7 +734,9 @@ All arguments must be strings."
 
 #+begin_src emacs-lisp
 (defun trl--exercise-scheduled (exercise db)
-  "Return the scheduled review time for EXERCISE using database DB."
+  "Return the scheduled review time for EXERCISE using database DB.
+EXERCISE is an exercise structure. DB is an SQLite database handle.
+Returns a Lisp timestamp."
   (trl--exercise-rcv exercise `(:scheduled ,db)))
 #+end_src
 
@@ -717,8 +744,9 @@ All arguments must be strings."
 
 #+begin_src emacs-lisp
 (defun trl--exercise-rcv (exercise msg)
-  "Handle messages for EXERCISE.
-MSG can be :name, :id, :question, :answer, or (:scheduled DB)."
+  "Handle MSG for EXERCISE.
+EXERCISE is an exercise structure. MSG can be :name, :id, :question, :answer,
+or (:scheduled DB). Returns the corresponding value (e.g., string or timestamp)."
   (pcase-let ((`(:exercise ,name ,id ,question ,answer) exercise))
     (pcase msg
       (:name name)
@@ -762,7 +790,8 @@ MSG can be :name, :id, :question, :answer, or (:scheduled DB)."
 
 #+begin_src emacs-lisp
 (defun trl--fs-list-exercises (path)
-  "List exercises in PATH."
+  "List exercises in PATH.
+PATH is a string file or directory path. Returns a list of exercise structures."
   (trl--fs-rcv path :list-exercises))
 #+end_src
 
@@ -770,8 +799,9 @@ MSG can be :name, :id, :question, :answer, or (:scheduled DB)."
 
 #+begin_src emacs-lisp
 (defun trl--fs-rcv (path msg)
-  "Handle messages for PATH.
-MSG determines the action, delegating to directory or file handlers."
+  "Handle MSG for PATH.
+PATH is a string file or directory path. MSG is a symbol like :list-exercises.
+Delegates to directory or file handlers. Returns the handler’s result."
   (cond
    ((file-directory-p path)
     (trl--dir-rcv path msg))
@@ -784,7 +814,8 @@ MSG determines the action, delegating to directory or file handlers."
 
 #+begin_src emacs-lisp
 (defun trl--dir-list-exercises (dir)
-  "List exercises in Org files under directory DIR."
+  "List exercises in Org files under directory DIR.
+DIR is a string directory path. Returns a list of exercise structures."
   (trl--dir-rcv dir :list-exercises))
 #+end_src
 
@@ -792,8 +823,9 @@ MSG determines the action, delegating to directory or file handlers."
 
 #+begin_src emacs-lisp
 (defun trl--dir-rcv (dir msg)
-  "Handle messages for directory DIR.
-MSG can be :list-exercises to retrieve exercises."
+  "Handle MSG for directory DIR.
+DIR is a string directory path. MSG is a symbol like :list-exercises.
+Returns a list of exercise structures for :list-exercises."
   (pcase msg
     (:list-exercises
      (mapcan
@@ -806,7 +838,8 @@ MSG can be :list-exercises to retrieve exercises."
 
 #+begin_src emacs-lisp
 (defun trl--file-list-exercises (file)
-  "List exercises in Org FILE."
+  "List exercises in Org file FILE.
+FILE is a string file path. Returns a list of exercise structures."
   (trl--file-rcv file :list-exercises))
 #+end_src
 
@@ -814,8 +847,9 @@ MSG can be :list-exercises to retrieve exercises."
 
 #+begin_src emacs-lisp
 (defun trl--file-rcv (file msg)
-  "Handle messages for FILE.
-MSG can be :list-exercises to extract exercises from FILE."
+  "Handle MSG for Org file FILE.
+FILE is a string file path. MSG is a symbol like :list-exercises.
+Returns a list of exercise structures for :list-exercises."
   (pcase msg
     (:list-exercises
      (with-temp-buffer
