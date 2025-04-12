@@ -1195,6 +1195,12 @@ CLOCK: [2025-03-04 Tue 12:21]--[2025-03-04 Tue 12:22] =>  0:01
   (beacon-mode 1))
 #+end_src
 
+* total-recall
+
+#+begin_src emacs-lisp
+(use-package total-recall)
+#+end_src
+
 * guix
 
 #+begin_src emacs-lisp

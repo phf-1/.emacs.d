@@ -71,8 +71,8 @@ An exercise is any heading in an Org file such that:
     (goto-char (point-min))
     (while (re-search-forward "^.*:PROPERTIES:$" nil t)
       (let ((start (line-beginning-position)))
-	(when (re-search-forward "^.*:END:\n" nil t)
-	  (delete-region start (point)))))
+        (when (re-search-forward "^.*:END:\n" nil t)
+          (delete-region start (point)))))
     (when (buffer-modified-p)
       (save-buffer))))
 (add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
@@ -89,34 +89,34 @@ that the appropriate major-mode is set.  SPEC has the form:
       ((`(,start ,file ,link ,source ,info ,body ,comment) spec)
        (comments (cdr (assq :comments info)))
        (link? (or (string= comments "both") (string= comments "link")
-		  (string= comments "yes") (string= comments "noweb")))
+                  (string= comments "yes") (string= comments "noweb")))
        (link-data `(("start-line" . ,(number-to-string start))
-		    ("file" . ,file)
-		    ("link" . ,link)
-		    ("source-name" . ,source)))
+                    ("file" . ,file)
+                    ("link" . ,link)
+                    ("source-name" . ,source)))
        (insert-comment (lambda (text)
-			 (when (and comments
-				    (not (string= comments "no"))
-				    (org-string-nw-p text))
-			   (if org-babel-tangle-uncomment-comments
-			       ;; Plain comments: no processing.
-			       (insert text)
-			     ;; Ensure comments are made to be comments.  Also ignore
-			     ;; invisible characters when commenting.
-			     (comment-region
-			      (point)
-			      (progn (insert (org-no-properties text))
-				     (point))))))))
+                         (when (and comments
+                                    (not (string= comments "no"))
+                                    (org-string-nw-p text))
+                           (if org-babel-tangle-uncomment-comments
+                               ;; Plain comments: no processing.
+                               (insert text)
+                             ;; Ensure comments are made to be comments.  Also ignore
+                             ;; invisible characters when commenting.
+                             (comment-region
+                              (point)
+                              (progn (insert (org-no-properties text))
+                                     (point))))))))
     (when comment (funcall insert-comment comment))
     (when link?
       (funcall insert-comment
-	       (org-fill-template
-		org-babel-tangle-comment-format-beg link-data)))
+               (org-fill-template
+                org-babel-tangle-comment-format-beg link-data)))
     (insert body "\n")
     (when link?
       (funcall insert-comment
-	       (org-fill-template
-		org-babel-tangle-comment-format-end link-data)))))
+               (org-fill-template
+                org-babel-tangle-comment-format-end link-data)))))
 
 (defun tangle-headline-to-dest (name dest)
   (let (pos)
@@ -308,95 +308,146 @@ This mode provides `total-recall' for spaced repetition in Emacs."
 
 #+begin_src emacs-lisp
 (defun trl--time-to-iso8601 (time)
-  "Convert Lisp timestamp TIME to an ISO 8601 string."
+  "LispTimestamp → ISO8601"
   (format-time-string "%Y-%m-%dT%H:%M:%SZ" (time-convert time 'list) t))
+#+end_src
+
+*** iso8601-to-time
+
+#+begin_src emacs-lisp
+(defun trl--iso8601-to-time (iso8601)
+  "ISO8601 → LispTimestamp"
+  (parse-iso8601-time-string iso8601))
+#+end_src
+
+*** time-init
+
+#+begin_src emacs-lisp
+(defun trl--time-init ()
+  (encode-time 0 0 0 1 1 1970 0))
 #+end_src
 
 ** Search
 
 #+begin_src emacs-lisp
 (defun trl--search (dir ext type-id)
-  "Search directory DIR for files with extension EXT containing TYPE-ID.
-Return a list of unique file paths."
+  "dir:DirectoryPath ext:Extension id:Id → List(FilePath)
+
+DirectoryPath ≡ Path of a directory
+Extension     ≡ String like \"org\"
+Id            ≡ String
+FilePath      ≡ Path of a file that contains id, has for extension ext and lives under dir.
+"
   (let ((cmd (format "%s -g '*.%s' -i --no-heading -n --color=never '%s' %s"
-		     trl-ripgrep-cmd ext type-id dir))
-	matches)
+                     trl-ripgrep-cmd ext type-id dir))
+        matches)
     (with-temp-buffer
       (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
       (goto-char (point-min))
       (while (not (eobp))
-	(let* ((line (buffer-substring-no-properties
-		      (line-beginning-position) (line-end-position)))
-	       (match (split-string line ":")))
-	  (push (car match) matches))
-	(forward-line 1))
+        (let* ((line (buffer-substring-no-properties
+                      (line-beginning-position) (line-end-position)))
+               (match (split-string line ":")))
+          (push (car match) matches))
+        (forward-line 1))
       (delete-dups matches))))
 #+end_src
 
-** Row
-
-*** row-mk
+** Measure
+*** measure-mk
 
 #+begin_src emacs-lisp
-(defun trl--row-mk (exercise time)
-  "Create a row structure for EXERCISE reviewed at TIME."
-  (list :row (trl--exercise-id exercise) (trl--time-to-iso8601 time)))
+(defun trl--measure-mk (id time)
+  "ID LispTimestamp → Measure"
+  (list :measure id time))
 #+end_src
 
-*** row-p
+*** measure-p
 
 #+begin_src emacs-lisp
-(defun trl--row-p (row)
-  "Return t if ROW is a row structure, nil otherwise."
-  (eq (car-safe row) :row))
+(defun trl--measure-p (measure)
+  "(trl--measure-p measure) = t ≡ measure is a Measure"
+  (memq (car-safe measure) '(:measure :success :failure :skip)))
 #+end_src
 
-*** success-row-mk
+*** measure-id
 
 #+begin_src emacs-lisp
-(defun trl--success-row-mk (exercise time)
-  "Create a success row for EXERCISE reviewed at TIME."
-  (cons :success (trl--row-mk exercise time)))
+(defun trl--measure-id (measure)
+  "(trl--measure-id measure) = t ≡ measure is a Measure"
+  (trl--measure-rcv measure :id))
 #+end_src
 
-*** success-row-p
+*** measure-time
 
 #+begin_src emacs-lisp
-(defun trl--success-row-p (row)
-  "Return t if ROW is a success row, nil otherwise."
-  (eq (car-safe row) :success))
+(defun trl--measure-time (measure)
+  ""
+  (trl--measure-rcv measure :time))
 #+end_src
 
-*** failure-row-mk
+*** measure-rcv
 
 #+begin_src emacs-lisp
-(defun trl--failure-row-mk (exercise time)
-  "Create a failure row for EXERCISE reviewed at TIME."
-  (cons :failure (trl--row-mk exercise time)))
+(defun trl--measure-rcv (measure msg)
+  ""
+  (pcase-let (((or `(:measure ,id ,time)
+                   `(_ :measure ,id ,time))
+               measure))
+    (pcase msg
+      (:id id)
+      (:time time))))
 #+end_src
 
-*** failure-row-p
+*** Success
+**** success-measure-mk
 
 #+begin_src emacs-lisp
-(defun trl--failure-row-p (row)
-  "Return t if ROW is a failure row, nil otherwise."
-  (eq (car-safe row) :failure))
+(defun trl--success-measure-mk (id time)
+  "ID LispTimestamp → SuccessMeasure"
+  (cons :success (trl--measure-mk id time)))
 #+end_src
 
-*** skip-row-mk
+**** success-measure-p
 
 #+begin_src emacs-lisp
-(defun trl--skip-row-mk (exercise time)
-  "Create a skip row for EXERCISE reviewed at TIME."
-  (cons :skip (trl--row-mk exercise time)))
+(defun trl--success-measure-p (measure)
+  "(trl--success-measure-p measure) = t ≡ measure is a SuccessMeasure"
+  (eq (car-safe measure) :success))
 #+end_src
 
-*** skip-row-p
+*** Failure
+**** failure-measure-mk
 
 #+begin_src emacs-lisp
-(defun trl--skip-row-p (row)
-  "Return t if ROW is a skip row, nil otherwise."
-  (eq (car-safe row) :skip))
+(defun trl--failure-measure-mk (id time)
+  "ID LispTimestamp → FailureMeasure"
+  (cons :failure (trl--measure-mk id time)))
+#+end_src
+
+**** failure-measure-p
+
+#+begin_src emacs-lisp
+(defun trl--failure-measure-p (measure)
+  "(trl--success-measure-p measure) = t ≡ measure is a FailureMeasure"
+  (eq (car-safe measure) :failure))
+#+end_src
+
+*** Skip
+**** skip-measure-mk
+
+#+begin_src emacs-lisp
+(defun trl--skip-measure-mk (id time)
+  "ID LispTimestamp → SkipMeasure"
+  (cons :skip (trl--measure-mk id time)))
+#+end_src
+
+**** skip-measure-p
+
+#+begin_src emacs-lisp
+(defun trl--skip-measure-p (measure)
+  "(trl--skip-measure-p measure) = t ≡ measure is a SkipMeasure"
+  (eq (car-safe measure) :skip))
 #+end_src
 
 ** UI
@@ -405,10 +456,10 @@ Return a list of unique file paths."
 
 #+begin_src emacs-lisp
 (defun trl--ui-mk ()
-  "Create a UI structure with a frame and buffer."
+  "→ UI"
   (let ((frame (make-frame `((width . ,trl-window-width)
-			     (height . ,trl-window-height))))
-	(buffer (get-buffer-create "*total-recall*")))
+                             (height . ,trl-window-height))))
+        (buffer (get-buffer-create "*total-recall*")))
     (list :ui buffer frame)))
 #+end_src
 
@@ -416,55 +467,15 @@ Return a list of unique file paths."
 
 #+begin_src emacs-lisp
 (defun trl--ui-p (ui)
-  "Return t if UI is a UI structure, nil otherwise."
+  "(trl--ui-p measure) = t ≡ ui is a UI"
   (eq (car-safe ui) :ui))
-#+end_src
-
-*** ui-rcv
-
-#+begin_src emacs-lisp
-(defun trl--ui-rcv (ui msg)
-  "Handle messages for UI.
-MSG can be :no-exercises, (:display :question EX), (:display :answer EX), or :kill."
-  (unless (trl--ui-p ui) (error "Not a UI structure"))
-  (pcase-let ((`(:ui ,buffer ,frame) ui))
-    (select-frame-set-input-focus frame)
-    (switch-to-buffer buffer)
-    (org-mode)
-    (erase-buffer)
-    (insert "* Total Recall *\n\n\n")
-    (pcase msg
-      (:no-exercises
-       (save-window-excursion
-	 (insert "No exercises found.\n"))
-       :noop)
-      (`(:display :question ,ex)
-       (let ((name (trl--exercise-name ex))
-	     (id (trl--exercise-id ex))
-	     (question (trl--exercise-question ex)))
-	 (insert (format "[[ref:%s][%s]]\n\n\n" id name))
-	 (insert (format "%s\n\n\n" question))
-	 (goto-char (point-min))))
-      (`(:display :answer ,ex)
-       (let ((name (trl--exercise-name ex))
-	     (id (trl--exercise-id ex))
-	     (question (trl--exercise-question ex))
-	     (answer (trl--exercise-answer ex)))
-	 (insert (format "[[ref:%s][%s]]\n\n\n" id name))
-	 (insert (format "%s\n\n\n" question))
-	 (insert (format "%s\n\n\n" answer))
-	 (goto-char (point-min))))
-      (:kill
-       (kill-buffer buffer)
-       (delete-frame frame)
-       :noop))))
 #+end_src
 
 *** ui-no-exercises
 
 #+begin_src emacs-lisp
 (defun trl--ui-no-exercises (ui)
-  "Display a 'no exercises' message in UI."
+  "Display a `no exercises' message in UI."
   (trl--ui-rcv ui :no-exercises))
 #+end_src
 
@@ -492,6 +503,48 @@ MSG can be :no-exercises, (:display :question EX), (:display :answer EX), or :ki
   (trl--ui-rcv ui :kill))
 #+end_src
 
+*** ui-rcv
+
+#+begin_src emacs-lisp
+(defun trl--ui-rcv (ui msg)
+  "Handle message MSG for UI."
+  (unless (trl--ui-p ui) (error "Not a UI structure"))
+  (pcase-let ((`(:ui ,buffer ,frame) ui))
+    (select-frame-set-input-focus frame)
+    (switch-to-buffer buffer)
+    (org-mode)
+    (erase-buffer)
+    (insert "* Total Recall *\n\n\n")
+    (pcase msg
+      (:no-exercises
+       (save-window-excursion
+         (insert "No exercises found.\n"))
+       :noop)
+
+      (`(:display :question ,ex)
+       (let ((name (trl--exercise-name ex))
+             (id (trl--exercise-id ex))
+             (question (trl--exercise-question ex)))
+         (insert (format "[[ref:%s][%s]]\n\n\n" id name))
+         (insert (format "%s\n\n\n" question))
+         (goto-char (point-min))))
+
+      (`(:display :answer ,ex)
+       (let ((name (trl--exercise-name ex))
+             (id (trl--exercise-id ex))
+             (question (trl--exercise-question ex))
+             (answer (trl--exercise-answer ex)))
+         (insert (format "[[ref:%s][%s]]\n\n\n" id name))
+         (insert (format "%s\n\n\n" question))
+         (insert (format "%s\n\n\n" answer))
+         (goto-char (point-min))))
+
+      (:kill
+       (kill-buffer buffer)
+       (delete-frame frame)
+       :noop))))
+#+end_src
+
 ** DB
 
 *** db-mk
@@ -510,51 +563,23 @@ MSG can be :no-exercises, (:display :question EX), (:display :answer EX), or :ki
   (sqlitep x))
 #+end_src
 
-*** db-rcv
-
-#+begin_src emacs-lisp
-(defun trl--db-rcv (db msg)
-  "Handle messages for SQLite database DB.
-MSG can be (:save ROW), :close, or (:select :rows ID)."
-  (unless (sqlite-select db "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
-    (sqlite-execute db
-		    "CREATE TABLE exercise_log (
-		       type TEXT NOT NULL,
-		       exercise_id TEXT NOT NULL,
-		       time TEXT NOT NULL)"))
-  (pcase msg
-    (`(:save ,row)
-     (pcase row
-       (`(,(and type (or :success :failure)) :row ,id ,time)
-	(sqlite-execute db
-			"INSERT INTO exercise_log (type, exercise_id, time) VALUES (?, ?, ?)"
-			(list (symbol-name type) id time))
-	t)
-       (_ (error "Invalid row format: %S" row))))
-    (:close
-     (sqlite-close db)
-     t)
-    (`(:select :rows ,id)
-     (sqlite-select db
-		    "SELECT type, time FROM exercise_log WHERE exercise_id = ? ORDER BY time ASC"
-		    (list id)))
-    (_ (error "Unknown message: %S" msg))))
-#+end_src
-
 *** db-save
 
 #+begin_src emacs-lisp
-(defun trl--db-save (db row)
-  "Save ROW to database DB."
-  (trl--db-rcv db `(:save ,row)))
+(defun trl--db-save (db measure)
+  "DB Measure → True"
+  (trl--db-rcv db `(:save ,measure)))
 #+end_src
 
 *** db-select
 
 #+begin_src emacs-lisp
 (defun trl--db-select (db id)
-  "Retrieve rows for exercise ID from database DB."
-  (trl--db-rcv db `(:select :rows ,id)))
+  "DB ExerciseID → List(Measure)
+
+ExerciseID ≡ String
+"
+  (trl--db-rcv db `(:select :measures ,id)))
 #+end_src
 
 *** db-close
@@ -563,6 +588,66 @@ MSG can be (:save ROW), :close, or (:select :rows ID)."
 (defun trl--db-close (db)
   "Close database DB."
   (trl--db-rcv db :close))
+#+end_src
+
+*** db-rcv
+
+#+begin_src emacs-lisp
+(defun trl--db-rcv (db msg)
+  "Handle messages for SQLite database DB.
+MSG can be (:save MEASURE), :close, or (:select :measures ID)."
+  (unless (sqlite-select db "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
+    (sqlite-execute db
+                    "CREATE TABLE exercise_log (
+                       type TEXT NOT NULL,
+                       id TEXT NOT NULL,
+                       time TEXT NOT NULL)"))
+  (pcase msg
+    (`(:measure-to-row ,measure)
+     (pcase measure
+       ((pred trl--measure-p)
+        (let ((type
+               (cond
+                ((trl--success-measure-p measure) "success")
+                ((trl--failure-measure-p measure) "failure")))
+              (id (trl--measure-id measure))
+              (time (trl--time-to-iso8601 (trl--measure-time measure))))
+          (list type id time)))
+       (_ (error "measure is not a Measure. S%" measure))))
+
+    (`(:row-to-measure ,row)
+     (pcase row
+       (`(,type ,id ,time)
+        (pcase type
+          ("success" (trl--success-measure-mk id (trl--iso8601-to-time time)))
+          ("failure" (trl--failure-measure-mk id (trl--iso8601-to-time time)))))))
+
+    (`(:save ,measure)
+     (pcase measure
+       ((pred trl--measure-p)
+        (sqlite-execute
+         db
+         "INSERT INTO exercise_log (type, id, time) VALUES (?, ?, ?)"
+         (trl--db-rcv db `(:measure-to-row ,measure)))
+        t)
+       (_ (error "Unexpected value: %S" measure))))
+
+    (`(:select :measures ,id)
+     (let (rows)
+       (setq rows
+             (sqlite-select
+              db
+              "SELECT type, id, time FROM exercise_log WHERE id = ? ORDER BY time ASC"
+              (list id)))
+       (mapcar
+        (lambda (row) (trl--db-rcv db `(:row-to-measure ,row)))
+        rows)))
+
+    (:close
+     (sqlite-close db)
+     t)
+
+    (_ (error "Unknown message: %S" msg))))
 #+end_src
 
 ** Exercise
@@ -586,45 +671,6 @@ All arguments must be strings."
 (defun trl--exercise-p (ex)
   "Return t if EX is an exercise structure, nil otherwise."
   (eq (car-safe ex) :exercise))
-#+end_src
-
-*** exercise-rcv
-
-#+begin_src emacs-lisp
-(defun trl--exercise-rcv (exercise msg)
-  "Handle messages for EXERCISE.
-MSG can be :name, :id, :question, :answer, or (:scheduled DB)."
-  (pcase-let ((`(:exercise ,name ,id ,question ,answer) exercise))
-    (pcase msg
-      (:name name)
-      (:id id)
-      (:question question)
-      (:answer answer)
-      (`(:scheduled ,db)
-       (let (rows last-failure-index nbr last-success-time)
-	 (setq rows (trl--db-select db id))
-	 (setq last-failure-index
-	       (let ((idx -1))
-		 (dotimes (i (length rows) idx)
-		   (when (string= (nth 0 (nth i rows)) ":failure")
-		     (setq idx i)))))
-	 (setq nbr
-	       (if (< last-failure-index 0)
-		   (length rows)
-		 (- (length rows) (1+ last-failure-index))))
-	 (setq last-success-time
-	       (when (> nbr 0)
-		 (let ((last-row (nth (1- (length rows)) rows)))
-		   (if (string= (nth 0 last-row) ":success")
-		       (nth 1 last-row)
-		     (error "Last row is not a success despite NBR > 0")))))
-	 (if (zerop nbr)
-	     (encode-time 0 0 0 1 1 1970 0)
-	   (let* ((delta-days (expt 2 (- nbr 1)))
-		  (delta-secs (* delta-days 24 60 60))
-		  (t-secs (time-to-seconds (parse-iso8601-time-string last-success-time)))
-		  (result-secs (+ t-secs delta-secs)))
-	     (seconds-to-time result-secs))))))))
 #+end_src
 
 *** exercise-name
@@ -667,7 +713,58 @@ MSG can be :name, :id, :question, :answer, or (:scheduled DB)."
   (trl--exercise-rcv exercise `(:scheduled ,db)))
 #+end_src
 
+*** exercise-rcv
+
+#+begin_src emacs-lisp
+(defun trl--exercise-rcv (exercise msg)
+  "Handle messages for EXERCISE.
+MSG can be :name, :id, :question, :answer, or (:scheduled DB)."
+  (pcase-let ((`(:exercise ,name ,id ,question ,answer) exercise))
+    (pcase msg
+      (:name name)
+      (:id id)
+      (:question question)
+      (:answer answer)
+      (`(:scheduled ,db)
+       (let (measures (last-failure-index -1) nbr last-success-time)
+         (setq measures (trl--db-select db id))
+
+         (let ((i -1))
+           (dolist (measure measures)
+             (setq i (+ i 1))
+             (when (trl--failure-measure-p measure)
+               (setq last-failure-index i))))
+
+         (setq nbr
+               (if (< last-failure-index 0)
+                   (length measures)
+                 (- (length measures) (1+ last-failure-index))))
+
+         (setq last-success-time
+               (when (> nbr 0)
+                 (let ((last-measure (nth (1- (length measures)) measures)))
+                   (if (trl--success-measure-p last-measure)
+                       (trl--measure-time last-measure)
+                     (error "Last measure is not a success despite NBR > 0")))))
+
+         (if (zerop nbr)
+             (trl--time-init)
+           (let* ((delta-days (expt 2 (- nbr 1)))
+                  (delta-secs (* delta-days 24 60 60))
+                  (t-secs (time-to-seconds last-success-time))
+                  (result-secs (+ t-secs delta-secs)))
+             (seconds-to-time result-secs))))))))
+#+end_src
+
 ** Filesystem
+
+*** fs-list-exercises
+
+#+begin_src emacs-lisp
+(defun trl--fs-list-exercises (path)
+  "List exercises in PATH."
+  (trl--fs-rcv path :list-exercises))
+#+end_src
 
 *** fs-rcv
 
@@ -682,15 +779,16 @@ MSG determines the action, delegating to directory or file handlers."
     (trl--file-rcv path msg))))
 #+end_src
 
-*** fs-list-exercises
+*** Directory
+**** dir-list-exercises
 
 #+begin_src emacs-lisp
-(defun trl--fs-list-exercises (path)
-  "List exercises in PATH."
-  (trl--fs-rcv path :list-exercises))
+(defun trl--dir-list-exercises (dir)
+  "List exercises in Org files under directory DIR."
+  (trl--dir-rcv dir :list-exercises))
 #+end_src
 
-*** dir-rcv
+**** dir-rcv
 
 #+begin_src emacs-lisp
 (defun trl--dir-rcv (dir msg)
@@ -703,15 +801,16 @@ MSG can be :list-exercises to retrieve exercises."
       (trl--search dir "org" trl-type-id)))))
 #+end_src
 
-*** dir-list-exercises
+*** File
+**** file-list-exercises
 
 #+begin_src emacs-lisp
-(defun trl--dir-list-exercises (dir)
-  "List exercises in Org files under directory DIR."
-  (trl--dir-rcv dir :list-exercises))
+(defun trl--file-list-exercises (file)
+  "List exercises in Org FILE."
+  (trl--file-rcv file :list-exercises))
 #+end_src
 
-*** file-rcv
+**** file-rcv
 
 #+begin_src emacs-lisp
 (defun trl--file-rcv (file msg)
@@ -724,47 +823,39 @@ MSG can be :list-exercises to extract exercises from FILE."
        (org-mode)
        (org-show-all)
        (let ((org-element-use-cache nil)
-	     (exercises '()))
-	 (org-map-entries
-	  (lambda ()
-	    (let ((id (org-entry-get nil "ID"))
-		  (name (org-format-outline-path (org-get-outline-path t) 10000))
-		  question answer)
-	      (save-restriction
-		(org-narrow-to-subtree)
-		(org-next-visible-heading 1)
-		(unless (org-at-heading-p) (error "Question not found"))
-		(save-restriction
-		  (org-narrow-to-subtree)
-		  (let ((init-lvl (org-current-level)))
-		    (while (> (org-current-level) 1) (org-promote-subtree))
-		    (org-mark-subtree)
-		    (setq question
-			  (string-trim
-			   (buffer-substring-no-properties (point) (mark))))
-		    (while (< (org-current-level) init-lvl) (org-demote-subtree))))
-		(org-goto-sibling)
-		(unless (org-at-heading-p) (error "Answer not found"))
-		(save-restriction
-		  (org-narrow-to-subtree)
-		  (let ((init-lvl (org-current-level)))
-		    (while (> (org-current-level) 1) (org-promote-subtree))
-		    (org-mark-subtree)
-		    (setq answer
-			  (string-trim
-			   (buffer-substring-no-properties (point) (mark))))
-		    (while (< (org-current-level) init-lvl) (org-demote-subtree))))
-		(push (trl--exercise-mk name id question answer) exercises))))
-	  (format "TYPE=\"%s\"" trl-type-id))
-	 (reverse exercises))))))
-#+end_src
-
-*** file-list-exercises
-
-#+begin_src emacs-lisp
-(defun trl--file-list-exercises (file)
-  "List exercises in Org FILE."
-  (trl--file-rcv file :list-exercises))
+             (exercises '()))
+         (org-map-entries
+          (lambda ()
+            (let ((id (org-entry-get nil "ID"))
+                  (name (org-format-outline-path (org-get-outline-path t) 10000))
+                  question answer)
+              (save-restriction
+                (org-narrow-to-subtree)
+                (org-next-visible-heading 1)
+                (unless (org-at-heading-p) (error "Question not found"))
+                (save-restriction
+                  (org-narrow-to-subtree)
+                  (let ((init-lvl (org-current-level)))
+                    (while (> (org-current-level) 1) (org-promote-subtree))
+                    (org-mark-subtree)
+                    (setq question
+                          (string-trim
+                           (buffer-substring-no-properties (point) (mark))))
+                    (while (< (org-current-level) init-lvl) (org-demote-subtree))))
+                (org-goto-sibling)
+                (unless (org-at-heading-p) (error "Answer not found"))
+                (save-restriction
+                  (org-narrow-to-subtree)
+                  (let ((init-lvl (org-current-level)))
+                    (while (> (org-current-level) 1) (org-promote-subtree))
+                    (org-mark-subtree)
+                    (setq answer
+                          (string-trim
+                           (buffer-substring-no-properties (point) (mark))))
+                    (while (< (org-current-level) init-lvl) (org-demote-subtree))))
+                (push (trl--exercise-mk name id question answer) exercises))))
+          (format "TYPE=\"%s\"" trl-type-id))
+         (reverse exercises))))))
 #+end_src
 
 ** total-recall
@@ -777,48 +868,48 @@ MSG can be :list-exercises to extract exercises from FILE."
 <<commentary>>"
   (interactive)
   (let ((exercises (trl--fs-list-exercises trl-root-dir))
-	(db (trl--db-mk trl-database))
-	(now (current-time))
-	(ui (trl--ui-mk))
-	(use-dialog-box nil)
-	exercise
-	scheduled
-	choice)
+        (db (trl--db-mk trl-database))
+        (now (current-time))
+        (ui (trl--ui-mk))
+        (use-dialog-box nil)
+        exercise
+        scheduled
+        choice)
     (if (null exercises)
-	(trl--ui-no-exercises ui)
+        (trl--ui-no-exercises ui)
       (while exercises
-	(setq exercise (pop exercises))
-	(setq scheduled (trl--exercise-scheduled exercise db))
-	(when (time-less-p scheduled now)
-	  (trl--ui-display-question ui exercise)
-	  (setq choice
-		(car
-		 (read-multiple-choice
-		  "What would you like to do?"
-		  '((?r "Reveal answer" "Display the answer to the question")
-		    (?s "Skip" "Skip this exercise")
-		    (?q "Quit" "Quit Total Recall")))))
-	  (pcase choice
-	    (?r
-	     (trl--ui-display-answer ui exercise)
-	     (setq choice
-		   (car
-		    (read-multiple-choice
-		     "What would you like to do?"
-		     '((?s "Success" "You successfully answered the question")
-		       (?f "Failure" "You failed to answer the question")
-		       (?q "Quit" "Quit Total Recall")))))
-	     (pcase choice
-	       (?s
-		(trl--db-save db (trl--success-row-mk exercise now)))
-	       (?f
-		(trl--db-save db (trl--failure-row-mk exercise now)))
-	       (?q
-		(setq exercises nil))))
-	    (?s
-	     nil)
-	    (?q
-	     (setq exercises nil))))))
+        (setq exercise (pop exercises))
+        (setq scheduled (trl--exercise-scheduled exercise db))
+        (when (time-less-p scheduled now)
+          (trl--ui-display-question ui exercise)
+          (setq choice
+                (car
+                 (read-multiple-choice
+                  "What would you like to do?"
+                  '((?r "Reveal answer" "Display the answer to the question")
+                    (?s "Skip" "Skip this exercise")
+                    (?q "Quit" "Quit Total Recall")))))
+          (pcase choice
+            (?r
+             (trl--ui-display-answer ui exercise)
+             (setq choice
+                   (car
+                    (read-multiple-choice
+                     "What would you like to do?"
+                     '((?s "Success" "You successfully answered the question")
+                       (?f "Failure" "You failed to answer the question")
+                       (?q "Quit" "Quit Total Recall")))))
+             (pcase choice
+               (?s
+                (trl--db-save db (trl--success-measure-mk (trl--exercise-id exercise) now)))
+               (?f
+                (trl--db-save db (trl--failure-measure-mk (trl--exercise-id exercise) now)))
+               (?q
+                (setq exercises nil))))
+            (?s
+             nil)
+            (?q
+             (setq exercises nil))))))
     (trl--db-close db)
     (trl--ui-kill ui)))
 #+end_src
@@ -861,7 +952,7 @@ MAKEFLAGS += --no-print-directory
 #+begin_src makefile
 BUILD := _build
 ${BUILD}:
-	mkdir -p $@
+        mkdir -p $@
 #+end_src
 
 *** TRACE
@@ -895,7 +986,7 @@ MAIN_ORG := README.org
 #+begin_src makefile
 .PHONY: help
 help:
-	grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+        grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 #+end_src
 
 ** tangle-heading
@@ -907,10 +998,10 @@ help:
 TANGLE_HEADING := ${BUILD}/tangle-heading
 tangle-heading: ${TANGLE_HEADING}
 ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
-	cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
-	tail -n 1 ${TRACE}
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
+        cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
+        tail -n 1 ${TRACE}
 #+end_src
 
 ** Makefile
@@ -922,10 +1013,10 @@ ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
 MAKEFILE := ${BUILD}/Makefile
 Makefile: ${MAKEFILE}
 ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
-	cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
-	tail -n 1 ${TRACE}
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
+        cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
+        tail -n 1 ${TRACE}
 #+end_src
 
 ** packages.scm
@@ -937,9 +1028,9 @@ ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
 PACKAGES_SCM := ${BUILD}/packages.scm
 packages.scm: ${PACKAGES_SCM}
 ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
-	echo "$@"
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
+        echo "$@"
 #+end_src
 
 ** init.bash
@@ -951,9 +1042,9 @@ ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
 INIT_BASH := ${BUILD}/init.bash
 init.bash: ${INIT_BASH}
 ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
-	echo "$@"
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
+        echo "$@"
 #+end_src
 
 ** env
@@ -964,23 +1055,23 @@ ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
 .PHONY: env
 GUIX := guix
 GUIX_SHELL := ${GUIX} shell --container \
-	-F \
-	-N \
-	--file=${PACKAGES_SCM} \
-	--preserve='^TERM$$' \
-	-- bash --init-file ${INIT_BASH}
+        -F \
+        -N \
+        --file=${PACKAGES_SCM} \
+        --preserve='^TERM$$' \
+        -- bash --init-file ${INIT_BASH}
 env: ${PACKAGES_SCM} ${INIT_BASH}
-	CMD="${CMD}"
-	if [[ ! -v GUIX_ENVIRONMENT ]]; then
-	  if [[ "$${CMD}" == "" ]]; then
-	    ${GUIX_SHELL} -i;
-	  else
-	    ${GUIX_SHELL} -c "${CMD}";
-	  fi
-	else
-	  ${CMD}
-	  :
-	fi
+        CMD="${CMD}"
+        if [[ ! -v GUIX_ENVIRONMENT ]]; then
+          if [[ "$${CMD}" == "" ]]; then
+            ${GUIX_SHELL} -i;
+          else
+            ${GUIX_SHELL} -c "${CMD}";
+          fi
+        else
+          ${CMD}
+          :
+        fi
 #+end_src
 
 ** el
@@ -992,11 +1083,11 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 TOTAL_RECALL_EL := ${BUILD}/total-recall.el
 el: ${TOTAL_RECALL_EL}
 ${TOTAL_RECALL_EL}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} total-recall.el ${BUILD} &> ${TRACE}
-	# sed -i '1,2d' ${TOTAL_RECALL_EL} &>> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        ./tangle-heading ${MAIN_ORG} total-recall.el ${BUILD} &> ${TRACE}
+        # sed -i '1,2d' ${TOTAL_RECALL_EL} &>> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** elc
@@ -1008,13 +1099,13 @@ ${TOTAL_RECALL_EL}: ${MAIN_ORG} | ${BUILD}
 TOTAL_RECALL_ELC := ${BUILD}/total-recall.elc
 elc: ${TOTAL_RECALL_ELC}
 ${TOTAL_RECALL_ELC}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
-	-f batch-byte-compile $< &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        emacs -Q --batch \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
+        -f batch-byte-compile $< &> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** lint
@@ -1026,14 +1117,14 @@ ${TOTAL_RECALL_ELC}: ${TOTAL_RECALL_EL}
 LINT_REPORT := ${BUILD}/lint-report.txt
 lint: ${LINT_REPORT}
 ${LINT_REPORT}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs --batch \
-	--file $< \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
-	--eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        emacs --batch \
+        --file $< \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
+        --eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** checkdoc
@@ -1045,12 +1136,12 @@ ${LINT_REPORT}: ${TOTAL_RECALL_EL}
 CHECKDOC := ${BUILD}/checkdoc.txt
 checkdoc: ${CHECKDOC}
 ${CHECKDOC}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(checkdoc-file "$<")' &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
+        ${TRAP}
+        emacs -Q --batch \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval '(checkdoc-file "$<")' &> ${TRACE}
+        [[ -s ${TRACE} ]] && exit 1
+        echo "$@"
 #+end_src
 
 ** test
@@ -1062,12 +1153,12 @@ ${CHECKDOC}: ${TOTAL_RECALL_EL}
 TEST := ${BUILD}/test-log.txt
 test: ${TEST}
 ${TEST}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(load-file "$<")' \
-	--eval '(ert-run-tests-batch-and-exit t)' &> $@
-	echo "$@"
+        ${TRAP}
+        emacs -Q --batch \
+        --eval '(setq org-id-track-globally nil)' \
+        --eval '(load-file "$<")' \
+        --eval '(ert-run-tests-batch-and-exit t)' &> $@
+        echo "$@"
 #+end_src
 
 ** all
@@ -1077,9 +1168,9 @@ ${TEST}: ${TOTAL_RECALL_EL}
 #+begin_src makefile
 .PHONY: all
 all: ${BUILD}
-	${TRAP}
-	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
-	echo ${TOTAL_RECALL_EL}
+        ${TRAP}
+        ${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
+        echo ${TOTAL_RECALL_EL}
 #+end_src
 
 ** clean
@@ -1089,7 +1180,7 @@ all: ${BUILD}
 #+begin_src makefile
 .PHONY: clean
 clean:
-	rm -rfv ${BUILD}
+        rm -rfv ${BUILD}
 #+end_src
 
 * Message
