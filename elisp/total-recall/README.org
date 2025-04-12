@@ -10,21 +10,21 @@
 This package provides `total-recall'.
 
 `M-x total-recall' searches for Org files in the directory
-specified by `trl-root-dir' that contain exercises. It lists the
+specified by `total-recall-root-dir' that contain exercises. It lists the
 exercises and presents a user interface to display them. For
 each exercise, it shows the question first, followed by the
 answer. It then records the user's performance, i.e., whether
 they provided a correct answer. This data is stored in an SQLite
-database at `trl-database', which is used to determine whether
+database at `total-recall-database', which is used to determine whether
 the exercise should be reviewed sooner or later.
 
 An exercise is any heading in an Org file such that:
-- It has a property `TYPE' which value is `trl-type-id'.
+- It has a property `TYPE' which value is `total-recall-type-id'.
 - It has a property `ID' which value is a UUID.
 - It has two sub-headings.
   - the first one encodes a question,
   - and the second on encodes an answer.
-- Its parent file lives under `trl-root-dir'.
+- Its parent file lives under `total-recall-root-dir'.
 - example:
 
 ,* Name
@@ -230,14 +230,14 @@ export LC_ALL=en_US.UTF-8
 ** Header
 
 #+begin_src emacs-lisp
-;;; total-recall.el --- Spaced repetitions for Emacs -*- lexical-binding: t; -*-
+;;; total-recall.el --- Spaced repetition system -*- lexical-binding: t; -*-
 ;;
 ;; Copyright (C) 2025 Pierre-Henry FRÖHRING
 ;; Author: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Homepage: https://github.com/phf-1/total-recall
 ;; Package-Version: 0.1
-;; Package-Requires: ((emacs "27.1"))
+;; Package-Requires: ((emacs "29.1"))
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
 ;; This program is free software; you can redistribute it and/or modify
@@ -261,6 +261,7 @@ export LC_ALL=en_US.UTF-8
   (error "Emacs must be compiled with built-in support for SQLite databases"))
 (require 'org)
 (require 'time-date)
+(require 'parse-time)
 #+end_src
 
 ** Configuration
@@ -268,47 +269,46 @@ export LC_ALL=en_US.UTF-8
 #+begin_src emacs-lisp
 (defgroup total-recall nil
   "Customization options for Total Recall.
-This mode provides `total-recall' for spaced repetition in Emacs."
+This package provides `total-recall' for spaced repetition in Emacs."
   :group 'convenience
-  :prefix "trl-")
+  :prefix "total-recall-")
 
-(defcustom trl-database (file-name-concat user-emacs-directory "total-recall.sqlite3")
+(defcustom total-recall-database (file-name-concat user-emacs-directory "total-recall.sqlite3")
   "Path to the SQLite database for storing exercise data."
   :type 'string
   :group 'total-recall)
 
-(defcustom trl-ripgrep-cmd "rg"
+(defcustom total-recall-ripgrep-cmd "rg"
   "Name or path of the Ripgrep executable."
   :type 'string
   :group 'total-recall)
 
-(defcustom trl-root-dir (expand-file-name "~")
+(defcustom total-recall-root-dir (expand-file-name "~")
   "Root directory where Ripgrep searches for Org files."
   :type 'string
   :group 'total-recall)
 
-(defcustom trl-type-id "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
+(defcustom total-recall-type-id "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
   "Type ID for Org headings representing exercises."
   :type 'string
   :group 'total-recall)
 
-(defcustom trl-window-width 160
+(defcustom total-recall-window-width 160
   "Width of the Total Recall UI in characters."
   :type 'integer
   :group 'total-recall)
 
-(defcustom trl-window-height 90
+(defcustom total-recall-window-height 90
   "Height of the Total Recall UI in characters."
   :type 'integer
   :group 'total-recall)
 #+end_src
 
 ** Utils
-
 *** time-to-iso8601
 
 #+begin_src emacs-lisp
-(defun trl--time-to-iso8601 (time)
+(defun total-recall--time-to-iso8601 (time)
   "Convert TIME to an ISO 8601 formatted string.
 TIME is a Lisp timestamp. Returns a string in the format YYYY-MM-DDTHH:MM:SSZ."
   (format-time-string "%Y-%m-%dT%H:%M:%SZ" (time-convert time 'list) t))
@@ -317,7 +317,7 @@ TIME is a Lisp timestamp. Returns a string in the format YYYY-MM-DDTHH:MM:SSZ."
 *** iso8601-to-time
 
 #+begin_src emacs-lisp
-(defun trl--iso8601-to-time (iso8601)
+(defun total-recall--iso8601-to-time (iso8601)
   "Convert ISO8601 string to a Lisp timestamp.
 ISO8601 is a string in ISO 8601 format. Returns a Lisp timestamp."
   (parse-iso8601-time-string iso8601))
@@ -326,7 +326,7 @@ ISO8601 is a string in ISO 8601 format. Returns a Lisp timestamp."
 *** time-init
 
 #+begin_src emacs-lisp
-(defun trl--time-init ()
+(defun total-recall--time-init ()
   "Return a Lisp timestamp for January 1, 1970, 00:00:00 UTC."
   (encode-time 0 0 0 1 1 1970 0))
 #+end_src
@@ -334,12 +334,14 @@ ISO8601 is a string in ISO 8601 format. Returns a Lisp timestamp."
 ** Search
 
 #+begin_src emacs-lisp
-(defun trl--search (dir ext type-id)
+(defun total-recall--search (dir ext type-id)
   "Search for files containing TYPE-ID with extension EXT in directory DIR.
-DIR is a string path to the directory. EXT is a string file extension (e.g., \"org\").
-TYPE-ID is a string identifier to search for. Returns a list of file paths."
+DIR is a string path to the directory.
+EXT is a string file extension (e.g., \"org\").
+TYPE-ID is a string identifier to search for.
+Returns a list of file paths."
   (let ((cmd (format "%s -g '*.%s' -i --no-heading -n --color=never '%s' %s"
-                     trl-ripgrep-cmd ext type-id dir))
+                     total-recall-ripgrep-cmd ext type-id dir))
         matches)
     (with-temp-buffer
       (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
@@ -353,21 +355,22 @@ TYPE-ID is a string identifier to search for. Returns a list of file paths."
       (delete-dups matches))))
 #+end_src
 
-** Measure
-
+** MEASURE
 *** measure-mk
 
 #+begin_src emacs-lisp
-(defun trl--measure-mk (id time)
+(defun total-recall--measure-mk (id time)
   "Create a measure structure with ID and TIME.
-ID is a string identifier. TIME is a Lisp timestamp. Returns a measure structure."
+ID is a string identifier.
+TIME is a Lisp timestamp.
+Returns a measure structure."
   (list :measure id time))
 #+end_src
 
 *** measure-p
 
 #+begin_src emacs-lisp
-(defun trl--measure-p (measure)
+(defun total-recall--measure-p (measure)
   "Return t if MEASURE is a valid measure structure, else nil."
   (memq (car-safe measure) '(:measure :success :failure :skip)))
 #+end_src
@@ -375,25 +378,25 @@ ID is a string identifier. TIME is a Lisp timestamp. Returns a measure structure
 *** measure-id
 
 #+begin_src emacs-lisp
-(defun trl--measure-id (measure)
+(defun total-recall--measure-id (measure)
   "Return the ID of MEASURE.
 MEASURE is a measure structure. Returns a string."
-  (trl--measure-rcv measure :id))
+  (total-recall--measure-rcv measure :id))
 #+end_src
 
 *** measure-time
 
 #+begin_src emacs-lisp
-(defun trl--measure-time (measure)
+(defun total-recall--measure-time (measure)
   "Return the timestamp of MEASURE.
 MEASURE is a measure structure. Returns a Lisp timestamp."
-  (trl--measure-rcv measure :time))
+  (total-recall--measure-rcv measure :time))
 #+end_src
 
 *** measure-rcv
 
 #+begin_src emacs-lisp
-(defun trl--measure-rcv (measure msg)
+(defun total-recall--measure-rcv (measure msg)
   "Extract information from MEASURE based on MSG.
 MEASURE is a measure structure. MSG is a symbol (:id or :time).
 Returns the corresponding value."
@@ -409,16 +412,16 @@ Returns the corresponding value."
 **** success-measure-mk
 
 #+begin_src emacs-lisp
-(defun trl--success-measure-mk (id time)
+(defun total-recall--success-measure-mk (id time)
   "Create a success measure with ID and TIME.
 ID is a string identifier. TIME is a Lisp timestamp. Returns a success measure."
-  (cons :success (trl--measure-mk id time)))
+  (cons :success (total-recall--measure-mk id time)))
 #+end_src
 
 **** success-measure-p
 
 #+begin_src emacs-lisp
-(defun trl--success-measure-p (measure)
+(defun total-recall--success-measure-p (measure)
   "Return t if MEASURE is a success measure, else nil."
   (eq (car-safe measure) :success))
 #+end_src
@@ -427,16 +430,16 @@ ID is a string identifier. TIME is a Lisp timestamp. Returns a success measure."
 **** failure-measure-mk
 
 #+begin_src emacs-lisp
-(defun trl--failure-measure-mk (id time)
+(defun total-recall--failure-measure-mk (id time)
   "Create a failure measure with ID and TIME.
 ID is a string identifier. TIME is a Lisp timestamp. Returns a failure measure."
-  (cons :failure (trl--measure-mk id time)))
+  (cons :failure (total-recall--measure-mk id time)))
 #+end_src
 
 **** failure-measure-p
 
 #+begin_src emacs-lisp
-(defun trl--failure-measure-p (measure)
+(defun total-recall--failure-measure-p (measure)
   "Return t if MEASURE is a failure measure, else nil."
   (eq (car-safe measure) :failure))
 #+end_src
@@ -445,16 +448,16 @@ ID is a string identifier. TIME is a Lisp timestamp. Returns a failure measure."
 **** skip-measure-mk
 
 #+begin_src emacs-lisp
-(defun trl--skip-measure-mk (id time)
+(defun total-recall--skip-measure-mk (id time)
   "Create a skip measure with ID and TIME.
 ID is a string identifier. TIME is a Lisp timestamp. Returns a skip measure."
-  (cons :skip (trl--measure-mk id time)))
+  (cons :skip (total-recall--measure-mk id time)))
 #+end_src
 
 **** skip-measure-p
 
 #+begin_src emacs-lisp
-(defun trl--skip-measure-p (measure)
+(defun total-recall--skip-measure-p (measure)
   "Return t if MEASURE is a skip measure, else nil."
   (eq (car-safe measure) :skip))
 #+end_src
@@ -464,11 +467,11 @@ ID is a string identifier. TIME is a Lisp timestamp. Returns a skip measure."
 *** ui-mk
 
 #+begin_src emacs-lisp
-(defun trl--ui-mk ()
+(defun total-recall--ui-mk ()
   "Create a Total Recall UI.
 Returns a UI structure containing a buffer and frame."
-  (let ((frame (make-frame `((width . ,trl-window-width)
-                             (height . ,trl-window-height))))
+  (let ((frame (make-frame `((width . ,total-recall-window-width)
+                             (height . ,total-recall-window-height))))
         (buffer (get-buffer-create "*total-recall*")))
     (list :ui buffer frame)))
 #+end_src
@@ -476,7 +479,7 @@ Returns a UI structure containing a buffer and frame."
 *** ui-p
 
 #+begin_src emacs-lisp
-(defun trl--ui-p (ui)
+(defun total-recall--ui-p (ui)
   "Return t if UI is a valid UI structure, else nil."
   (eq (car-safe ui) :ui))
 #+end_src
@@ -484,47 +487,48 @@ Returns a UI structure containing a buffer and frame."
 *** ui-no-exercises
 
 #+begin_src emacs-lisp
-(defun trl--ui-no-exercises (ui)
-  "Display a 'no exercises' message in UI.
+(defun total-recall--ui-no-exercises (ui)
+  "Display a /no exercises/ message in UI.
 UI is a UI structure."
-  (trl--ui-rcv ui :no-exercises))
+  (total-recall--ui-rcv ui :no-exercises))
 #+end_src
 
 *** ui-display-question
 
 #+begin_src emacs-lisp
-(defun trl--ui-display-question (ui exercise)
+(defun total-recall--ui-display-question (ui exercise)
   "Display EXERCISE's question in UI.
 UI is a UI structure. EXERCISE is an exercise structure."
-  (trl--ui-rcv ui `(:display :question ,exercise)))
+  (total-recall--ui-rcv ui `(:display :question ,exercise)))
 #+end_src
 
 *** ui-display-answer
 
 #+begin_src emacs-lisp
-(defun trl--ui-display-answer (ui exercise)
+(defun total-recall--ui-display-answer (ui exercise)
   "Display EXERCISE's question and answer in UI.
 UI is a UI structure. EXERCISE is an exercise structure."
-  (trl--ui-rcv ui `(:display :answer ,exercise)))
+  (total-recall--ui-rcv ui `(:display :answer ,exercise)))
 #+end_src
 
 *** ui-kill
 
 #+begin_src emacs-lisp
-(defun trl--ui-kill (ui)
+(defun total-recall--ui-kill (ui)
   "Close UI by killing its buffer and frame.
 UI is a UI structure."
-  (trl--ui-rcv ui :kill))
+  (total-recall--ui-rcv ui :kill))
 #+end_src
 
 *** ui-rcv
 
 #+begin_src emacs-lisp
-(defun trl--ui-rcv (ui msg)
+(defun total-recall--ui-rcv (ui msg)
   "Handle MSG for UI.
-UI is a UI structure. MSG is a message like :no-exercises, (:display :question EXERCISE),
-(:display :answer EXERCISE), or :kill. Signals an error if UI is invalid."
-  (unless (trl--ui-p ui) (error "Not a UI structure"))
+UI is a UI structure.
+MSG is a message.
+Signals an error if UI is invalid."
+  (unless (total-recall--ui-p ui) (error "Not a UI structure"))
   (pcase-let ((`(:ui ,buffer ,frame) ui))
     (select-frame-set-input-focus frame)
     (switch-to-buffer buffer)
@@ -538,18 +542,18 @@ UI is a UI structure. MSG is a message like :no-exercises, (:display :question E
        :noop)
 
       (`(:display :question ,ex)
-       (let ((name (trl--exercise-name ex))
-             (id (trl--exercise-id ex))
-             (question (trl--exercise-question ex)))
+       (let ((name (total-recall--exercise-name ex))
+             (id (total-recall--exercise-id ex))
+             (question (total-recall--exercise-question ex)))
          (insert (format "[[ref:%s][%s]]\n\n\n" id name))
          (insert (format "%s\n\n\n" question))
          (goto-char (point-min))))
 
       (`(:display :answer ,ex)
-       (let ((name (trl--exercise-name ex))
-             (id (trl--exercise-id ex))
-             (question (trl--exercise-question ex))
-             (answer (trl--exercise-answer ex)))
+       (let ((name (total-recall--exercise-name ex))
+             (id (total-recall--exercise-id ex))
+             (question (total-recall--exercise-question ex))
+             (answer (total-recall--exercise-answer ex)))
          (insert (format "[[ref:%s][%s]]\n\n\n" id name))
          (insert (format "%s\n\n\n" question))
          (insert (format "%s\n\n\n" answer))
@@ -562,11 +566,10 @@ UI is a UI structure. MSG is a message like :no-exercises, (:display :question E
 #+end_src
 
 ** DB
-
 *** db-mk
 
 #+begin_src emacs-lisp
-(defun trl--db-mk (path)
+(defun total-recall--db-mk (path)
   "Open an SQLite database at PATH.
 PATH is a string file path. Returns an SQLite database handle."
   (sqlite-open path))
@@ -575,7 +578,7 @@ PATH is a string file path. Returns an SQLite database handle."
 *** db-p
 
 #+begin_src emacs-lisp
-(defun trl--db-p (x)
+(defun total-recall--db-p (x)
   "Return t if X is an SQLite database handle, else nil."
   (sqlitep x))
 #+end_src
@@ -583,35 +586,35 @@ PATH is a string file path. Returns an SQLite database handle."
 *** db-save
 
 #+begin_src emacs-lisp
-(defun trl--db-save (db measure)
+(defun total-recall--db-save (db measure)
   "Save MEASURE to database DB.
 DB is an SQLite database handle. MEASURE is a measure structure. Returns t."
-  (trl--db-rcv db `(:save ,measure)))
+  (total-recall--db-rcv db `(:save ,measure)))
 #+end_src
 
 *** db-select
 
 #+begin_src emacs-lisp
-(defun trl--db-select (db id)
+(defun total-recall--db-select (db id)
   "Retrieve measures for exercise ID from database DB.
 DB is an SQLite database handle. ID is a string exercise identifier.
 Returns a list of measure structures."
-  (trl--db-rcv db `(:select :measures ,id)))
+  (total-recall--db-rcv db `(:select :measures ,id)))
 #+end_src
 
 *** db-close
 
 #+begin_src emacs-lisp
-(defun trl--db-close (db)
+(defun total-recall--db-close (db)
   "Close database DB.
 DB is an SQLite database handle. Returns t."
-  (trl--db-rcv db :close))
+  (total-recall--db-rcv db :close))
 #+end_src
 
 *** db-rcv
 
 #+begin_src emacs-lisp
-(defun trl--db-rcv (db msg)
+(defun total-recall--db-rcv (db msg)
   "Handle MSG for SQLite database DB.
 DB is an SQLite database handle. MSG can be (:save MEASURE), :close,
 (:select :measures ID), (:measure-to-row MEASURE), or (:row-to-measure ROW).
@@ -622,33 +625,34 @@ Returns the result of the operation (e.g., t, list of measures)."
                        type TEXT NOT NULL,
                        id TEXT NOT NULL,
                        time TEXT NOT NULL)"))
+
   (pcase msg
     (`(:measure-to-row ,measure)
      (pcase measure
-       ((pred trl--measure-p)
+       ((pred total-recall--measure-p)
         (let ((type
                (cond
-                ((trl--success-measure-p measure) "success")
-                ((trl--failure-measure-p measure) "failure")))
-              (id (trl--measure-id measure))
-              (time (trl--time-to-iso8601 (trl--measure-time measure))))
+                ((total-recall--success-measure-p measure) "success")
+                ((total-recall--failure-measure-p measure) "failure")))
+              (id (total-recall--measure-id measure))
+              (time (total-recall--time-to-iso8601 (total-recall--measure-time measure))))
           (list type id time)))
-       (_ (error "measure is not a Measure. S%" measure))))
+       (_ (error "measure is not a Measure. %S" measure))))
 
     (`(:row-to-measure ,row)
      (pcase row
        (`(,type ,id ,time)
         (pcase type
-          ("success" (trl--success-measure-mk id (trl--iso8601-to-time time)))
-          ("failure" (trl--failure-measure-mk id (trl--iso8601-to-time time)))))))
+          ("success" (total-recall--success-measure-mk id (total-recall--iso8601-to-time time)))
+          ("failure" (total-recall--failure-measure-mk id (total-recall--iso8601-to-time time)))))))
 
     (`(:save ,measure)
      (pcase measure
-       ((pred trl--measure-p)
+       ((pred total-recall--measure-p)
         (sqlite-execute
          db
          "INSERT INTO exercise_log (type, id, time) VALUES (?, ?, ?)"
-         (trl--db-rcv db `(:measure-to-row ,measure)))
+         (total-recall--db-rcv db `(:measure-to-row ,measure)))
         t)
        (_ (error "Unexpected value: %S" measure))))
 
@@ -660,7 +664,7 @@ Returns the result of the operation (e.g., t, list of measures)."
               "SELECT type, id, time FROM exercise_log WHERE id = ? ORDER BY time ASC"
               (list id)))
        (mapcar
-        (lambda (row) (trl--db-rcv db `(:row-to-measure ,row)))
+        (lambda (row) (total-recall--db-rcv db `(:row-to-measure ,row)))
         rows)))
 
     (:close
@@ -671,11 +675,10 @@ Returns the result of the operation (e.g., t, list of measures)."
 #+end_src
 
 ** Exercise
-
 *** exercise-mk
 
 #+begin_src emacs-lisp
-(defun trl--exercise-mk (name id question answer)
+(defun total-recall--exercise-mk (name id question answer)
   "Create an exercise with NAME, ID, QUESTION, and ANSWER.
 NAME, ID, QUESTION, and ANSWER are strings. Signals an error if any argument
 is not a string. Returns an exercise structure."
@@ -689,7 +692,7 @@ is not a string. Returns an exercise structure."
 *** exercise-p
 
 #+begin_src emacs-lisp
-(defun trl--exercise-p (ex)
+(defun total-recall--exercise-p (ex)
   "Return t if EX is an exercise structure, else nil."
   (eq (car-safe ex) :exercise))
 #+end_src
@@ -697,70 +700,74 @@ is not a string. Returns an exercise structure."
 *** exercise-name
 
 #+begin_src emacs-lisp
-(defun trl--exercise-name (exercise)
+(defun total-recall--exercise-name (exercise)
   "Return the name of EXERCISE.
 EXERCISE is an exercise structure. Returns a string."
-  (trl--exercise-rcv exercise :name))
+  (total-recall--exercise-rcv exercise :name))
 #+end_src
 
 *** exercise-id
 
 #+begin_src emacs-lisp
-(defun trl--exercise-id (exercise)
+(defun total-recall--exercise-id (exercise)
   "Return the ID of EXERCISE.
 EXERCISE is an exercise structure. Returns a string."
-  (trl--exercise-rcv exercise :id))
+  (total-recall--exercise-rcv exercise :id))
 #+end_src
 
 *** exercise-question
 
 #+begin_src emacs-lisp
-(defun trl--exercise-question (exercise)
+(defun total-recall--exercise-question (exercise)
   "Return the question of EXERCISE.
 EXERCISE is an exercise structure. Returns a string."
-  (trl--exercise-rcv exercise :question))
+  (total-recall--exercise-rcv exercise :question))
 #+end_src
 
 *** exercise-answer
 
 #+begin_src emacs-lisp
-(defun trl--exercise-answer (exercise)
+(defun total-recall--exercise-answer (exercise)
   "Return the answer of EXERCISE.
 EXERCISE is an exercise structure. Returns a string."
-  (trl--exercise-rcv exercise :answer))
+  (total-recall--exercise-rcv exercise :answer))
 #+end_src
 
 *** exercise-scheduled
 
 #+begin_src emacs-lisp
-(defun trl--exercise-scheduled (exercise db)
+(defun total-recall--exercise-scheduled (exercise db)
   "Return the scheduled review time for EXERCISE using database DB.
 EXERCISE is an exercise structure. DB is an SQLite database handle.
 Returns a Lisp timestamp."
-  (trl--exercise-rcv exercise `(:scheduled ,db)))
+  (total-recall--exercise-rcv exercise `(:scheduled ,db)))
 #+end_src
 
 *** exercise-rcv
 
 #+begin_src emacs-lisp
-(defun trl--exercise-rcv (exercise msg)
+(defun total-recall--exercise-rcv (exercise msg)
   "Handle MSG for EXERCISE.
 EXERCISE is an exercise structure. MSG can be :name, :id, :question, :answer,
 or (:scheduled DB). Returns the corresponding value (e.g., string or timestamp)."
   (pcase-let ((`(:exercise ,name ,id ,question ,answer) exercise))
     (pcase msg
       (:name name)
+
       (:id id)
+
       (:question question)
+
       (:answer answer)
+
       (`(:scheduled ,db)
        (let (measures (last-failure-index -1) nbr last-success-time)
-         (setq measures (trl--db-select db id))
+         (setq measures (total-recall--db-select db id))
 
          (let ((i -1))
            (dolist (measure measures)
              (setq i (+ i 1))
-             (when (trl--failure-measure-p measure)
+             (when (total-recall--failure-measure-p measure)
                (setq last-failure-index i))))
 
          (setq nbr
@@ -771,12 +778,12 @@ or (:scheduled DB). Returns the corresponding value (e.g., string or timestamp).
          (setq last-success-time
                (when (> nbr 0)
                  (let ((last-measure (nth (1- (length measures)) measures)))
-                   (if (trl--success-measure-p last-measure)
-                       (trl--measure-time last-measure)
+                   (if (total-recall--success-measure-p last-measure)
+                       (total-recall--measure-time last-measure)
                      (error "Last measure is not a success despite NBR > 0")))))
 
          (if (zerop nbr)
-             (trl--time-init)
+             (total-recall--time-init)
            (let* ((delta-days (expt 2 (- nbr 1)))
                   (delta-secs (* delta-days 24 60 60))
                   (t-secs (time-to-seconds last-success-time))
@@ -785,68 +792,67 @@ or (:scheduled DB). Returns the corresponding value (e.g., string or timestamp).
 #+end_src
 
 ** Filesystem
-
 *** fs-list-exercises
 
 #+begin_src emacs-lisp
-(defun trl--fs-list-exercises (path)
+(defun total-recall--fs-list-exercises (path)
   "List exercises in PATH.
 PATH is a string file or directory path. Returns a list of exercise structures."
-  (trl--fs-rcv path :list-exercises))
+  (total-recall--fs-rcv path :list-exercises))
 #+end_src
 
 *** fs-rcv
 
 #+begin_src emacs-lisp
-(defun trl--fs-rcv (path msg)
+(defun total-recall--fs-rcv (path msg)
   "Handle MSG for PATH.
 PATH is a string file or directory path. MSG is a symbol like :list-exercises.
 Delegates to directory or file handlers. Returns the handler’s result."
   (cond
    ((file-directory-p path)
-    (trl--dir-rcv path msg))
+    (total-recall--dir-rcv path msg))
    ((file-exists-p path)
-    (trl--file-rcv path msg))))
+    (total-recall--file-rcv path msg))))
 #+end_src
 
 *** Directory
 **** dir-list-exercises
 
 #+begin_src emacs-lisp
-(defun trl--dir-list-exercises (dir)
+(defun total-recall--dir-list-exercises (dir)
   "List exercises in Org files under directory DIR.
 DIR is a string directory path. Returns a list of exercise structures."
-  (trl--dir-rcv dir :list-exercises))
+  (total-recall--dir-rcv dir :list-exercises))
 #+end_src
 
 **** dir-rcv
 
 #+begin_src emacs-lisp
-(defun trl--dir-rcv (dir msg)
+(defun total-recall--dir-rcv (dir msg)
   "Handle MSG for directory DIR.
 DIR is a string directory path. MSG is a symbol like :list-exercises.
 Returns a list of exercise structures for :list-exercises."
   (pcase msg
     (:list-exercises
      (mapcan
-      (lambda (file-path) (trl--file-rcv file-path :list-exercises))
-      (trl--search dir "org" trl-type-id)))))
+      (lambda (file-path) (total-recall--file-rcv file-path :list-exercises))
+      (total-recall--search dir "org" total-recall-type-id)))))
 #+end_src
 
 *** File
 **** file-list-exercises
 
 #+begin_src emacs-lisp
-(defun trl--file-list-exercises (file)
+(defun total-recall--file-list-exercises (file)
   "List exercises in Org file FILE.
 FILE is a string file path. Returns a list of exercise structures."
-  (trl--file-rcv file :list-exercises))
+  (total-recall--file-rcv file :list-exercises))
 #+end_src
 
 **** file-rcv
 
 #+begin_src emacs-lisp
-(defun trl--file-rcv (file msg)
+(defun total-recall--file-rcv (file msg)
   "Handle MSG for Org file FILE.
 FILE is a string file path. MSG is a symbol like :list-exercises.
 Returns a list of exercise structures for :list-exercises."
@@ -855,7 +861,7 @@ Returns a list of exercise structures for :list-exercises."
      (with-temp-buffer
        (insert-file-contents file)
        (org-mode)
-       (org-show-all)
+       (org-fold-show-all)
        (let ((org-element-use-cache nil)
              (exercises '()))
          (org-map-entries
@@ -887,8 +893,8 @@ Returns a list of exercise structures for :list-exercises."
                           (string-trim
                            (buffer-substring-no-properties (point) (mark))))
                     (while (< (org-current-level) init-lvl) (org-demote-subtree))))
-                (push (trl--exercise-mk name id question answer) exercises))))
-          (format "TYPE=\"%s\"" trl-type-id))
+                (push (total-recall--exercise-mk name id question answer) exercises))))
+          (format "TYPE=\"%s\"" total-recall-type-id))
          (reverse exercises))))))
 #+end_src
 
@@ -901,21 +907,21 @@ Returns a list of exercise structures for :list-exercises."
 
 <<commentary>>"
   (interactive)
-  (let ((exercises (trl--fs-list-exercises trl-root-dir))
-        (db (trl--db-mk trl-database))
+  (let ((exercises (total-recall--fs-list-exercises total-recall-root-dir))
+        (db (total-recall--db-mk total-recall-database))
         (now (current-time))
-        (ui (trl--ui-mk))
+        (ui (total-recall--ui-mk))
         (use-dialog-box nil)
         exercise
         scheduled
         choice)
     (if (null exercises)
-        (trl--ui-no-exercises ui)
+        (total-recall--ui-no-exercises ui)
       (while exercises
         (setq exercise (pop exercises))
-        (setq scheduled (trl--exercise-scheduled exercise db))
+        (setq scheduled (total-recall--exercise-scheduled exercise db))
         (when (time-less-p scheduled now)
-          (trl--ui-display-question ui exercise)
+          (total-recall--ui-display-question ui exercise)
           (setq choice
                 (car
                  (read-multiple-choice
@@ -925,7 +931,7 @@ Returns a list of exercise structures for :list-exercises."
                     (?q "Quit" "Quit Total Recall")))))
           (pcase choice
             (?r
-             (trl--ui-display-answer ui exercise)
+             (total-recall--ui-display-answer ui exercise)
              (setq choice
                    (car
                     (read-multiple-choice
@@ -935,17 +941,17 @@ Returns a list of exercise structures for :list-exercises."
                        (?q "Quit" "Quit Total Recall")))))
              (pcase choice
                (?s
-                (trl--db-save db (trl--success-measure-mk (trl--exercise-id exercise) now)))
+                (total-recall--db-save db (total-recall--success-measure-mk (total-recall--exercise-id exercise) now)))
                (?f
-                (trl--db-save db (trl--failure-measure-mk (trl--exercise-id exercise) now)))
+                (total-recall--db-save db (total-recall--failure-measure-mk (total-recall--exercise-id exercise) now)))
                (?q
                 (setq exercises nil))))
             (?s
              nil)
             (?q
              (setq exercises nil))))))
-    (trl--db-close db)
-    (trl--ui-kill ui)))
+    (total-recall--db-close db)
+    (total-recall--ui-kill ui)))
 #+end_src
 
 ** Footer
