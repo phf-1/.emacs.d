@@ -1,4 +1,4 @@
 # key: todo
 # name: todo
 # --
-{{{todo}}}($0)
+{{{todo($0)}}}
