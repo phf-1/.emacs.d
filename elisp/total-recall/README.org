@@ -241,7 +241,7 @@ export LC_ALL=en_US.UTF-8
 ;; Author: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Homepage: https://github.com/phf-1/total-recall
-;; Package-Version: 0.1
+;; Package-Version: 0.2
 ;; Package-Requires: ((emacs "29.1"))
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -262,6 +262,8 @@ export LC_ALL=en_US.UTF-8
 ** Dependencies
 
 #+begin_src emacs-lisp
+;; Dependencies
+
 (unless (sqlite-available-p)
   (error "Emacs must be compiled with built-in support for SQLite databases"))
 (require 'org)
@@ -272,6 +274,8 @@ export LC_ALL=en_US.UTF-8
 ** Configuration
 
 #+begin_src emacs-lisp
+;; Configuration
+
 (defgroup total-recall nil
   "Customization options for Total Recall.
 This package provides `total-recall' for spaced repetition in Emacs."
@@ -310,6 +314,11 @@ This package provides `total-recall' for spaced repetition in Emacs."
 #+end_src
 
 ** Utils
+
+#+begin_src emacs-lisp
+;; Utils
+#+end_src
+
 *** time-to-iso8601
 
 #+begin_src emacs-lisp
@@ -339,6 +348,8 @@ ISO8601 is a string in ISO 8601 format. Returns a Lisp timestamp."
 ** Search
 
 #+begin_src emacs-lisp
+;; Search
+
 (defun total-recall--search (dir ext type-id)
   "Search for files containing TYPE-ID with extension EXT in directory DIR.
 DIR is a string path to the directory.
@@ -361,6 +372,11 @@ Returns a list of file paths."
 #+end_src
 
 ** Measure
+
+#+begin_src emacs-lisp
+;; Measure
+#+end_src
+
 *** measure-mk
 
 #+begin_src emacs-lisp
@@ -461,6 +477,11 @@ TIME is a Lisp timestamp."
 #+end_src
 
 ** UI
+
+#+begin_src emacs-lisp
+;; UI
+#+end_src
+
 *** ui-mk
 
 #+begin_src emacs-lisp
@@ -594,6 +615,11 @@ ANSWER is a string."
 #+end_src
 
 ** DB
+
+#+begin_src emacs-lisp
+;; DB
+#+end_src
+
 *** db-mk
 
 #+begin_src emacs-lisp
@@ -702,6 +728,11 @@ Returns the result of the operation."
 #+end_src
 
 ** Exercise
+
+#+begin_src emacs-lisp
+;; Exercise
+#+end_src
+
 *** exercise-mk
 
 #+begin_src emacs-lisp
@@ -825,6 +856,11 @@ or (:scheduled DB). Returns the corresponding value (e.g., string or timestamp).
 #+end_src
 
 ** Filesystem
+
+#+begin_src emacs-lisp
+;; Filesystem
+#+end_src
+
 *** fs-list-exercises
 
 #+begin_src emacs-lisp
@@ -934,6 +970,10 @@ Returns a list of exercise structures for :list-exercises."
 ** total-recall
 
 #+begin_src emacs-lisp
+;; total-recall
+#+end_src
+
+#+begin_src emacs-lisp
 ;;;###autoload
 (defun total-recall ()
   "Provide spaced repetitions capabilities to Emacs.
@@ -946,7 +986,6 @@ Returns a list of exercise structures for :list-exercises."
 
   (let ((exercises (total-recall--fs-list-exercises total-recall-root-dir))
         (db (total-recall--db-mk total-recall-database))
-        (now (current-time))
         (ui (total-recall--ui-mk))
         (use-dialog-box nil)
         exercise
@@ -958,7 +997,7 @@ Returns a list of exercise structures for :list-exercises."
       (while exercises
         (setq exercise (pop exercises))
         (setq scheduled (total-recall--exercise-scheduled exercise db))
-        (when (time-less-p scheduled now)
+        (when (time-less-p scheduled (current-time))
           (total-recall--ui-display-question
            ui
            (total-recall--exercise-id exercise)
@@ -983,9 +1022,9 @@ Returns a list of exercise structures for :list-exercises."
                        (?q "Quit" "Quit Total Recall")))))
              (pcase choice
                (?s
-                (total-recall--db-save db (total-recall--success-measure-mk (total-recall--exercise-id exercise) now)))
+                (total-recall--db-save db (total-recall--success-measure-mk (total-recall--exercise-id exercise) (current-time))))
                (?f
-                (total-recall--db-save db (total-recall--failure-measure-mk (total-recall--exercise-id exercise) now)))
+                (total-recall--db-save db (total-recall--failure-measure-mk (total-recall--exercise-id exercise) (current-time))))
                (?q
                 (setq exercises nil))))
             (?s
@@ -1266,4 +1305,6 @@ clean:
 #+end_src
 
 * Message
-** TODO Version the data saved by sqlite.
+** TODO Fix UI interaction (do not capture all events)
+** TODO Fix topological sorting of Q&A
+** TODO Fix reviewing algo
