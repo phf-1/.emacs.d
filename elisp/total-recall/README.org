@@ -10,29 +10,29 @@
 This package provides `total-recall'.
 
 The command `M-x total-recall' uses Ripgrep to search for Org files in
-the directory specified by `total-recall-root-dir' that contain
-exercises. For each file found, it lists the exercises and presents a
-user interface to display them.
+the directory set by `total-recall-root-dir' that contain
+exercises. It lists the exercises from each file and provides a user
+interface to view them. The list of exercises follows a depth first
+order /i.e./ a bottom-up review order.
 
-For each exercise, it first shows the question, followed by the
-answer. The user's performance — whether they provided a correct
-answer — is recorded and stored in an SQLite database at
-`total-recall-database'. This data determines whether an exercise
-should be reviewed sooner or later.
+Each exercise displays its question first, followed by the answer. The
+user's performance—whether they answered correctly—is recorded in an
+SQLite database at `total-recall-database'. This data determines when
+an exercise should be reviewed next.
 
-An exercise is defined as any heading in an Org file that meets the
-following criteria:
-- It has a `TYPE' property with the value `total-recall-type-id'.
-- It has an `ID' property with a UUID value.
-- It contains two subheadings:
-  - The first subheading encodes a question.
-  - The second subheading encodes an answer.
-- The file is located under `total-recall-root-dir'.
+An exercise is any Org file heading that meets these criteria:
+- Has a `TYPE' property set to `total-recall-type-id'.
+- Has an `ID' property with a UUID value.
+- Contains two subheadings:
+  - The first subheading is the question.
+  - The second subheading is the answer.
+- Is located in `total-recall-root-dir'.
 
 Example of an exercise:
 
+,#+begin_src org
 ,* Emacs
-:PROPERTIES: 
+:PROPERTIES:
 :TYPE: b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8
 :ID: ced2b42b-bfba-4af5-913c-9d903ac78433
 :END:
@@ -43,9 +43,38 @@ Example of an exercise:
 
 ,** Answer
 
-An extensible, customizable, free/libre text editor — and more.  At
-its core is an interpreter for Emacs Lisp, a dialect of the Lisp
-programming language with extensions to support text editing.
+An extensible, customizable, free/libre text editor—and more. Its core
+is an interpreter for Emacs Lisp, a Lisp dialect with extensions for
+text editing.
+,#+end_src
+
+Exercises can be embedded in any Org Mode document for context:
+
+,#+begin_src org
+,* Title
+,** Section
+,*** Sub-section
+,**** Q&A
+,***** Exercise 1
+,***** Exercise 2
+,*** Q&A
+,**** Exercise 3
+,**** Exercise 4
+,#+end_src
+
+which would lead to this review order:
+
+1) Title/Section/Sub-section/Q&A/Exercise 1
+2) Title/Section/Sub-section/Q&A/Exercise 2
+3) Title/Section/Q&A/Exercise 3
+4) Title/Section/Q&A/Exercise 4
+
+which may be pruned by the scheduling algorithm to:
+
+1) Title/Section/Sub-section/Q&A/Exercise 1
+2) Title/Section/Q&A/Exercise 4
+
+depending on accumulated data so far.
 #+end_src
 
 * tangle-heading
@@ -241,7 +270,7 @@ export LC_ALL=en_US.UTF-8
 ;; Author: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Homepage: https://github.com/phf-1/total-recall
-;; Package-Version: 0.3
+;; Package-Version: 0.4
 ;; Package-Requires: ((emacs "29.1"))
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -536,14 +565,6 @@ ANSWER is a string."
   (total-recall--ui-rcv ui `(:display :answer ,answer)))
 #+end_src
 
-*** ui-state
-
-#+begin_src emacs-lisp
-(defun total-recall--ui-state (ui)
-  "Return the state of UI."
-  (total-recall--ui-rcv ui :state))
-#+end_src
-
 *** ui-kill
 
 #+begin_src emacs-lisp
@@ -563,51 +584,51 @@ ANSWER is a string."
         (state (aref ui 3)))
     (select-frame-set-input-focus frame)
     (switch-to-buffer buffer)
-    (unless (derived-mode-p 'org-mode) (org-mode))
     (pcase msg
       (:init
+       (unless (eq state :state) (error "state = %s" state))
        (erase-buffer)
+       (unless (derived-mode-p 'org-mode) (org-mode))
        (insert "* Total Recall *\n\n\n")
        (goto-char (point-min))
        (aset ui 3 :init)
        ui)
 
       (:no-exercises
-       (save-window-excursion
-         (unless (eq (total-recall--ui-state ui) :init)
-           (total-recall--ui-rcv ui :init))
+       (unless (eq state :init) (error "state = %s" state))
+       (save-excursion
          (goto-char (point-max))
-         (insert "No exercises found.\n")
-         (goto-char (point-min)))
-       (aset ui 3 :no-exercises)
+         (insert "No exercises found.\n"))
+       (run-with-timer 2 nil (lambda () (total-recall--ui-rcv ui :kill)))
        ui)
 
       (`(:display :question ,id ,subject ,question)
-       (unless (eq (total-recall--ui-state ui) :init)
-         (total-recall--ui-rcv ui :init))
-       (goto-char (point-max))
-       (insert (format "[[ref:%s][%s]]\n\n\n" id subject))
-       (insert (format "%s\n\n\n" question))
-       (goto-char (point-min))
+       (when (memq state '(:question :answer))
+         (aset ui 3 :state)
+         (total-recall--ui-rcv ui :init)
+         (setq state (aref ui 3)))
+
+       (unless (eq state :init) (error "state = %s" state))
+       (save-excursion
+         (goto-char (point-max))
+         (insert (format "[[ref:%s][%s]]\n\n\n" id subject))
+         (insert (format "%s\n\n\n" question)))
        (aset ui 3 :question)
        ui)
 
       (`(:display :answer ,answer)
-       (unless (eq (total-recall--ui-state ui) :question)
-         (error "UI state is not :question"))
-       (goto-char (point-max))
-       (insert (format "%s\n\n\n" answer))
-       (goto-char (point-min))
+       (unless (eq state :question) (error "state = %s" state))
+       (save-excursion
+         (goto-char (point-max))
+         (insert (format "%s\n\n\n" answer)))
        (aset ui 3 :answer)
        ui)
 
       (:kill
-       (kill-buffer buffer)
-       (delete-frame frame)
+       (when (buffer-live-p buffer) (kill-buffer buffer))
+       (when (frame-live-p frame) (delete-frame frame))
        (aset ui 3 :dead)
-       ui)
-
-      (:state state))))
+       ui))))
 #+end_src
 
 ** DB
