@@ -75,6 +75,14 @@ which may be pruned by the scheduling algorithm to:
 2) Title/Section/Q&A/Exercise 4
 
 depending on accumulated data so far.
+
+A reference to the exercise in its original content is displayed
+as its "subject" using the format:
+
+[[ref:<ExerciseID>][A/B/C]]
+
+When interpreted with the `locs-and-refs' package, it lets you display
+the exercise in context in another frame.
 #+end_src
 
 * tangle-heading
@@ -270,7 +278,7 @@ export LC_ALL=en_US.UTF-8
 ;; Author: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Homepage: https://github.com/phf-1/total-recall
-;; Package-Version: 0.5
+;; Package-Version: 0.6
 ;; Package-Requires: ((emacs "29.1"))
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
@@ -581,7 +589,8 @@ ANSWER is a string."
   (unless (total-recall--ui-p ui) (error "Not a UI structure"))
   (let ((buffer (aref ui 1))
         (frame (aref ui 2))
-        (state (aref ui 3)))
+        (state (aref ui 3))
+        reply)
     (select-frame-set-input-focus frame)
     (switch-to-buffer buffer)
     (pcase msg
@@ -591,16 +600,14 @@ ANSWER is a string."
        (unless (derived-mode-p 'org-mode) (org-mode))
        (insert "* Total Recall *\n\n\n")
        (goto-char (point-min))
-       (aset ui 3 :init)
-       ui)
+       (aset ui 3 :init))
 
       (:no-exercises
        (unless (eq state :init) (error "state = %s" state))
        (save-excursion
          (goto-char (point-max))
          (insert "No exercises found.\n"))
-       (run-with-timer 2 nil (lambda () (total-recall--ui-rcv ui :kill)))
-       ui)
+       (run-with-timer 2 nil (lambda () (total-recall--ui-rcv ui :kill))))
 
       (`(:display :question ,id ,subject ,question)
        (when (memq state '(:question :answer))
@@ -613,22 +620,21 @@ ANSWER is a string."
          (goto-char (point-max))
          (insert (format "[[ref:%s][%s]]\n\n\n" id subject))
          (insert (format "%s\n\n\n" question)))
-       (aset ui 3 :question)
-       ui)
+       (aset ui 3 :question))
 
       (`(:display :answer ,answer)
        (unless (eq state :question) (error "state = %s" state))
        (save-excursion
          (goto-char (point-max))
          (insert (format "%s\n\n\n" answer)))
-       (aset ui 3 :answer)
-       ui)
+       (aset ui 3 :answer))
 
       (:kill
        (when (buffer-live-p buffer) (kill-buffer buffer))
        (when (frame-live-p frame) (delete-frame frame))
-       (aset ui 3 :dead)
-       ui))))
+       (aset ui 3 :dead)))
+
+    reply))
 #+end_src
 
 ** DB
