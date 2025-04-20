@@ -1,12 +1,4 @@
 #!/usr/bin/env -S emacs --script
-;; tangle-heading
-
-;; - ~./tangle-heading file.org file.el directory~
-;;   - Give ~file.org~
-;;   - tangles the heading named ~file.el~ into ~./file.el~
-;;   - moves the resulting file under ~directory~
-
-
 (require 'org)
 (require 'ob-core)
 
