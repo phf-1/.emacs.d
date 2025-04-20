@@ -1,0 +1,739 @@
+#+PROPERTY: header-args :noweb yes :mkdirp yes
+
+* Objective
+:PROPERTIES:
+:ID:       2b6a2d42-bfd0-4658-b25a-b1b7000d1b01
+:END:
+
+#+name: commentary
+#+begin_src org
+#+end_src
+
+* tangle-heading
+:PROPERTIES:
+:header-args+: :tangle tangle-heading :shebang "#!/usr/bin/env -S emacs --script"
+:END:
+
+- ~./tangle-heading file.org file.el directory~
+  - Give ~file.org~
+  - tangles the heading named ~file.el~ into ~./file.el~
+  - moves the resulting file under ~directory~
+
+#+begin_src emacs-lisp
+(require 'org)
+(require 'ob-core)
+
+(setq org-id-track-globally nil)
+
+;; Set Scheme implementation to Guile
+(require 'ob-scheme)
+(setq-default geiser-scheme-implementation 'guile)
+
+(setq make-backup-files nil)
+(setq auto-save-default nil)
+
+(defun user--org-remove-property-drawers ()
+  "After tangling, remove all :PROPERTIES: drawers."
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "^.*:PROPERTIES:$" nil t)
+      (let ((start (line-beginning-position)))
+	(when (re-search-forward "^.*:END:\n" nil t)
+	  (delete-region start (point)))))
+    (when (buffer-modified-p)
+      (save-buffer))))
+(add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
+
+(defun org-babel-spec-to-string (spec)
+  "Insert SPEC into the current file.
+
+Insert the source-code specified by SPEC into the current source
+code file.  This function uses `comment-region' which assumes
+that the appropriate major-mode is set.  SPEC has the form:
+
+  (start-line file link source-name params body comment)"
+  (pcase-let*
+      ((`(,start ,file ,link ,source ,info ,body ,comment) spec)
+       (comments (cdr (assq :comments info)))
+       (link? (or (string= comments "both") (string= comments "link")
+		  (string= comments "yes") (string= comments "noweb")))
+       (link-data `(("start-line" . ,(number-to-string start))
+		    ("file" . ,file)
+		    ("link" . ,link)
+		    ("source-name" . ,source)))
+       (insert-comment (lambda (text)
+			 (when (and comments
+				    (not (string= comments "no"))
+				    (org-string-nw-p text))
+			   (if org-babel-tangle-uncomment-comments
+			       ;; Plain comments: no processing.
+			       (insert text)
+			     ;; Ensure comments are made to be comments.  Also ignore
+			     ;; invisible characters when commenting.
+			     (comment-region
+			      (point)
+			      (progn (insert (org-no-properties text))
+				     (point))))))))
+    (when comment (funcall insert-comment comment))
+    (when link?
+      (funcall insert-comment
+	       (org-fill-template
+		org-babel-tangle-comment-format-beg link-data)))
+    (insert body "\n")
+    (when link?
+      (funcall insert-comment
+	       (org-fill-template
+		org-babel-tangle-comment-format-end link-data)))))
+
+(defun tangle-headline-to-dest (name dest)
+  (let (pos)
+    (when (not (file-directory-p dest)) (error "Destination directory `%s' does not exist." dest))
+    (org-with-wide-buffer
+     (save-excursion
+       (setq pos (org-find-exact-headline-in-buffer name (current-buffer) t))
+       (when (null pos) (error "Heading named `%s' not found." name))
+       (goto-char pos)
+       (org-narrow-to-subtree)
+       (org-babel-tangle)
+       (when (not (file-exists-p name)) (error "Tangling `%s' did not build matching file." name))
+       (rename-file name (concat (file-name-as-directory dest) name) t)))))
+
+;; Silence messages.
+(fset 'message (lambda (&rest args) nil))
+
+(let ((org-file (pop argv))
+      (heading-name (pop argv))
+      (dest-dir (pop argv)))
+  (with-current-buffer (find-file-noselect org-file)
+    (tangle-headline-to-dest heading-name dest-dir)))
+#+end_src
+
+* packages.scm
+:PROPERTIES:
+:header-args+: :tangle packages.scm
+:END:
+
+- List of Guix packages.
+
+** locale
+
+- Guix package that provides utf8 locale.
+
+#+name: locale
+#+begin_src scheme
+(use-modules (gnu packages base))
+(define locale
+  (make-glibc-utf8-locales
+   glibc
+   #:locales (list "en_US")
+   #:name "glibc-en-utf8-locales"))
+#+end_src
+
+** elisp-packages
+
+- List of Elisp guix packages.
+
+#+name: elisp-packages
+#+begin_src scheme
+(use-modules (gnu packages emacs-xyz))
+(define elisp-packages (list emacs-package-lint emacs-org))
+#+end_src
+
+** binaries
+
+- List of Guix packages that provides binaries.
+
+#+name: binaries
+#+begin_src scheme
+(use-modules
+ (gnu packages base)
+ (gnu packages bash)
+ (gnu packages emacs)
+ (gnu packages rust-apps)
+ (gnu packages certs)
+ (gnu packages admin)
+ (gnu packages build-tools))
+
+(define binaries
+  (list
+
+   ;; build dependencies
+   ;; bash-minimal
+   bash
+   coreutils
+   gnu-make
+   emacs
+   sed
+   nss-certs
+
+   ;; runtime dependencies
+   ripgrep
+   fd))
+#+end_src
+
+** ■
+
+#+begin_src scheme
+`(,locale ,@elisp-packages ,@binaries)
+#+end_src
+
+* init.bash
+:PROPERTIES:
+:header-args+: :tangle init.bash
+:END:
+
+- File that contains Bash environment variable declarations.
+
+#+begin_src bash
+export LC_ALL=en_US.UTF-8
+#+end_src
+
+* actor.el
+:PROPERTIES:
+:header-args+: :tangle actor.el
+:ID:       cdbad43e-8627-4918-9881-0340cab623b5
+:END:
+** Header
+
+#+begin_src emacs-lisp
+;;; actor.el --- Actor library -*- lexical-binding: t; -*-
+;;
+;; Copyright (C) 2025 Pierre-Henry FRÖHRING
+;; Author: Pierre-Henry FRÖHRING <contact@phfrohring.com>
+;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
+;; Homepage: https://github.com/phf-1/actor
+;; Package-Version: 0.1
+;; Package-Requires: ((emacs "30.1"))
+;; SPDX-License-Identifier: GPL-3.0-or-later
+;;
+;; This program is free software; you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+;;
+;; This file is NOT part of GNU Emacs.
+;;
+;;; Commentary:
+;;
+;; <<commentary>>
+;;
+;;; Code:
+#+end_src
+
+** Dependencies
+
+#+begin_src emacs-lisp
+;; Dependencies
+#+end_src
+
+** Configuration
+
+#+begin_src emacs-lisp
+;; Configuration
+#+end_src
+
+#+begin_src emacs-lisp
+(defgroup actor nil
+  "Customization options for Total Recall.
+This package provides `actor' for spaced repetition in Emacs."
+  :group 'convenience
+  :prefix "actor-")
+#+end_src
+
+** Utils
+
+#+begin_src emacs-lisp
+;; Utils
+#+end_src
+
+** Object
+
+obj :≡ mk-obj() : Object
+#+begin_src emacs-lisp
+(defun mk-obj ()
+  (make-hash-table))
+#+end_src
+
+obj-prop-add(obj key value) : Object
+#+begin_src emacs-lisp
+(defun obj-prop-add (obj key value)
+  (puthash key value obj)
+  obj)
+#+end_src
+
+obj-prop-rm(key) : Object
+#+begin_src emacs-lisp
+(defun obj-prop-rm (obj key)
+  (remhash key obj)
+  obj)
+#+end_src
+
+obj-prop-val(key) : Any
+#+begin_src emacs-lisp
+(defun obj-prop-val (obj key)
+  (gethash key obj))
+#+end_src
+
+** Message
+
+#+begin_src emacs-lisp
+;; Message
+#+end_src
+
+content is an abritrary datastructure.
+from is a pointer to the sender or nil.
+msg :≡ mk-msg(content from) : Message
+#+begin_src emacs-lisp
+(defun mk-msg (content from &optional init-obj)
+  (let ((obj (or init-obj (mk-obj)))
+	(props (mk-obj)))
+    (obj-prop-add props :content content)
+    (obj-prop-add props :from from)
+    (obj-prop-add obj :Message props)))
+#+end_src
+
+msg-p x = true ⇔ x : Message
+#+begin_src emacs-lisp
+(defun msg-p (obj)
+  (not (null (obj-prop-val obj :Message))))
+#+end_src
+
+msg-content msg = content
+#+begin_src emacs-lisp
+(defun msg-content (obj)
+  (obj-prop-val (obj-prop-val obj :Message) :content))
+#+end_src
+
+msg-from msg = from
+#+begin_src emacs-lisp
+(defun msg-from (obj)
+  (obj-prop-val (obj-prop-val obj :Message) :from))
+#+end_src
+
+** InitMessage
+
+#+begin_src emacs-lisp
+;; InitMessage
+#+end_src
+
+init :≡ mk-msg-init(content from) : InitMessage
+#+begin_src emacs-lisp
+(defun mk-msg-init (content from &optional init-obj)
+  (unless (or (null init-obj) (msg-p init-obj))
+    (error "INIT-OBJ is neither nil nor a Message."))
+  (let ((obj (or init-obj (mk-msg content from)))
+	(props (mk-obj)))
+    (obj-prop-add obj :InitMessage props)))
+#+end_src
+
+msg-init-p x = true ⇔ x : InitMessage
+#+begin_src emacs-lisp
+(defun msg-init-p (obj)
+  (not (null (obj-prop-val obj :InitMessage))))
+#+end_src
+
+** Actor
+
+#+begin_src emacs-lisp
+;; Actor
+#+end_src
+
+1. actor :≡ mk-actor(init next) : Actor
+   - init : State Args → State
+   - next : State Message → Message × State
+   - State and Args are an arbitrary datastructures
+
+2. actor-init actor = init
+
+3. actor-next actor = next
+
+4. actor-send(actor msg) : Any
+   - msg : Message
+
+5. Init protocol
+   1. actor :≡ mk-actor(init next)
+
+   2. actor-send(actor init-msg) = actor
+      - init-msg : InitMessage
+
+   3. actor-send(actor msg) : Any
+      - msg : Message
+
+   4. …
+
+** Footer
+
+#+begin_src emacs-lisp
+(provide 'actor)
+
+;;; actor.el ends here
+
+;; Local Variables:
+;; coding: utf-8
+;; byte-compile-docstring-max-column: 80
+;; require-final-newline: t
+;; sentence-end-double-space: nil
+;; indent-tabs-mode: nil
+;; End:
+#+end_src
+* actor-test.el
+:PROPERTIES:
+:header-args+: :tangle actor-test.el
+:END:
+
+** Header
+
+#+begin_src emacs-lisp
+;;; actor-test.el --- Actor library test -*- lexical-binding: t; -*-
+;;
+;;; Code:
+#+end_src
+
+** Dependencies
+
+#+begin_src emacs-lisp
+;; Dependencies
+#+end_src
+
+#+begin_src emacs-lisp
+(require 'actor)
+(require 'ert)
+#+end_src
+
+** Configuration
+
+#+begin_src emacs-lisp
+;; Configuration
+#+end_src
+
+** Utils
+
+#+begin_src emacs-lisp
+;; Utils
+#+end_src
+
+** Object
+
+#+begin_src emacs-lisp
+;; Object
+#+end_src
+
+#+begin_src emacs-lisp
+(ert-deftest test-object-functions ()
+  "Test the object creation and property manipulation functions."
+  (let ((obj (mk-obj)))
+    (should (eq (obj-prop-add obj :key "value") obj))
+    (should (equal (obj-prop-val obj :key) "value"))
+    (should (eq (obj-prop-rm obj :key) obj))
+    (should (null (obj-prop-val obj :key)))))
+#+end_src
+
+** Message
+
+#+begin_src emacs-lisp
+;; Message
+#+end_src
+
+#+begin_src emacs-lisp
+(ert-deftest test-message-functions ()
+  "Test the message creation and access functions."
+  (let ((msg (mk-msg "content" "me"))
+	(non-msg (mk-obj)))
+    (should (msg-p msg))
+    (should (equal (msg-content msg) "content"))
+    (should (equal (msg-from msg) "me"))
+    (should-not (msg-p non-msg))
+    (should-error (msg-content non-msg))
+    (should-error (msg-from non-msg))))
+#+end_src
+
+** InitMessage
+
+#+begin_src emacs-lisp
+;; InitMessage
+#+end_src
+
+#+begin_src emacs-lisp
+(ert-deftest test-init-message-functions ()
+  (let ((msg (mk-msg-init "content" "me")))
+    (should (msg-p msg))
+    (should (equal (msg-content msg) "content"))
+    (should (equal (msg-from msg) "me"))
+    (should (msg-init-p msg))))
+#+end_src
+
+** Footer
+
+#+begin_src emacs-lisp
+;;; actor-test.el ends here
+
+;; Local Variables:
+;; coding: utf-8
+;; byte-compile-docstring-max-column: 80
+;; require-final-newline: t
+;; sentence-end-double-space: nil
+;; indent-tabs-mode: nil
+;; End:
+#+end_src
+
+* Makefile
+:PROPERTIES:
+:header-args+: :tangle Makefile
+:END:
+** Configuration
+
+- List of Makefile configurations.
+
+#+begin_src makefile
+SHELL := bash
+.SHELLFLAGS := -ceuo pipefail
+MAKEFLAGS += --no-print-directory
+.ONESHELL:
+.SILENT:
+#+end_src
+
+*** BUILD
+
+- ${BUILD} is the directory under which all generated files are installed.
+
+#+begin_src makefile
+BUILD := _build
+${BUILD}:
+	mkdir -p $@
+#+end_src
+
+*** TRACE
+
+- ${TRACE} is a file used to record an execution trace.
+
+#+begin_src makefile
+TRACE := ${BUILD}/trace.txt
+#+end_src
+
+*** TRAP
+
+- ${TRAP} If something has been written to ${TRACE}, then consider that the rule failed.
+
+#+begin_src makefile
+TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
+#+end_src
+
+*** MAIN_ORG
+
+- ${MAIN_ORG} is the path to source file.
+
+#+begin_src makefile
+MAIN_ORG := README.org
+#+end_src
+
+** help
+
+- make help # Print this help.
+
+#+begin_src makefile
+.PHONY: help
+help:
+	grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+#+end_src
+
+** tangle-heading
+
+- make tangle-heading # Returns the path to the updated ./tangle-heading script.
+
+#+begin_src makefile
+.PHONY: tangle-heading
+TANGLE_HEADING := ${BUILD}/tangle-heading
+tangle-heading: ${TANGLE_HEADING}
+${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
+	cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
+	tail -n 1 ${TRACE}
+#+end_src
+
+** Makefile
+
+- make Makefile # Returns the path to the updated ./Makefile.
+
+#+begin_src makefile
+.PHONY: Makefile
+MAKEFILE := ${BUILD}/Makefile
+Makefile: ${MAKEFILE}
+${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
+	cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
+	tail -n 1 ${TRACE}
+#+end_src
+
+** packages.scm
+
+- make packages.scm # Returns the path to the Guix packages available in the environment.
+
+#+begin_src makefile
+.PHONY: packages.scm
+PACKAGES_SCM := ${BUILD}/packages.scm
+packages.scm: ${PACKAGES_SCM}
+${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
+	echo "$@"
+#+end_src
+
+** init.bash
+
+- make init.bash # Returns the path to parameters that initialize Bash in the environment.
+
+#+begin_src makefile
+.PHONY: init.bash
+INIT_BASH := ${BUILD}/init.bash
+init.bash: ${INIT_BASH}
+${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
+	echo "$@"
+#+end_src
+
+** env
+
+- make env # Starts the environment.
+
+#+begin_src makefile
+.PHONY: env
+GUIX := guix
+GUIX_SHELL := ${GUIX} shell --container \
+	-F \
+	-N \
+	--file=${PACKAGES_SCM} \
+	--preserve='^TERM$$' \
+	-- bash --init-file ${INIT_BASH}
+env: ${PACKAGES_SCM} ${INIT_BASH}
+	CMD="${CMD}"
+	if [[ ! -v GUIX_ENVIRONMENT ]]; then
+	  if [[ "$${CMD}" == "" ]]; then
+	    ${GUIX_SHELL} -i;
+	  else
+	    ${GUIX_SHELL} -c "${CMD}";
+	  fi
+	else
+	  ${CMD}
+	  :
+	fi
+#+end_src
+
+** el
+
+- make el # Returns the path to the elisp package.
+
+#+begin_src makefile
+.PHONY: el
+TOTAL_RECALL_EL := ${BUILD}/actor.el
+TOTAL_RECALL_TEST_EL := ${BUILD}/actor-test.el
+el: ${TOTAL_RECALL_EL} ${TOTAL_RECALL_TEST_EL}
+${TOTAL_RECALL_EL} ${TOTAL_RECALL_TEST_EL}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} actor.el ${BUILD} &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	./tangle-heading ${MAIN_ORG} actor-test.el ${BUILD} &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src
+
+** elc
+
+- make elc # Returns the path to the compiled elisp package.
+
+#+begin_src makefile
+.PHONY: elc
+TOTAL_RECALL_ELC := ${BUILD}/actor.elc
+elc: ${TOTAL_RECALL_ELC}
+${TOTAL_RECALL_ELC}: ${TOTAL_RECALL_EL}
+	${TRAP}
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
+	-f batch-byte-compile $< &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src
+
+** lint
+
+- make lint # Returns the path to the linting report of the elisp package.
+
+#+begin_src makefile
+.PHONY: lint
+LINT_REPORT := ${BUILD}/lint-report.txt
+lint: ${LINT_REPORT}
+${LINT_REPORT}: ${TOTAL_RECALL_EL}
+	${TRAP}
+	emacs --batch \
+	--file $< \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
+	--eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src
+
+** checkdoc
+
+- make checkdoc # Returns the path to the analysis of the docstrings of the elisp package.
+
+#+begin_src makefile
+.PHONY: checkdoc
+CHECKDOC := ${BUILD}/checkdoc.txt
+checkdoc: ${CHECKDOC}
+${CHECKDOC}: ${TOTAL_RECALL_EL}
+	${TRAP}
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(checkdoc-file "$<")' &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src
+
+** test
+
+- make test # Returns the path to the analysis of the docstrings of the elisp package.
+
+#+begin_src makefile
+.PHONY: test
+TEST := ${BUILD}/test-log.txt
+test: ${TEST}
+${TEST}: ${TOTAL_RECALL_TEST_EL} ${TOTAL_RECALL_EL}
+	${TRAP}
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(load-file "${TOTAL_RECALL_EL}")' \
+	--eval '(load-file "${TOTAL_RECALL_TEST_EL}")' \
+	--eval '(ert-run-tests-batch-and-exit t)' &> $@
+	echo "$@"
+#+end_src
+
+** all
+
+- make all # Returns the path of the elisp package after lint, checkdoc and elc steps.
+
+#+begin_src makefile
+.PHONY: all
+all: ${BUILD}
+	${TRAP}
+	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
+	echo ${TOTAL_RECALL_EL}
+#+end_src
+
+** clean
+
+- make clean # Deletes all generated files.
+
+#+begin_src makefile
+.PHONY: clean
+clean:
+	rm -rfv ${BUILD}
+#+end_src
+
+* Message
+** [2025-04-20 Sun]
+*** DONE Init
+SCHEDULED: <2025-04-20 Sun>
