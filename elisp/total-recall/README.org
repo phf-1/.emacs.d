@@ -352,10 +352,10 @@ This package provides `total-recall' for spaced repetition in Emacs."
   :group 'total-recall)
 #+end_src
 
-** Utils
+** Time
 
 #+begin_src emacs-lisp
-;; Utils
+;; Time
 #+end_src
 
 *** time-to-iso8601

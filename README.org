@@ -996,6 +996,7 @@ and return an error indicator."
   ;; TODO Org Mode maintainer.
   ;(org-element--cache-self-verify nil)
   ;(org-element--cache-self-verify-frequency 1.0)
+  (org-babel-python-command-nonsession "python3")
   (org-startup-folded 'show2levels)
   (org-ellipsis " ")
   (org-hide-leading-stars t)
@@ -1198,7 +1199,9 @@ CLOCK: [2025-03-04 Tue 12:21]--[2025-03-04 Tue 12:22] =>  0:01
 * total-recall
 
 #+begin_src emacs-lisp
-(use-package total-recall)
+(add-to-list 'load-path (file-name-concat user--packages "total-recall/_build"))
+(use-package total-recall
+  :demand)
 #+end_src
 
 * guix

@@ -2,8 +2,9 @@
 
 * Objective
 :PROPERTIES:
-:ID:       2b6a2d42-bfd0-4658-b25a-b1b7000d1b01
+:ID:       1a594b7f-151c-4000-ac52-38c64ebe2ae2
 :END:
+
 
 #+name: commentary
 #+begin_src org
@@ -251,7 +252,14 @@ This package provides `actor' for spaced repetition in Emacs."
 obj :≡ mk-obj() : Object
 #+begin_src emacs-lisp
 (defun mk-obj ()
-  (make-hash-table))
+  (obj-prop-add (make-hash-table) :Object t))
+#+end_src
+
+obj-p x = true ⇔ x : Object
+#+begin_src emacs-lisp
+(defun obj-p (x)
+  (and (hash-table-p x)
+       (eq (obj-prop-val x :Object) t)))
 #+end_src
 
 obj-prop-add(obj key value) : Object
@@ -261,14 +269,14 @@ obj-prop-add(obj key value) : Object
   obj)
 #+end_src
 
-obj-prop-rm(key) : Object
+obj-prop-rm(obj key) : Object
 #+begin_src emacs-lisp
 (defun obj-prop-rm (obj key)
   (remhash key obj)
   obj)
 #+end_src
 
-obj-prop-val(key) : Any
+obj-prop-val(obj key) : Any
 #+begin_src emacs-lisp
 (defun obj-prop-val (obj key)
   (gethash key obj))
@@ -284,8 +292,8 @@ content is an abritrary datastructure.
 from is a pointer to the sender or nil.
 msg :≡ mk-msg(content from) : Message
 #+begin_src emacs-lisp
-(defun mk-msg (content from &optional init-obj)
-  (let ((obj (or init-obj (mk-obj)))
+(defun mk-msg (content &optional from)
+  (let ((obj (mk-obj))
 	(props (mk-obj)))
     (obj-prop-add props :content content)
     (obj-prop-add props :from from)
@@ -318,18 +326,15 @@ msg-from msg = from
 
 init :≡ mk-msg-init(content from) : InitMessage
 #+begin_src emacs-lisp
-(defun mk-msg-init (content from &optional init-obj)
-  (unless (or (null init-obj) (msg-p init-obj))
-    (error "INIT-OBJ is neither nil nor a Message."))
-  (let ((obj (or init-obj (mk-msg content from)))
-	(props (mk-obj)))
-    (obj-prop-add obj :InitMessage props)))
+(defun mk-msg-init (content &optional from)
+  (let ((obj (mk-msg content from)))
+    (obj-prop-add obj :InitMessage t)))
 #+end_src
 
 msg-init-p x = true ⇔ x : InitMessage
 #+begin_src emacs-lisp
 (defun msg-init-p (obj)
-  (not (null (obj-prop-val obj :InitMessage))))
+  (eq (obj-prop-val obj :InitMessage) t))
 #+end_src
 
 ** Actor
@@ -338,28 +343,46 @@ msg-init-p x = true ⇔ x : InitMessage
 ;; Actor
 #+end_src
 
-1. actor :≡ mk-actor(init next) : Actor
-   - init : State Args → State
-   - next : State Message → Message × State
-   - State and Args are an arbitrary datastructures
+State and Args are an arbitrary datastructures
+init : State Data → State
+next : State Message → Message × State
+actor :≡ mk-actor(init next) : Actor
+#+begin_src emacs-lisp
+(defun mk-actor (init next)
+  (let ((obj (mk-obj))
+        (props (mk-obj)))
+    (obj-prop-add props :init init)
+    (obj-prop-add props :next
+                  (lambda (_state msg)
+                    (unless (msg-init-p msg) (error "MSG is not an InitMessage. msg = %s" msg))
+                    (let ((props (funcall init props (msg-content msg))))
+                      (obj-prop-add props :next next)
+                      (cons nil props))))
+    (obj-prop-add obj :Actor props)))
+#+end_src
 
-2. actor-init actor = init
+actor-init actor = init
+#+begin_src emacs-lisp
+(defun actor-init (actor)
+  (obj-prop-val (obj-prop-val actor :Actor) :init))
+#+end_src
 
-3. actor-next actor = next
+actor-next actor = next
+#+begin_src emacs-lisp
+(defun actor-next (actor)
+  (obj-prop-val (obj-prop-val actor :Actor) :next))
+#+end_src
 
-4. actor-send(actor msg) : Any
-   - msg : Message
-
-5. Init protocol
-   1. actor :≡ mk-actor(init next)
-
-   2. actor-send(actor init-msg) = actor
-      - init-msg : InitMessage
-
-   3. actor-send(actor msg) : Any
-      - msg : Message
-
-   4. …
+msg : Message
+actor-send(actor msg) : Any
+#+begin_src emacs-lisp
+(defun actor-send (actor msg)
+  (let ((state (obj-prop-val actor :Actor))
+        (next (actor-next actor)))
+    (pcase-let ((`(,reply . ,next-state) (funcall next state msg)))
+      (obj-prop-add actor :Actor next-state)
+      reply)))
+#+end_src
 
 ** Footer
 
@@ -460,6 +483,63 @@ msg-init-p x = true ⇔ x : InitMessage
     (should (equal (msg-content msg) "content"))
     (should (equal (msg-from msg) "me"))
     (should (msg-init-p msg))))
+#+end_src
+
+** Actor
+
+#+begin_src emacs-lisp
+;; Actor
+#+end_src
+
+#+begin_src emacs-lisp
+(ert-deftest test-actor-functions ()
+  (let* (;; Counter Behaviour
+         ;;
+         ;; counter : Counter
+         ;; val :≡ get(counter)
+         ;; +1(counter)
+         ;; val + 1 = get(counter)
+         (counter-+1
+          (lambda (counter)
+            (actor-send counter (mk-msg '(:Counter :+1)))
+            counter))
+
+         (counter-get
+          (lambda (counter)
+            (actor-send counter (mk-msg '(:Counter :get)))))
+
+         ;; Counter
+
+         (init
+          (lambda (state val)
+            (obj-prop-add state :val val)))
+
+         (next
+          (lambda (state msg)
+            (let ((val (obj-prop-val state :val))
+                  (content (msg-content msg)))
+              (pcase content
+                ('(:Counter :get) (cons val state))
+                ('(:Counter :+1) (cons nil (obj-prop-add state :val (+ val 1))))
+                (_ (cons :unexpected_msg state))))))
+
+         (counter-mk
+          (lambda ()
+            (mk-actor init next)))
+
+         (counter-init
+          (lambda (counter val)
+            (actor-send counter (mk-msg-init val))
+            counter))
+
+         ;; counter : Counter
+
+         (counter
+          (let ((counter (funcall counter-mk)))
+            (funcall counter-init counter 0)
+            (funcall counter-+1 counter))))
+
+    (should (eq (funcall counter-get counter) 1))))
 #+end_src
 
 ** Footer
