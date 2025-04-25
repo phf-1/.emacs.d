@@ -1,0 +1,17 @@
+# -*- mode: snippet -*-
+# name: ai-spelling
+# key: ai-spelling
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+Soit le contenu au format Org Mode suivant :
+
+\`\`\`
+$0
+\`\`\`
+
+Alors :
+1. Corrige l'orthographe.
+2. Corrige la grammaire.
+3. Corrige pour plus de simplicité.
+4. Corrige pour plus de clarté.
+5. Préserve le markup Org Mode.

@@ -11,8 +11,6 @@
 
 **$1 ${3:Question}
 
-<content>
-
 **$1 Answer
 
-<content>
+$0

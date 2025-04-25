@@ -1008,10 +1008,11 @@ and return an error indicator."
   (org-src-preserve-indentation t)
   (org-hide-emphasis-markers t)
   (org-todo-keywords
-   '((sequence "TODO(t)" "WAITING(w)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
+   '((sequence "TODO(t)" "WAITING(w)" "DOING(g)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
   (org-todo-keyword-faces
    '(("TODO" . (:foreground "red" :family "JetBrains Mono" :height 0.9))
      ("WAITING" . (:foreground "orange" :family "JetBrains Mono" :height 0.9))
+     ("DOING" . (:foreground "orange" :family "JetBrains Mono" :height 0.9))
      ("FAILED" . (:foreground "purple" :family "JetBrains Mono" :height 0.9))
      ("DONE" . (:foreground "green" :family "JetBrains Mono" :height 0.9))
      ("CANCELED" . (:foreground "grey" :family "JetBrains Mono" :height 0.9))))
