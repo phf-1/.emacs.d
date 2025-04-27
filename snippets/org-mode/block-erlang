@@ -1,0 +1,6 @@
+# key: erlang
+# name: block-erlang
+# --
+#+begin_src erlang
+$0
+#+end_src

@@ -3,7 +3,7 @@
 # key: exercise
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-*${1:*} ${2:Heading}
+*${1:*} Exercise
 :PROPERTIES:
 :TYPE: b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8
 :ID: `(org-id-new)`

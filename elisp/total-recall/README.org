@@ -54,25 +54,23 @@ Exercises can be embedded in any Org Mode document for context:
 ,* Title
 ,** Section
 ,*** Sub-section
-,**** Q&A
-,***** Exercise 1
-,***** Exercise 2
-,*** Q&A
-,**** Exercise 3
-,**** Exercise 4
+,**** Exercise 1
+,**** Exercise 2
+,*** Exercise 3
+,*** Exercise 4
 ,#+end_src
 
 which would lead to this review order:
 
-1) Title/Section/Sub-section/Q&A/Exercise 1
-2) Title/Section/Sub-section/Q&A/Exercise 2
-3) Title/Section/Q&A/Exercise 3
-4) Title/Section/Q&A/Exercise 4
+1) Title/Section/Sub-section/Exercise 1
+2) Title/Section/Sub-section/Exercise 2
+3) Title/Section/Exercise 3
+4) Title/Section/Exercise 4
 
 which may be pruned by the scheduling algorithm to:
 
-1) Title/Section/Sub-section/Q&A/Exercise 1
-2) Title/Section/Q&A/Exercise 4
+1) Title/Section/Sub-section/Exercise 1
+2) Title/Section/Exercise 4
 
 depending on accumulated data so far.
 
@@ -300,7 +298,9 @@ export LC_ALL=en_US.UTF-8
 
 #+begin_src emacs-lisp
 ;; Dependencies
+#+end_src
 
+#+begin_src emacs-lisp
 (unless (sqlite-available-p)
   (error "Emacs must be compiled with built-in support for SQLite databases"))
 (require 'org)
@@ -315,7 +315,9 @@ export LC_ALL=en_US.UTF-8
 
 #+begin_src emacs-lisp
 ;; Configuration
+#+end_src
 
+#+begin_src emacs-lisp
 (defgroup total-recall nil
   "Customization options for Total Recall.
 This package provides `total-recall' for spaced repetition in Emacs."
@@ -389,7 +391,9 @@ ISO8601 is a string in ISO 8601 format. Returns a Lisp timestamp."
 
 #+begin_src emacs-lisp
 ;; Search
+#+end_src
 
+#+begin_src emacs-lisp
 (defun total-recall--search (dir ext type-id)
   "Search for files containing TYPE-ID with extension EXT in directory DIR.
 DIR is a string path to the directory.
@@ -433,24 +437,6 @@ TIME is a Lisp timestamp."
   (make-total-recall--measure :id id :time time))
 #+end_src
 
-*** measure-p
-
-#+begin_src emacs-lisp
-;; total-recall--measure-p
-#+end_src
-
-*** measure-id
-
-#+begin_src emacs-lisp
-;; total-recall--measure-id
-#+end_src
-
-*** measure-time
-
-#+begin_src emacs-lisp
-;; total-recall--measure-time
-#+end_src
-
 *** Success
 
 #+begin_src emacs-lisp
@@ -468,12 +454,6 @@ TIME is a Lisp timestamp."
 (defun total-recall--success-measure-mk (id time)
   "Build a success measure that records ID and TIME."
     (make-total-recall--success-measure :id id :time time))
-#+end_src
-
-**** success-measure-p
-
-#+begin_src emacs-lisp
-;; total-recall--success-measure-p
 #+end_src
 
 *** Failure
@@ -495,12 +475,6 @@ TIME is a Lisp timestamp."
     (make-total-recall--failure-measure :id id :time time))
 #+end_src
 
-**** failure-measure-p
-
-#+begin_src emacs-lisp
-;; total-recall--failure-measure-p
-#+end_src
-
 *** Skip
 
 #+begin_src emacs-lisp
@@ -518,12 +492,6 @@ TIME is a Lisp timestamp."
 (defun total-recall--skip-measure-mk (id time)
   "Build a skip measure that records ID and TIME."
     (make-total-recall--skip-measure :id id :time time))
-#+end_src
-
-**** skip-measure-p
-
-#+begin_src emacs-lisp
-;; total-recall--skip-measure-p
 #+end_src
 
 ** UI
@@ -547,12 +515,6 @@ TIME is a Lisp timestamp."
                              (height . ,total-recall-window-height))))
         (buffer (get-buffer-create "*total-recall*")))
     (make-total-recall--ui :buffer buffer :frame frame :state :state)))
-#+end_src
-
-*** ui-p
-
-#+begin_src emacs-lisp
-;; total-recall--ui-p
 #+end_src
 
 *** ui-init
@@ -794,36 +756,6 @@ is not a string. Returns an exercise structure."
                                :id id
                                :question question
                                :answer answer))
-#+end_src
-
-*** exercise-p
-
-#+begin_src emacs-lisp
-;; total-recall--exercise-p
-#+end_src
-
-*** exercise-subject
-
-#+begin_src emacs-lisp
-;; total-recall--exercise-subject
-#+end_src
-
-*** exercise-id
-
-#+begin_src emacs-lisp
-;; total-recall--exercise-id
-#+end_src
-
-*** exercise-question
-
-#+begin_src emacs-lisp
-;; total-recall--exercise-question
-#+end_src
-
-*** exercise-answer
-
-#+begin_src emacs-lisp
-;; total-recall--exercise-answer
 #+end_src
 
 *** exercise-scheduled
