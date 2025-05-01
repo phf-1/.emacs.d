@@ -1081,7 +1081,7 @@ and return an error indicator."
   (setq org-agenda-skip-scheduled-if-done nil
         org-agenda-span 'day
         org-agenda-show-future-repeats 'next
-        org-columns-default-format-for-agenda "%SCHEDULED %CATEGORY %TODO %ITEM %Effort(Effort){:}"
+        org-columns-default-format-for-agenda "%SCHEDULED %CATEGORY %TODO %ITEM %Effort(Effort){:} %CLOCKSUM(Clocked)"
         org-deadline-warning-days 1
         org-agenda-sorting-strategy '(time-up todo-state-down priority-down)
         org-agenda-prefix-format
@@ -1213,6 +1213,26 @@ CLOCK: [2025-03-04 Tue 12:21]--[2025-03-04 Tue 12:22] =>  0:01
   :init
   (with-eval-after-load 'geiser-guile
     (add-to-list 'geiser-guile-load-path (expand-file-name "~/src/guix"))))
+#+end_src
+
+* preview-mode
+
+#+begin_src emacs-lisp
+(use-package completion-preview
+  :hook ((prog-mode . completion-preview-mode)
+         (text-mode . completion-preview-mode)
+         (comint-mode . completion-preview-mode))
+  :config
+  ;; Show preview after two symbol characters
+  (setq completion-preview-minimum-symbol-length 2)
+  ;; Add non-standard commands
+  (push 'org-self-insert-command completion-preview-commands)
+  (push 'paredit-backward-delete completion-preview-commands)
+  ;; Bindings for when preview is shown
+  :bind (:map completion-preview-active-mode-map
+              ("M-n" . completion-preview-next-candidate)
+              ("M-p" . completion-preview-prev-candidate)
+              ("M-i" . completion-preview-insert)))
 #+end_src
 
 * local extension
