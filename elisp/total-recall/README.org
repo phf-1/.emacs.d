@@ -353,6 +353,31 @@ This package provides `total-recall' for spaced repetition in Emacs."
   "Height of the Total Recall UI in characters."
   :type 'integer
   :group 'total-recall)
+
+(defcustom total-recall-key-reveal ?r
+  "Key to reveal the answer in Total Recall UI."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-skip ?k
+  "Key to skip an exercise in Total Recall UI."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-quit ?q
+  "Key to quit the Total Recall session."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-success ?s
+  "Key to mark an exercise as successful in Total Recall UI."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-failure ?f
+  "Key to mark an exercise as failed in Total Recall UI."
+  :type 'character
+  :group 'total-recall)
 #+end_src
 
 ** Time
@@ -1027,25 +1052,31 @@ Returns a list of exercise structures for :list-exercises."
            (total-recall--exercise-question exercise))
           (setq choice
                 (read-char-choice
-                 "Reveal (r), Skip (k), Quit (q): "
-                 '(?r ?k ?q)))
+                 (format "Reveal (%c), Skip (%c), Quit (%c): "
+                         total-recall-key-reveal
+                         total-recall-key-skip
+                         total-recall-key-quit)
+                 (list total-recall-key-reveal total-recall-key-skip total-recall-key-quit)))
           (pcase choice
-            (?r
+            (,total-recall-key-reveal
              (total-recall--ui-display-answer ui (total-recall--exercise-answer exercise))
              (setq choice
                    (read-char-choice
-                    "Success (s), Failure (f), Quit (q): "
-                    '(?s ?f ?q)))
+                    (format "Success (%c), Failure (%c), Quit (%c): "
+                            total-recall-key-success
+                            total-recall-key-failure
+                            total-recall-key-quit)
+                    (list total-recall-key-success total-recall-key-failure total-recall-key-quit)))
              (pcase choice
-               (?s
+               (,total-recall-key-success
                 (total-recall--db-save db (total-recall--success-measure-mk (total-recall--exercise-id exercise) (current-time))))
-               (?f
+               (,total-recall-key-failure
                 (total-recall--db-save db (total-recall--failure-measure-mk (total-recall--exercise-id exercise) (current-time))))
-               (?q
+               (,total-recall-key-quit
                 (setq exercises nil))))
-            (?k
+            (,total-recall-key-skip
              nil)
-            (?q
+            (,total-recall-key-quit
              (setq exercises nil))))))
     (total-recall--db-close db)
     (total-recall--ui-kill ui)))

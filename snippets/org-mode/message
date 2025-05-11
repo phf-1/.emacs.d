@@ -1,13 +1,19 @@
 # -*- mode: snippet -*-
 # name: message
-# key: ,message
+# key: msg
 # --
-${1:*} ${2:Message}
+`(let ((level (org-current-level)))
+   (if level
+       (concat (make-string (1+ level) ?*) " TODO Name")
+       "* TODO Name"))`
+:PROPERTIES:
+:TYPE: 90d4f14f-Bcce-48f3-A30b-B2d027f32443
+:ID: `(org-id-new)`
+:END:
 
-*Context*
+`(let ((level (org-current-level)))
+   (if level
+       (concat (make-string (+ 2 level) ?*) " reply")
+       "** reply"))`
 
-*Objective*
-
-*Computation*
-
-*Result*
+$0

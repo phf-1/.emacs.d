@@ -1,6 +1,6 @@
 # -*- mode: snippet -*-
-# name: target
-# key: target
+# name: node
+# key: node
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-<<`(downcase (nth 1 (split-string (org-id-new) "-")))`>>
+x`(downcase (nth 1 (split-string (org-id-new) "-")))`
