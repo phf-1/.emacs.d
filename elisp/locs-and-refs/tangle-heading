@@ -1,7 +1,9 @@
 #!/usr/bin/env -S emacs --script
 ;; tangle-heading
-;; - ~./tangle-heading ./file.org file.el directory~ tangles the heading named ~file.el~
-;;   and move the resulting file under ~directory~.
+
+;; - ~./tangle-heading ./file.org file.el directory~
+;;   - tangles the heading named ~file.el~
+;;   - moves the resulting file under ~directory~
 ;; - A heading named ~file.el~ is expected to get tangled into a file named ~./file.el~.
 
 

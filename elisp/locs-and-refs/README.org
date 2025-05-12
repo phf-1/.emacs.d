@@ -1,4 +1,4 @@
-#+PROPERTY: header-args :noweb yes :comments org :mkdirp yes
+#+PROPERTY: header-args :noweb yes :mkdirp yes
 
 * Objective
 
@@ -205,6 +205,7 @@ export LC_ALL=en_US.UTF-8
 :PROPERTIES:
 :header-args+: :tangle locs-and-refs.el
 :END:
+
 ** Header
 
 #+begin_src emacs-lisp
@@ -234,11 +235,9 @@ export LC_ALL=en_US.UTF-8
 
 ** Dependencies
 
-- This section lists this package's dependencies.
-  - rxt (a.k.a. pcre2el) provides `rxt-elisp-to-pcre' that builds a PCRE expression
-    from an ELisp RegEx. Useful to talk to Ripgrep from ELisp.
-  - org provides `org-link-set-parameters' that gives control over click behavior on
-    links.
+#+begin_src emacs-lisp
+;; Dependencies
+#+end_src
 
 #+begin_src emacs-lisp
 (require 'pcre2el)
@@ -247,7 +246,9 @@ export LC_ALL=en_US.UTF-8
 
 ** Configuration
 
-- This section lists the user's defined custom parameters.
+#+begin_src emacs-lisp
+;; Configuration
+#+end_src
 
 #+begin_src emacs-lisp
 (defgroup locs-and-refs nil
@@ -278,11 +279,6 @@ This comes after buffer creation or modification."
   :type 'string
   :group 'locs-and-refs)
 
-(defcustom locs-and-refs-location-tag "id"
-  "The tag used to identify locations."
-  :type 'string
-  :group 'locs-and-refs)
-
 (defface locs-and-refs-location-face
   '((t (:foreground "blue"
         :underline t)))
@@ -309,10 +305,12 @@ This comes after buffer creation or modification."
 #+end_src
 
 ** Utils
-*** truncate-right
 
-- String Nat Char → String
-- (string= (locs-and-refs--truncate-right "xxxx" 3 ?…) "xxx…")
+#+begin_src emacs-lisp
+;; Utils
+#+end_src
+
+*** truncate-right
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--truncate-right (string &optional length ellipsis)
@@ -329,286 +327,212 @@ or ELLIPSIS is not a character."
     (concat (substring-no-properties string 0 len) ell)))
 #+end_src
 
-** LineFileMatch
+*** send
 
-- match : LineFileMatch represents a match at a given line in some file.
 #+begin_src emacs-lisp
+(defun locs-and-refs--send (obj msg)
+  (let ((rcv (cl-struct-slot-value (type-of obj) 'rcv obj)))
+    (funcall rcv obj msg)))
 #+end_src
 
-*** mk
-
-- Path Line → LineFileMatch
+** LineFileMatch
 
 #+begin_src emacs-lisp
+;; LineFileMatch
+;;
+;; An instance represents a match at a given line in some file.
+#+end_src
+
+*** API
+**** p
+**** name
+
+#+begin_src emacs-lisp
+(defun locs-and-refs--line-file-match-name (match)
+  (locs-and-refs--send match :name))
+#+end_src
+
+**** path
+**** line
+*** Implementation
+
+#+begin_src emacs-lisp
+(defun locs-and-refs--line-file-match-rcv (line-file-match msg)
+  (let ((path (locs-and-refs--line-file-match-path line-file-match))
+        (line (locs-and-refs--line-file-match-line line-file-match)))
+    (pcase msg
+      (:name
+       (let ((name (file-name-nondirectory path)))
+         (format "%s" name)))
+
+      (:action
+       (lambda ()
+         (find-file path)
+         (save-restriction
+           (widen)
+           (goto-char (point-min))
+           (forward-line (1- line)))
+         (recenter)))
+
+      (_ (error "Unexpected msg: %s" msg)))))
+
+(cl-defstruct locs-and-refs--line-file-match
+  "LineFileMatch data structure."
+  path line rcv)
+
 (defun locs-and-refs--line-file-match-mk (path line)
   "Create a LineFileMatch object with PATH and LINE.
 PATH should be a valid file path, and LINE should be a
 non-negative integer."
   (unless (file-exists-p path) (error "PATH does not exist"))
   (unless (and (integerp line) (<= 0 line)) (error "LINE is not a positive integer"))
-  (list :line-file-match path line))
-#+end_src
-
-*** p
-
-- Any → Boolean
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--line-file-match-p (any)
-  "Check if ANY is a LineFileMatch object."
-  (eq (car-safe any) :line-file-match))
-#+end_src
-
-*** use
-
-- (Path Line → C) → LineFileMatch → C
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--line-file-match-use (func)
-  "Apply FUNC to the path and line of a LineFileMatch object."
-  (lambda (match)
-    (unless (locs-and-refs--line-file-match-p match) (error "MATCH is not a LineFileMatch"))
-    (apply func (cdr match))))
-#+end_src
-
-*** path
-
-- LineFileMatch → Path
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--line-file-match-path (match)
-  "Extract the path from a MATCH object."
-  (funcall (locs-and-refs--line-file-match-use (lambda (&rest params) (car params))) match))
-#+end_src
-
-*** line
-
-- LineFileMatch → Line
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--line-file-match-line (match)
-  "Extract the line number from a MATCH object."
-  (funcall (locs-and-refs--line-file-match-use (lambda (&rest params) (cadr params))) match))
+  (make-locs-and-refs--line-file-match :path path :line line :rcv #'locs-and-refs--line-file-match-rcv))
 #+end_src
 
 ** LineBufferMatch
 
-- match : LineBufferMatch represents a match at a given line in some buffer.
 #+begin_src emacs-lisp
+;; LineBufferMatch
+;;
+;; An instance represents a match at a given line in some buffer.
 #+end_src
 
-*** mk
-
-- Buffer Line → LineBufferMatch
+*** API
+**** p
+**** name
 
 #+begin_src emacs-lisp
+(defun locs-and-refs--line-buffer-match-name (match)
+  (locs-and-refs--send match :name))
+#+end_src
+
+**** buffer
+
+**** line
+
+*** Implementation
+
+#+begin_src emacs-lisp
+(defun locs-and-refs--line-buffer-match-rcv (match msg)
+  (let ((buffer (locs-and-refs--line-buffer-match-path match))
+        (line (locs-and-refs--line-buffer-match-line match)))
+    (pcase msg
+      (:name
+       (let ((name (buffer-name buffer)))
+         (format "%s" name)))
+
+      (:action
+       (lambda ()
+         (switch-to-buffer-other-window buffer)
+         (save-restriction
+           (widen)
+           (goto-char (point-min))
+           (forward-line (1- line)))
+         (recenter)))
+
+      (_ (error "Unexpected msg: %s" msg)))))
+
+(cl-defstruct locs-and-refs--line-buffer-match
+  "LineBufferMatch data structure."
+  buffer line rcv)
+
 (defun locs-and-refs--line-buffer-match-mk (buffer line)
   "Create a LineBufferMatch object with BUFFER and LINE.
 BUFFER should be a valid buffer, and LINE should be a
 non-negative integer."
   (unless (bufferp buffer) (error "BUFFER does not exist"))
   (unless (and (integerp line) (<= 0 line)) (error "LINE is not a positive integer"))
-  (list :line-buffer-match buffer line))
-#+end_src
-
-*** p
-
-- Any → Boolean
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--line-buffer-match-p (any)
-  "Check if ANY is a LineBufferMatch object."
-  (eq (car-safe any) :line-buffer-match))
-#+end_src
-
-*** use
-
-- (Buffer Line → C) → LineBufferMatch → C
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--line-buffer-match-use (func)
-  "Apply FUNC to the buffer and line of a LineBufferMatch object."
-  (lambda (match)
-    (unless (locs-and-refs--line-buffer-match-p match) (error "MATCH is not a LineBufferMatch"))
-    (apply func (cdr match))))
-#+end_src
-
-*** buffer
-
-- LineBufferMatch → Buffer
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--line-buffer-match-buffer (match)
-  "Extract the buffer from a MATCH object."
-  (funcall (locs-and-refs--line-buffer-match-use (lambda (&rest params) (car params))) match))
-#+end_src
-
-*** line
-
-- LineBufferMatch → Line
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--line-buffer-match-line (match)
-  "Extract the line number from a MATCH object."
-  (funcall (locs-and-refs--line-buffer-match-use (lambda (&rest params) (cadr params))) match))
+  (make-locs-and-refs--line-buffer-match :buffer buffer :line line :rcv #'locs-and-refs--line-buffer-match-rcv))
 #+end_src
 
 ** FileMatch
 
-- match : FileMatch represents a file match.
 #+begin_src emacs-lisp
+;; FileMatch
+;;
+;; An instance represents a file match.
 #+end_src
 
-*** mk
-
-- Path → FileMatch
+*** API
+**** p
+**** name
 
 #+begin_src emacs-lisp
+(defun locs-and-refs--file-match-name (file-match)
+  ""
+  (locs-and-refs--file-match-rcv file-match :name))
+#+end_src
+
+**** path
+*** Implementation
+
+#+begin_src emacs-lisp
+(defun locs-and-refs--file-match-rcv (file-match msg)
+  (let ((path (locs-and-refs--file-match-path file-match)))
+    (pcase msg
+      (:name
+       (let* ((name (locs-and-refs--truncate-right (file-name-nondirectory path)))
+              (ext (file-name-extension path)))
+         (format "%s.%s  %s" name ext path)))
+
+      (:action
+       (lambda ()
+         (find-file path)
+         (recenter)))
+
+      (_ (error "MATCH %s is not a FileMatch or a LineFileMatch or a LineBufferMatch" msg)))))
+
+(cl-defstruct locs-and-refs--file-match
+  "FileMatch data structure."
+  path rcv)
+
 (defun locs-and-refs--file-match-mk (path)
   "Create a FileMatch object with PATH.
 PATH should be a valid file path."
   (unless (file-exists-p path) (error "PATH does not exist"))
-  (list :file-match path))
-#+end_src
-
-*** p
-
-- Any → Boolean
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--file-match-p (any)
-  "Check if ANY is a FileMatch object."
-  (eq (car-safe any) :file-match))
-#+end_src
-
-*** use
-
-- (Path → C) → FileMatch → C
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--file-match-use (func)
-  "Apply FUNC to the path of a FileMatch object."
-  (lambda (match)
-    (unless (locs-and-refs--file-match-p match) (error "MATCH is not a FileMatch"))
-    (apply func (cdr match))))
-#+end_src
-
-*** path
-
-- FileMatch → Path
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--file-match-path (match)
-  "Extract the path from a MATCH object."
-  (funcall (locs-and-refs--file-match-use (lambda (&rest params) (car params))) match))
+  (make-locs-and-refs--file-match :path path :rcv #'locs-and-refs--file-match-rcv))
 #+end_src
 
 ** Match
 
-- match : Match ≡ FileMatch | LineFileMatch | LineBufferMatch.
 #+begin_src emacs-lisp
+;; Match
+;;
+;; An instance represents a match.
 #+end_src
 
-*** use
-
-- (FileMatch → C) (LineFileMatch → C) (LineBufferMatch → C) → Match → C
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--match-use (file-func line-file-func line-buffer-func)
-  "Apply different functions to different types of Matches.
-FILE-FUNC is applied to FileMatch, LINE-FILE-FUNC to
-LineFileMatch, and LINE-BUFFER-FUNC to LineBufferMatch."
-  (lambda (match)
-    (cond
-     ((locs-and-refs--file-match-p match) (funcall file-func match))
-     ((locs-and-refs--line-file-match-p match) (funcall line-file-func match))
-     ((locs-and-refs--line-buffer-match-p match) (funcall line-buffer-func match))
-     (t (error "MATCH is not a FileMatch or a LineFileMatch or a LineBufferMatch")))))
-#+end_src
-
-*** name
-
-- Match → String
+*** API
+**** p
+**** name
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--match-name (match)
-  "Return the name of the file or buffer from a MATCH object."
-  (funcall
-   (locs-and-refs--match-use
-    (lambda (file-match)
-      (let* ((path (locs-and-refs--file-match-path file-match))
-             (name (locs-and-refs--truncate-right (file-name-nondirectory path)))
-             (ext (file-name-extension path)))
-        (format "%s.%s  %s" name ext path)))
-
-    (lambda (line-file-match)
-      (let ((name (file-name-nondirectory
-                   (locs-and-refs--line-file-match-path
-                    line-file-match))))
-        (format "%s" name)))
-
-    (lambda (line-buffer-match)
-      (let ((name (buffer-name
-                   (locs-and-refs--line-buffer-match-buffer line-buffer-match))))
-        (format "%s" name))))
-
-   match))
+  ""
+  (locs-and-refs--send match :name))
 #+end_src
 
-*** action
-
-- Match → ∅ → ∅
+**** action
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--match-action (match)
-  "Create an action based on the type of MATCH.
-This action will open the file or switch to the buffer at the
-specified location."
-  (funcall
-   (locs-and-refs--match-use
-    (lambda (file-match)
-      (lambda ()
-        (let ((path (locs-and-refs--file-match-path file-match)))
-          (find-file path)
-          (recenter))))
-
-    (lambda (line-file-match)
-      (lambda ()
-        (let ((path (locs-and-refs--line-file-match-path line-file-match))
-              (line (locs-and-refs--line-file-match-line line-file-match)))
-          (find-file path)
-          (save-restriction
-            (widen)
-            (goto-char (point-min))
-            (forward-line (1- line)))
-          (recenter))))
-
-    (lambda (line-buffer-match)
-      (lambda ()
-        (let ((buffer (locs-and-refs--line-buffer-match-buffer line-buffer-match))
-              (line (locs-and-refs--line-buffer-match-line line-buffer-match)))
-          (switch-to-buffer-other-window buffer)
-          (save-restriction
-            (widen)
-            (goto-char (point-min))
-            (forward-line (1- line)))
-          (recenter)))))
-   match))
+  ""
+  (locs-and-refs--send match :action))
 #+end_src
 
 ** Search
 
-- Given a RegEx in the form of an Rx expression,
-  search matching files/buffers/filenames.
 #+begin_src emacs-lisp
+;; Search
+;;
+;; Given a RegEx in the form of an Rx expression,
+;; search matching files/buffers/filenames.
 #+end_src
 
-*** files
+*** API
+**** files
 :PROPERTIES:
 :ID:       c630d94f-987c-420a-9ef7-c78211a8a813
 :END:
-
-- RegEx → List(Match)
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--search-files (regex)
@@ -629,9 +553,7 @@ Returns a list of LineFileMatch objects."
     matches))
 #+end_src
 
-*** buffers
-
-- RegEx → List(Match)
+**** buffers
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-number ()
@@ -654,9 +576,7 @@ Returns a list of LineBufferMatch objects."
     matches))
 #+end_src
 
-*** filenames
-
-- RegEx → List(Match)
+**** filenames
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--search-filenames (regex)
@@ -678,12 +598,13 @@ Returns a list of FileMatch objects."
 
 ** RegEx
 
-A few utilities.
 #+begin_src emacs-lisp
+;; RegEx
+;;
+;; A few utilities.
 #+end_src
 
 *** content
-- Tag Optional(id) → Rx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--regex-content (tag &optional id)
@@ -697,87 +618,35 @@ ID can be either a string or a regex pattern."
 
 ** Location
 
-- loc : Location represents a place that can be referenced.
-- A click on loc shows all references to it.
 #+begin_src emacs-lisp
+;; Location
+;;
+;; loc : Location represents a place that can be referenced.
+;; A click on loc shows all references to it.
 #+end_src
 
-*** mk
-
-- String Buffer Start End Name → Location
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--location-mk (id buffer start end &optional name)
-  "Create a Location object with ID, BUFFER, START, END and NAME.
-ID is a string, BUFFER must be a buffer object, START and END are
-integer positions. NAME is an optional string."
-  (unless (stringp id) (error "ID is not a string"))
-  (unless (bufferp buffer) (error "BUFFER is not a buffer"))
-  (unless (integerp start) (error "START is not an integer"))
-  (unless (integerp end) (error "END is not an integer"))
-  (let (button loc display-name)
-    (setq display-name
-          (apply #'propertize
-                 `(,(substring-no-properties (or name (concat ":" (upcase locs-and-refs-location-tag) ": " id)))
-                   face locs-and-refs-location-face)))
-    (setq button
-          (with-current-buffer buffer
-            (let ((inhibit-modification-hooks t))
-              (make-button start end
-                           'action (lambda (_button) (locs-and-refs--location-click loc))
-                           'lar t
-                           'display display-name
-                           'help-echo (format "Click to open %s" id)
-                           'follow-link t))))
-    (setq loc (list :location id buffer start end button name))
-    loc))
-#+end_src
-
-*** p
-
-- Any → Boolean
+*** Configuration
+**** tag
 
 #+begin_src emacs-lisp
-(defun locs-and-refs--location-p (loc)
-  "Check if LOC is a Location object."
-  (eq (car-safe loc) :location))
+(defcustom locs-and-refs-location-tag "id"
+  "The tag used to identify locations."
+  :type 'string
+  :group 'locs-and-refs)
 #+end_src
 
-*** use
+*** API
+**** p
 
-- (String → C) → Location → C
+**** id
+
+**** content-regex
 
 #+begin_src emacs-lisp
-(defun locs-and-refs--location-use (func)
-  "Apply FUNC to the ID of a Location object."
-  (lambda (loc)
-    (unless (locs-and-refs--location-p loc) (error "LOC is not a Location"))
-    (apply func (cdr loc))))
+(defun locs-and-refs--location-content-regex (loc)
+  "Generate a regex for content of a Location with LOC's ID."
+  (locs-and-refs--send loc :content-regex))
 #+end_src
-
-*** id
-
-- Location → String
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--location-id (loc)
-  "Extract the ID from a LOC object."
-  (funcall (locs-and-refs--location-use (lambda (id &rest _args) id)) loc))
-#+end_src
-
-*** tag
-
-- String
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--location-tag ()
-  "Return the tag used for identifying locations."
-  locs-and-refs-location-tag)
-#+end_src
-
-*** content-regex
-
-- Location → RegEx
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--location-content-regex (loc)
@@ -785,17 +654,21 @@ integer positions. NAME is an optional string."
   (locs-and-refs--regex-content (locs-and-refs--reference-tag) (locs-and-refs--location-id loc)))
 #+end_src
 
-*** regex
-
-- RegEx
+**** regex
 
 #+begin_src emacs-lisp
-(defun locs-and-refs--location-regex ()
+(defun locs-and-refs--location-regex (&optional _loc)
   "Return the regex pattern for matching locations."
-  (locs-and-refs--regex-content (locs-and-refs--location-tag)))
+  (locs-and-refs--regex-content locs-and-refs-location-tag))
 #+end_src
 
-*** click
+**** click
+
+#+begin_src emacs-lisp
+(defun locs-and-refs--location-click (loc)
+  "Show references in a new buffer after a click on location LOC."
+  (locs-and-refs--send loc :click))
+#+end_src
 
 - Location → Buffer
 - λ loc :≡
@@ -813,7 +686,63 @@ integer positions. NAME is an optional string."
          (buffer-matches (locs-and-refs--search-buffers content-regex))
          (matches (append file-matches buffer-matches))
          (id (locs-and-refs--location-id loc)))
-    (locs-and-refs--ui-matches matches id locs-and-refs-location-tag)))
+    (locs-and-refs--ui-matches matches id locs-and-refs-location--tag)))
+#+end_src
+
+*** use
+
+#+begin_src emacs-lisp
+(defun locs-and-refs--location-use (func)
+  "Apply FUNC to the ID of a Location object."
+  (lambda (loc)
+    (unless (locs-and-refs--location-p loc) (error "LOC is not a Location"))
+    (apply func (cdr loc))))
+#+end_src
+
+*** Implementation
+
+#+begin_src emacs-lisp
+
+(defun locs-and-refs--location-rcv (loc msg)
+  (let ()
+    (pcase msg
+      xxx)))
+
+(cl-defstruct locs-and-refs--location
+  "Location data structure."
+  id buffer start end name rcv)
+
+(defun locs-and-refs--location-mk (id buffer start end &optional name)
+  "Create a Location object with ID, BUFFER, START, END and NAME.
+ID is a string, BUFFER must be a buffer object, START and END are
+integer positions. NAME is an optional string."
+  (unless (stringp id) (error "ID is not a string"))
+  (unless (bufferp buffer) (error "BUFFER is not a buffer"))
+  (unless (integerp start) (error "START is not an integer"))
+  (unless (integerp end) (error "END is not an integer"))
+  (let (button loc display-name)
+    (setq display-name
+          (apply #'propertize
+                 `(,(substring-no-properties (or name (concat ":" (upcase locs-and-refs-location--tag) ": " id)))
+                   face locs-and-refs-location-face)))
+    (setq button
+          (with-current-buffer buffer
+            (let ((inhibit-modification-hooks t))
+              (make-button start end
+                           'action (lambda (_button) (locs-and-refs--location-click loc))
+                           'lar t
+                           'display display-name
+                           'help-echo (format "Click to open %s" id)
+                           'follow-link t))))
+
+    (setq loc (make-locs-and-refs--location :id id
+                                            :buffer buffer
+                                            :start start
+                                            :end end
+                                            :button button
+                                            :name name
+                                            :rcv #'locs-and-refs--location-rcv))
+    loc))
 #+end_src
 
 ** Reference
@@ -903,7 +832,7 @@ integer positions. NAME is an optional string."
 #+begin_src emacs-lisp
 (defun locs-and-refs--reference-content-regex (ref)
   "Generate a regex for content of a Reference with REF's ID."
-  (locs-and-refs--regex-content (locs-and-refs--location-tag) (locs-and-refs--reference-id ref)))
+  (locs-and-refs--regex-content locs-and-refs-location-tag (locs-and-refs--reference-id ref)))
 #+end_src
 
 *** regex
@@ -962,7 +891,7 @@ The face depends on TAG."
                  'action (lambda (_button) (funcall action))
                  'lar t
                  'face (cond
-                        ((string= tag (locs-and-refs--location-tag))
+                        ((string= tag locs-and-refs-location-tag)
                          'locs-and-refs-reference-face)
                         ((string= tag (locs-and-refs--reference-tag))
                          'locs-and-refs-location-face))
@@ -985,7 +914,7 @@ A click on a button opens the associated file."
                    (erase-buffer)
                    (insert
                     (cond
-                     ((string= tag (locs-and-refs--location-tag))
+                     ((string= tag locs-and-refs-location-tag)
                       (format "List of references to the location: %S\n\n" (substring-no-properties id)))
                      ((string= tag (locs-and-refs--reference-tag))
                       (format "List of locations with id: %S\n\n" (substring-no-properties id)))))
@@ -1113,7 +1042,7 @@ A click on a button opens the associated file."
   "Activate locs-and-refs functionality for BUFFER or the current buffer."
   (let* ((this-buffer (or buffer (current-buffer)))
          (loc-regex (locs-and-refs--location-regex))
-         (loc-tag (locs-and-refs--location-tag))
+         (loc-tag locs-and-refs-location-tag)
          (ref-tag (locs-and-refs--reference-tag))
          (ref-regex (locs-and-refs--reference-regex))
          (regex (rx-to-string `(or ,loc-regex ,ref-regex)))
@@ -1342,7 +1271,6 @@ el: ${LOCS_AND_REFS_EL}
 ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
         ${TRAP}
         ./tangle-heading ${MAIN_ORG} locs-and-refs.el ${BUILD} &> ${TRACE}
-        sed -i '1,2d' ${LOCS_AND_REFS_EL} &>> ${TRACE}
         [[ -s ${TRACE} ]] && exit 1
         echo "$@"
 #+end_src
