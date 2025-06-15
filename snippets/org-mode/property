@@ -1,0 +1,13 @@
+# -*- mode: snippet -*-
+# name: property
+# key: prop
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+`(let ((level (org-current-level))
+       (name "🞎 : Proposition"))
+   (if (> level 1)
+       (concat (make-string (- level 1) ?*) " " name)
+       (concat "* " name)))`
+:PROPERTIES:
+:TYPE: a4f2ded2-4a69-4255-8460-c14096ccd9f9
+:END:

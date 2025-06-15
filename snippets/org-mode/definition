@@ -1,0 +1,13 @@
+# -*- mode: snippet -*-
+# name: definition
+# key: def
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+`(let ((level (org-current-level)))
+   (if level
+       (concat (make-string (1+ level) ?*) " Name")
+       "* Name"))`
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: `(org-id-new)`
+:END:

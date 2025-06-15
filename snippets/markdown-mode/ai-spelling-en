@@ -1,0 +1,15 @@
+# key: ai-spelling-en
+# name: ai-spelling-en
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+Let \`content\` be the name of the following Org Mode content:
+
+\`\`\`
+$0
+\`\`\`
+
+Modify the content such that:
+1. The spelling is correct.
+2. The grammar is correct.
+3. The text is simple and clear.
+4. The Org Mode markup has been preserved.

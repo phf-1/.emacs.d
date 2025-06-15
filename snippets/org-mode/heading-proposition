@@ -1,0 +1,12 @@
+# key: prop
+# name: heading-proposition
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+`(let ((level (org-current-level)))
+   (if level
+       (concat (make-string (1+ level) ?*) " Name")
+       "* Name"))`
+:PROPERTIES:
+:TYPE: 48b45dc9-acb5-4362-a0ab-484bbf20bc9e
+:ID: `(org-id-new)`
+:END:

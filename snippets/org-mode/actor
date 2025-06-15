@@ -3,27 +3,14 @@
 # key: actor
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-*${1:*} ${2:name}                                                     ${3:tag}
+*${1:*} ${2:name}                                                  
 :PROPERTIES:
 :TYPE: 549b4898-7f0e-414b-b977-a79c4e02f078
 :ID: `(org-id-new)`
 :END:
 
-**$1 Interface
-:PROPERTIES:
-:TYPE: 522ac9db-bbff-4e8c-91ac-51171095538f
-:END:
+**$1 state
 
-,message-type
+**$1 send
 
-**$1 State
-:PROPERTIES:
-:TYPE: ad9aafba-bbe1-4cc8-8263-ab58fcda778f
-:END:
-
-**$1 Computation
-:PROPERTIES:
-:TYPE: c7ca7755-a0b4-48ce-8b8c-c89093c3a4cf
-:END:
-
-,message
+**$1 rcv

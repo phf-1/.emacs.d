@@ -193,6 +193,30 @@ ${CHECKDOC}: ${LOCS_AND_REFS_EL}
 	[[ -s ${TRACE} ]] && exit 1
 	echo "$@"
 
+# test
+
+# - make test # Returns the path to the analysis of the docstrings of the elisp package.
+
+
+.PHONY: test
+TEST := ${BUILD}/test-log.txt
+LOCS_AND_REFS_TEST_EL := ${BUILD}/locs-and-refs-test.el
+test: ${TEST}
+${TEST}: ${LOCS_AND_REFS_TEST_EL}
+	${TRAP}
+	emacs -Q --batch \
+	-L ${BUILD} \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(load-file "$<")' \
+	--eval '(ert-run-tests-batch-and-exit t)' &> $@
+	echo "$@"
+
+${LOCS_AND_REFS_TEST_EL}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} locs-and-refs.el ${BUILD} &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+
 # all
 
 # - make all # Returns the path of the elisp package after lint, checkdoc and elc steps.

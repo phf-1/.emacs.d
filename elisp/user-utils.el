@@ -6,8 +6,8 @@
 
   (interactive (progn (barf-if-buffer-read-only) '(t)))
   (let ((fill-column (point-max))
-        ;; This would override `fill-column' if it's an integer.
-        (emacs-lisp-docstring-fill-column t))
+	;; This would override `fill-column' if it's an integer.
+	(emacs-lisp-docstring-fill-column t))
     (fill-paragraph nil region)))
 
 (defun dedicate-window (&optional arg)
@@ -16,7 +16,7 @@ With prefix ARG, undedicate it."
   (interactive "P")
   (set-window-dedicated-p (get-buffer-window (current-buffer)) (not arg))
   (message (if arg
-               "Window '%s' is normal"
-             "Window '%s' is dedicated")
-           (current-buffer)))
+	       "Window '%s' is normal"
+	     "Window '%s' is dedicated")
+	   (current-buffer)))
 (provide 'user-utils)

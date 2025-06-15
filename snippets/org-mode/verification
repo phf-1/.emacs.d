@@ -1,0 +1,32 @@
+# key: verif
+# name: verification
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+`(let ((level (org-current-level))
+       (name "🞎 : PropRef"))
+   (if (> level 1)
+       (concat (make-string (- level 1) ?*) " " name)
+       (concat "* " name)))`
+:PROPERTIES:
+:TYPE: cc3929be-30d4-4ea0-a8f4-23aeab08bec4
+:END:
+
+`(let ((level (org-current-level))
+       (name "Proof"))
+   (if (> level 1)
+       (concat (make-string level ?*) " " name)
+       (concat "** " name)))`
+:PROPERTIES:
+:TYPE: ba798ca5-a77e-4d74-b35a-b850c9e15515
+:END:
+
+`(let ((level (org-current-level))
+       (name "Test"))
+   (if (> level 1)
+       (concat (make-string level ?*) " " name)
+       (concat "** " name)))`
+:PROPERTIES:
+:TYPE: 4b3a00c6-006b-4d7f-b43c-3e067b78430a
+:END:
+
+

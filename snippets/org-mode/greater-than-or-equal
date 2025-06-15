@@ -1,11 +1,6 @@
 # -*- mode: snippet -*-
-# name: message-type
-# key: ,message-type
+# name: greater-than-or-equal
+# key: >=
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-${1:*} ${2:Message}
-
-*Context*
-
-*Objective*
-
+≥

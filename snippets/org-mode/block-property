@@ -1,4 +1,0 @@
-# key: prop
-# name: block-property
-# --
-#+${1:prop}: $0

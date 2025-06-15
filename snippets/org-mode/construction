@@ -1,0 +1,9 @@
+# -*- mode: snippet -*-
+# name: construction
+# key: cons
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+* Construction
+:PROPERTIES:
+:TYPE: 6629ae05-e7fc-4904-a3ed-1575c93bb145
+:END:

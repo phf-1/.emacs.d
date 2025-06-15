@@ -4,9 +4,23 @@
 
 #+name: commentary
 #+begin_src emacs-lisp
-A reference like \"[[ref:1234]]\" should be transformed into a button. A click should
-display the matching locations \"[[id:1234]]\" in files' content, file names and
-buffers. A click on a location should display the references to it.
+This minor mode allows to define locations and reference them
+to/from any text file using `ripgrep' and `fd'.
+
+For all buffers that derive from ~text-mode~ or ~prog-mode~,
+strings like \"[[id:1234]]\" or \"[[ref:1234]]\" are transformed
+into locations and references respectively.
+
+A reference or a location may be viewed as a button such that:
+- A click on a reference displays links to matching locations.
+- A click on a location displays links to matching references.
+
+Given a reference \"[[ref:1234]]\", a matching location is a
+string in a file or a buffer with the following form: \"[[id:1234]]\".
+It might also be a file named ~1234~ like ~/tmp/1234.txt~.
+
+Given a location \"[[id:1234]]\", a matching reference is a
+string in a file or a buffer with the following form: \"[[ref:1234]]\".
 
 More precisely:
 
@@ -19,8 +33,6 @@ More precisely:
   - or :REF: <ID>
   - or [[ref:<ID>]]
   - or [[ref:<ID>][<name>]]
-
-This package requires `ripgrep' and `fd'.
 #+end_src
 
 * tangle-heading
@@ -52,8 +64,8 @@ This package requires `ripgrep' and `fd'.
     (goto-char (point-min))
     (while (re-search-forward "^.*:PROPERTIES:$" nil t)
       (let ((start (line-beginning-position)))
-        (when (re-search-forward "^.*:END:\n" nil t)
-          (delete-region start (point)))))
+	(when (re-search-forward "^.*:END:\n" nil t)
+	  (delete-region start (point)))))
     (when (buffer-modified-p)
       (save-buffer))))
 (add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
@@ -70,34 +82,34 @@ that the appropriate major-mode is set.  SPEC has the form:
       ((`(,start ,file ,link ,source ,info ,body ,comment) spec)
        (comments (cdr (assq :comments info)))
        (link? (or (string= comments "both") (string= comments "link")
-                  (string= comments "yes") (string= comments "noweb")))
+		  (string= comments "yes") (string= comments "noweb")))
        (link-data `(("start-line" . ,(number-to-string start))
-                    ("file" . ,file)
-                    ("link" . ,link)
-                    ("source-name" . ,source)))
+		    ("file" . ,file)
+		    ("link" . ,link)
+		    ("source-name" . ,source)))
        (insert-comment (lambda (text)
-                         (when (and comments
-                                    (not (string= comments "no"))
-                                    (org-string-nw-p text))
-                           (if org-babel-tangle-uncomment-comments
-                               ;; Plain comments: no processing.
-                               (insert text)
-                             ;; Ensure comments are made to be comments.  Also ignore
-                             ;; invisible characters when commenting.
-                             (comment-region
-                              (point)
-                              (progn (insert (org-no-properties text))
-                                     (point))))))))
+			 (when (and comments
+				    (not (string= comments "no"))
+				    (org-string-nw-p text))
+			   (if org-babel-tangle-uncomment-comments
+			       ;; Plain comments: no processing.
+			       (insert text)
+			     ;; Ensure comments are made to be comments.  Also ignore
+			     ;; invisible characters when commenting.
+			     (comment-region
+			      (point)
+			      (progn (insert (org-no-properties text))
+				     (point))))))))
     (when comment (funcall insert-comment comment))
     (when link?
       (funcall insert-comment
-               (org-fill-template
-                org-babel-tangle-comment-format-beg link-data)))
+	       (org-fill-template
+		org-babel-tangle-comment-format-beg link-data)))
     (insert body "\n")
     (when link?
       (funcall insert-comment
-               (org-fill-template
-                org-babel-tangle-comment-format-end link-data)))))
+	       (org-fill-template
+		org-babel-tangle-comment-format-end link-data)))))
 
 (defun tangle-headline-to-dest (name dest)
   (let (pos)
@@ -281,7 +293,7 @@ This comes after buffer creation or modification."
 
 (defface locs-and-refs-location-face
   '((t (:foreground "blue"
-        :underline t)))
+	:underline t)))
   "A custom face with customizable colors."
   :group 'locs-and-refs
   :tag "Face for locations")
@@ -293,7 +305,7 @@ This comes after buffer creation or modification."
 
 (defface locs-and-refs-reference-face
   '((t (:foreground "red"
-        :underline t)))
+	:underline t)))
   "A custom face with customizable colors."
   :group 'locs-and-refs
   :tag "Face for references")
@@ -321,7 +333,7 @@ ELLIPSIS is appended to the truncated string, defaulting to ?….
 Raises an error if STRING is not a string, LENGTH is not a positive integer,
 or ELLIPSIS is not a character."
   (let ((len (or length 20))
-        (ell (char-to-string (or ellipsis ?…))))
+	(ell (char-to-string (or ellipsis ?…))))
     (unless (stringp string) (error "`string' is not a string. string = %s" string))
     (unless (and (integerp len) (< 0 len)) (error "`len' is not a strict positive integer. len = %s" len))
     (concat (substring-no-properties string 0 len) ell)))
@@ -336,43 +348,31 @@ or ELLIPSIS is not a character."
 #+end_src
 
 ** LineFileMatch
+*** Specification
 
 #+begin_src emacs-lisp
-;; LineFileMatch
-;;
 ;; An instance represents a match at a given line in some file.
 #+end_src
 
-*** API
-**** p
-**** name
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--line-file-match-name (match)
-  (locs-and-refs--send match :name))
-#+end_src
-
-**** path
-**** line
-*** Implementation
+*** Construction
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-file-match-rcv (line-file-match msg)
   (let ((path (locs-and-refs--line-file-match-path line-file-match))
-        (line (locs-and-refs--line-file-match-line line-file-match)))
+	(line (locs-and-refs--line-file-match-line line-file-match)))
     (pcase msg
       (:name
        (let ((name (file-name-nondirectory path)))
-         (format "%s" name)))
+	 (format "%s" name)))
 
       (:action
        (lambda ()
-         (find-file path)
-         (save-restriction
-           (widen)
-           (goto-char (point-min))
-           (forward-line (1- line)))
-         (recenter)))
+	 (find-file path)
+	 (save-restriction
+	   (widen)
+	   (goto-char (point-min))
+	   (forward-line (1- line)))
+	 (recenter)))
 
       (_ (error "Unexpected msg: %s" msg)))))
 
@@ -384,12 +384,40 @@ or ELLIPSIS is not a character."
   "Create a LineFileMatch object with PATH and LINE.
 PATH should be a valid file path, and LINE should be a
 non-negative integer."
-  (unless (file-exists-p path) (error "PATH does not exist"))
+  (unless (stringp path) (error "PATH does not a string. %s" path))
   (unless (and (integerp line) (<= 0 line)) (error "LINE is not a positive integer"))
   (make-locs-and-refs--line-file-match :path path :line line :rcv #'locs-and-refs--line-file-match-rcv))
 #+end_src
 
+*** Usage
+**** p
+**** name
+
+#+begin_src emacs-lisp
+(defun locs-and-refs--line-file-match-name (match)
+  (locs-and-refs--send match :name))
+#+end_src
+
+**** path
+**** line
+
+*** Verification
+:PROPERTIES:
+:header-args+: :tangle _build/locs-and-refs-test.el
+:END:
+
+#+begin_src emacs-lisp
+(require 'ert)
+(require 'locs-and-refs)
+(ert-deftest line-file-match ()
+  (let ((m (locs-and-refs--line-file-match-mk "/a/file" 12)))
+    (should (locs-and-refs--line-file-match-p m))
+    (should (string= (locs-and-refs--line-file-match-name m) "file"))
+    (should (eq (locs-and-refs--line-file-match-line m) 12))))
+#+end_src
+
 ** LineBufferMatch
+*** Specification
 
 #+begin_src emacs-lisp
 ;; LineBufferMatch
@@ -397,38 +425,25 @@ non-negative integer."
 ;; An instance represents a match at a given line in some buffer.
 #+end_src
 
-*** API
-**** p
-**** name
-
-#+begin_src emacs-lisp
-(defun locs-and-refs--line-buffer-match-name (match)
-  (locs-and-refs--send match :name))
-#+end_src
-
-**** buffer
-
-**** line
-
-*** Implementation
+*** Construction
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--line-buffer-match-rcv (match msg)
   (let ((buffer (locs-and-refs--line-buffer-match-path match))
-        (line (locs-and-refs--line-buffer-match-line match)))
+	(line (locs-and-refs--line-buffer-match-line match)))
     (pcase msg
       (:name
        (let ((name (buffer-name buffer)))
-         (format "%s" name)))
+	 (format "%s" name)))
 
       (:action
        (lambda ()
-         (switch-to-buffer-other-window buffer)
-         (save-restriction
-           (widen)
-           (goto-char (point-min))
-           (forward-line (1- line)))
-         (recenter)))
+	 (switch-to-buffer-other-window buffer)
+	 (save-restriction
+	   (widen)
+	   (goto-char (point-min))
+	   (forward-line (1- line)))
+	 (recenter)))
 
       (_ (error "Unexpected msg: %s" msg)))))
 
@@ -445,26 +460,28 @@ non-negative integer."
   (make-locs-and-refs--line-buffer-match :buffer buffer :line line :rcv #'locs-and-refs--line-buffer-match-rcv))
 #+end_src
 
-** FileMatch
-
-#+begin_src emacs-lisp
-;; FileMatch
-;;
-;; An instance represents a file match.
-#+end_src
-
-*** API
+*** Usage
 **** p
 **** name
 
 #+begin_src emacs-lisp
-(defun locs-and-refs--file-match-name (file-match)
-  ""
-  (locs-and-refs--file-match-rcv file-match :name))
+(defun locs-and-refs--line-buffer-match-name (match)
+  (locs-and-refs--send match :name))
 #+end_src
 
-**** path
-*** Implementation
+**** buffer
+
+**** line
+
+*** Verification
+** FileMatch
+*** Specification
+
+#+begin_src emacs-lisp
+;; An instance represents a file match.
+#+end_src
+
+*** Construction
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--file-match-rcv (file-match msg)
@@ -472,13 +489,13 @@ non-negative integer."
     (pcase msg
       (:name
        (let* ((name (locs-and-refs--truncate-right (file-name-nondirectory path)))
-              (ext (file-name-extension path)))
-         (format "%s.%s  %s" name ext path)))
+	      (ext (file-name-extension path)))
+	 (format "%s.%s  %s" name ext path)))
 
       (:action
        (lambda ()
-         (find-file path)
-         (recenter)))
+	 (find-file path)
+	 (recenter)))
 
       (_ (error "MATCH %s is not a FileMatch or a LineFileMatch or a LineBufferMatch" msg)))))
 
@@ -493,7 +510,20 @@ PATH should be a valid file path."
   (make-locs-and-refs--file-match :path path :rcv #'locs-and-refs--file-match-rcv))
 #+end_src
 
+*** Usage
+**** p
+**** name
+
+#+begin_src emacs-lisp
+(defun locs-and-refs--file-match-name (file-match)
+  ""
+  (locs-and-refs--file-match-rcv file-match :name))
+#+end_src
+
+**** path
+*** Verification
 ** Match
+*** Specification
 
 #+begin_src emacs-lisp
 ;; Match
@@ -501,7 +531,8 @@ PATH should be a valid file path."
 ;; An instance represents a match.
 #+end_src
 
-*** API
+*** Construction
+*** Usage
 **** p
 **** name
 
@@ -519,7 +550,9 @@ PATH should be a valid file path."
   (locs-and-refs--send match :action))
 #+end_src
 
+*** Verification
 ** Search
+*** Specification
 
 #+begin_src emacs-lisp
 ;; Search
@@ -528,7 +561,8 @@ PATH should be a valid file path."
 ;; search matching files/buffers/filenames.
 #+end_src
 
-*** API
+*** Construction
+*** Usage
 **** files
 :PROPERTIES:
 :ID:       c630d94f-987c-420a-9ef7-c78211a8a813
@@ -539,17 +573,17 @@ PATH should be a valid file path."
   "Search for REGEX in files under `locs-and-refs-root-dir' using Ripgrep.
 Returns a list of LineFileMatch objects."
   (let* ((home-directory locs-and-refs-root-dir)
-         (pattern (rxt-elisp-to-pcre (rx-to-string regex)))
-         (command (format "%s -i --no-heading -n --color=never '%s' %s" locs-and-refs-ripgrep-cmd pattern home-directory))
-         matches)
+	 (pattern (rxt-elisp-to-pcre (rx-to-string regex)))
+	 (command (format "%s -i --no-heading -n --color=never '%s' %s" locs-and-refs-ripgrep-cmd pattern home-directory))
+	 matches)
     (with-temp-buffer
       (call-process-shell-command command nil `(,(current-buffer) nil) nil)
       (goto-char (point-min))
       (while (not (eobp))
-        (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
-               (match (split-string line ":")))
-          (push (locs-and-refs--line-file-match-mk (nth 0 match) (string-to-number (nth 1 match))) matches))
-        (forward-line 1)))
+	(let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position)))
+	       (match (split-string line ":")))
+	  (push (locs-and-refs--line-file-match-mk (nth 0 match) (string-to-number (nth 1 match))) matches))
+	(forward-line 1)))
     matches))
 #+end_src
 
@@ -569,10 +603,10 @@ Returns a list of LineBufferMatch objects."
   (let ((case-fold-search t) matches)
     (dolist (buffer (buffer-list))
       (with-current-buffer buffer
-        (org-with-wide-buffer
-          (goto-char (point-min))
-          (while (re-search-forward (rx-to-string regex) nil t)
-            (push (locs-and-refs--line-buffer-match-mk buffer (locs-and-refs--line-number)) matches)))))
+	(org-with-wide-buffer
+	  (goto-char (point-min))
+	  (while (re-search-forward (rx-to-string regex) nil t)
+	    (push (locs-and-refs--line-buffer-match-mk buffer (locs-and-refs--line-number)) matches)))))
     matches))
 #+end_src
 
@@ -583,20 +617,22 @@ Returns a list of LineBufferMatch objects."
   "Search for REGEX in filenames under `locs-and-refs-root-dir' using fd.
 Returns a list of FileMatch objects."
   (let* ((home-directory locs-and-refs-root-dir)
-         (pattern (rxt-elisp-to-pcre (rx-to-string regex)))
-         (command (format "%s -a '%s' '%s'" locs-and-refs-fd-cmd pattern home-directory))
-         matches)
+	 (pattern (rxt-elisp-to-pcre (rx-to-string regex)))
+	 (command (format "%s -a '%s' '%s'" locs-and-refs-fd-cmd pattern home-directory))
+	 matches)
     (with-temp-buffer
       (call-process-shell-command command nil `(,(current-buffer) nil) nil)
       (goto-char (point-min))
       (while (not (eobp))
-        (let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position))))
-          (push (locs-and-refs--file-match-mk line) matches))
-        (forward-line 1)))
+	(let* ((line (buffer-substring-no-properties (line-beginning-position) (line-end-position))))
+	  (push (locs-and-refs--file-match-mk line) matches))
+	(forward-line 1)))
     matches))
 #+end_src
 
+*** Verification
 ** RegEx
+*** Specification
 
 #+begin_src emacs-lisp
 ;; RegEx
@@ -604,19 +640,23 @@ Returns a list of FileMatch objects."
 ;; A few utilities.
 #+end_src
 
-*** content
+*** Construction
+**** content
 
 #+begin_src emacs-lisp
 (defun locs-and-refs--regex-content (tag &optional id)
   "Generate a regex pattern for matching content with TAG and optional ID.
 ID can be either a string or a regex pattern."
   (let* ((this-id (or id '(1+ (not (or "\n" "]")))))
-         (property `(seq ":" (group ,tag) ":" (1+ space) (group ,this-id)))
-         (org-link `(seq "[[" (group ,tag) ":" (group ,this-id) "]" (opt "[" (group (0+ (not "]"))) "]") "]")))
+	 (property `(seq ":" (group ,tag) ":" (1+ space) (group ,this-id)))
+	 (org-link `(seq "[[" (group ,tag) ":" (group ,this-id) "]" (opt "[" (group (0+ (not "]"))) "]") "]")))
     `(or ,property ,org-link)))
 #+end_src
 
+*** Usage
+*** Verification
 ** Location
+*** Specification
 
 #+begin_src emacs-lisp
 ;; Location
@@ -635,7 +675,53 @@ ID can be either a string or a regex pattern."
   :group 'locs-and-refs)
 #+end_src
 
-*** API
+*** Construction
+
+#+begin_src emacs-lisp
+
+(defun locs-and-refs--location-rcv (loc msg)
+  (let ()
+    (pcase msg
+      (:todo :todo))))
+
+(cl-defstruct locs-and-refs--location
+  "Location data structure."
+  id buffer start end name rcv)
+
+(defun locs-and-refs--location-mk (id buffer start end &optional name)
+  "Create a Location object with ID, BUFFER, START, END and NAME.
+ID is a string, BUFFER must be a buffer object, START and END are
+integer positions. NAME is an optional string."
+  (unless (stringp id) (error "ID is not a string"))
+  (unless (bufferp buffer) (error "BUFFER is not a buffer"))
+  (unless (integerp start) (error "START is not an integer"))
+  (unless (integerp end) (error "END is not an integer"))
+  (let (button loc display-name)
+    (setq display-name
+	  (apply #'propertize
+		 `(,(substring-no-properties (or name (concat ":" (upcase locs-and-refs-location--tag) ": " id)))
+		   face locs-and-refs-location-face)))
+    (setq button
+	  (with-current-buffer buffer
+	    (let ((inhibit-modification-hooks t))
+	      (make-button start end
+			   'action (lambda (_button) (locs-and-refs--location-click loc))
+			   'lar t
+			   'display display-name
+			   'help-echo (format "Click to open %s" id)
+			   'follow-link t))))
+
+    (setq loc (make-locs-and-refs--location :id id
+					    :buffer buffer
+					    :start start
+					    :end end
+					    :button button
+					    :name name
+					    :rcv #'locs-and-refs--location-rcv))
+    loc))
+#+end_src
+
+*** Usage
 **** p
 
 **** id
@@ -682,10 +768,10 @@ ID can be either a string or a regex pattern."
 (defun locs-and-refs--location-click (loc)
   "Show references in a new buffer after a click on location LOC."
   (let* ((content-regex (locs-and-refs--location-content-regex loc))
-         (file-matches (locs-and-refs--search-files content-regex))
-         (buffer-matches (locs-and-refs--search-buffers content-regex))
-         (matches (append file-matches buffer-matches))
-         (id (locs-and-refs--location-id loc)))
+	 (file-matches (locs-and-refs--search-files content-regex))
+	 (buffer-matches (locs-and-refs--search-buffers content-regex))
+	 (matches (append file-matches buffer-matches))
+	 (id (locs-and-refs--location-id loc)))
     (locs-and-refs--ui-matches matches id locs-and-refs-location--tag)))
 #+end_src
 
@@ -699,53 +785,12 @@ ID can be either a string or a regex pattern."
     (apply func (cdr loc))))
 #+end_src
 
-*** Implementation
-
-#+begin_src emacs-lisp
-
-(defun locs-and-refs--location-rcv (loc msg)
-  (let ()
-    (pcase msg
-      xxx)))
-
-(cl-defstruct locs-and-refs--location
-  "Location data structure."
-  id buffer start end name rcv)
-
-(defun locs-and-refs--location-mk (id buffer start end &optional name)
-  "Create a Location object with ID, BUFFER, START, END and NAME.
-ID is a string, BUFFER must be a buffer object, START and END are
-integer positions. NAME is an optional string."
-  (unless (stringp id) (error "ID is not a string"))
-  (unless (bufferp buffer) (error "BUFFER is not a buffer"))
-  (unless (integerp start) (error "START is not an integer"))
-  (unless (integerp end) (error "END is not an integer"))
-  (let (button loc display-name)
-    (setq display-name
-          (apply #'propertize
-                 `(,(substring-no-properties (or name (concat ":" (upcase locs-and-refs-location--tag) ": " id)))
-                   face locs-and-refs-location-face)))
-    (setq button
-          (with-current-buffer buffer
-            (let ((inhibit-modification-hooks t))
-              (make-button start end
-                           'action (lambda (_button) (locs-and-refs--location-click loc))
-                           'lar t
-                           'display display-name
-                           'help-echo (format "Click to open %s" id)
-                           'follow-link t))))
-
-    (setq loc (make-locs-and-refs--location :id id
-                                            :buffer buffer
-                                            :start start
-                                            :end end
-                                            :button button
-                                            :name name
-                                            :rcv #'locs-and-refs--location-rcv))
-    loc))
-#+end_src
-
+*** Verification
 ** Reference
+*** Specification
+*** Construction
+*** Usage
+*** Verification
 
 An instance define a reference to a Location.
 A click on an instance shows all locations that it refers to.
@@ -767,18 +812,18 @@ integer positions. NAME is an optional string."
   (unless (integerp end) (error "END is not an integer"))
   (let (button ref display-name)
     (setq display-name
-          (apply #'propertize
-                   `(,(substring-no-properties (or name (concat ":" (upcase locs-and-refs-reference-tag) ": " id)))
-                     face locs-and-refs-reference-face)))
+	  (apply #'propertize
+		   `(,(substring-no-properties (or name (concat ":" (upcase locs-and-refs-reference-tag) ": " id)))
+		     face locs-and-refs-reference-face)))
     (setq button
-          (with-current-buffer buffer
-            (let ((inhibit-modification-hooks t))
-              (make-button start end
-                         'action (lambda (_button) (locs-and-refs--reference-click ref))
-                         'lar t
-                         'display display-name
-                         'help-echo (format "Click to open %s" id)
-                         'follow-link t))))
+	  (with-current-buffer buffer
+	    (let ((inhibit-modification-hooks t))
+	      (make-button start end
+			 'action (lambda (_button) (locs-and-refs--reference-click ref))
+			 'lar t
+			 'display display-name
+			 'help-echo (format "Click to open %s" id)
+			 'follow-link t))))
     (setq ref (list :reference id buffer start end button name))
     ref))
 #+end_src
@@ -870,15 +915,19 @@ integer positions. NAME is an optional string."
 (defun locs-and-refs--reference-click (ref)
   "Show matching locations in a new buffer after a click on a reference REF."
   (let* ((content-regex (locs-and-refs--reference-content-regex ref))
-         (file-matches (locs-and-refs--search-files content-regex))
-         (buffer-matches (locs-and-refs--search-buffers content-regex))
-         (filename-matches (locs-and-refs--search-filenames (locs-and-refs--reference-filename-regex ref)))
-         (matches (append file-matches buffer-matches filename-matches))
-         (id (locs-and-refs--reference-id ref)))
+	 (file-matches (locs-and-refs--search-files content-regex))
+	 (buffer-matches (locs-and-refs--search-buffers content-regex))
+	 (filename-matches (locs-and-refs--search-filenames (locs-and-refs--reference-filename-regex ref)))
+	 (matches (append file-matches buffer-matches filename-matches))
+	 (id (locs-and-refs--reference-id ref)))
     (locs-and-refs--ui-matches matches id locs-and-refs-reference-tag)))
 #+end_src
 
 ** UI
+*** Specification
+*** Construction
+*** Usage
+*** Verification
 *** insert-button
 
 - Name Action → Button
@@ -888,15 +937,15 @@ integer positions. NAME is an optional string."
   "Insert a clickable button with NAME and ACTION in the current buffer.
 The face depends on TAG."
   (insert-button name
-                 'action (lambda (_button) (funcall action))
-                 'lar t
-                 'face (cond
-                        ((string= tag locs-and-refs-location-tag)
-                         'locs-and-refs-reference-face)
-                        ((string= tag (locs-and-refs--reference-tag))
-                         'locs-and-refs-location-face))
-                 'help-echo (format "Click to open %s" name)
-                 'follow-link t))
+		 'action (lambda (_button) (funcall action))
+		 'lar t
+		 'face (cond
+			((string= tag locs-and-refs-location-tag)
+			 'locs-and-refs-reference-face)
+			((string= tag (locs-and-refs--reference-tag))
+			 'locs-and-refs-location-face))
+		 'help-echo (format "Click to open %s" name)
+		 'follow-link t))
 #+end_src
 
 *** matches
@@ -910,54 +959,54 @@ Opens a new dedicated frame and switches to the buffer in that frame.
 For each match, a button is inserted in the buffer.
 A click on a button opens the associated file."
   (let* ((buffer (with-current-buffer (generate-new-buffer locs-and-refs-results-buffer-prefix)
-                   (setq buffer-read-only nil)
-                   (erase-buffer)
-                   (insert
-                    (cond
-                     ((string= tag locs-and-refs-location-tag)
-                      (format "List of references to the location: %S\n\n" (substring-no-properties id)))
-                     ((string= tag (locs-and-refs--reference-tag))
-                      (format "List of locations with id: %S\n\n" (substring-no-properties id)))))
-                   (setq buffer-read-only t)
-                   (current-buffer)))
-         (insert-button
-          (lambda (match)
-            (with-current-buffer buffer
-              (locs-and-refs--ui-insert-button
-               (locs-and-refs--match-name match)
-               (locs-and-refs--match-action match)
-               tag)
-              (insert "\n")))))
+		   (setq buffer-read-only nil)
+		   (erase-buffer)
+		   (insert
+		    (cond
+		     ((string= tag locs-and-refs-location-tag)
+		      (format "List of references to the location: %S\n\n" (substring-no-properties id)))
+		     ((string= tag (locs-and-refs--reference-tag))
+		      (format "List of locations with id: %S\n\n" (substring-no-properties id)))))
+		   (setq buffer-read-only t)
+		   (current-buffer)))
+	 (insert-button
+	  (lambda (match)
+	    (with-current-buffer buffer
+	      (locs-and-refs--ui-insert-button
+	       (locs-and-refs--match-name match)
+	       (locs-and-refs--match-action match)
+	       tag)
+	      (insert "\n")))))
     (with-current-buffer buffer
       (setq buffer-read-only nil)
       (let (line-buffer-matches line-file-matches file-matches)
-        (setq file-matches
-              (alist-get t (seq-group-by #'locs-and-refs--file-match-p matches)))
+	(setq file-matches
+	      (alist-get t (seq-group-by #'locs-and-refs--file-match-p matches)))
 
-        (setq line-file-matches
-              (alist-get t (seq-group-by #'locs-and-refs--line-file-match-p matches)))
+	(setq line-file-matches
+	      (alist-get t (seq-group-by #'locs-and-refs--line-file-match-p matches)))
 
-        (setq line-buffer-matches
-              (alist-get t (seq-group-by #'locs-and-refs--line-buffer-match-p matches)))
+	(setq line-buffer-matches
+	      (alist-get t (seq-group-by #'locs-and-refs--line-buffer-match-p matches)))
 
-        (when line-buffer-matches
-          (insert "* Lines that matched in buffers\n\n")
-          (mapc insert-button line-buffer-matches)
-          (insert "\n"))
+	(when line-buffer-matches
+	  (insert "* Lines that matched in buffers\n\n")
+	  (mapc insert-button line-buffer-matches)
+	  (insert "\n"))
 
-        (when line-file-matches
-          (insert "* Lines that matched in files\n\n")
-          (mapc insert-button line-file-matches)
-          (insert "\n"))
+	(when line-file-matches
+	  (insert "* Lines that matched in files\n\n")
+	  (mapc insert-button line-file-matches)
+	  (insert "\n"))
 
-        (when file-matches
-          (insert "* Files that matched by name\n\n")
-          (mapc insert-button file-matches)
-          (insert "\n")))
+	(when file-matches
+	  (insert "* Files that matched by name\n\n")
+	  (mapc insert-button file-matches)
+	  (insert "\n")))
       (setq buffer-read-only t))
     (let* ((frame (make-frame `((name . ,locs-and-refs-results-buffer-prefix)
-                                (dedicated . t))))
-           (window (frame-root-window frame)))
+				(dedicated . t))))
+	   (window (frame-root-window frame)))
       (set-window-buffer window buffer)
       (set-window-dedicated-p window t))
     buffer))
@@ -965,9 +1014,12 @@ A click on a button opens the associated file."
 
 ** Minor mode
 
-- Make sure that locations and references are activated in all buffers at all times
-- as long as they derive from `text-mode' or `prog-mode'.
 #+begin_src emacs-lisp
+(defun locs-and-refs--stop-buffer ()
+  (remove-overlays nil nil 'lar t)
+  (when locs-and-refs--timer
+    (cancel-timer locs-and-refs--timer)
+    (kill-local-variable 'locs-and-refs--timer)))
 #+end_src
 
 #+begin_src emacs-lisp
@@ -991,41 +1043,20 @@ A click on a button opens the associated file."
     (with-current-buffer buffer
       (when locs-and-refs--timer (cancel-timer locs-and-refs--timer))
       (setq-local locs-and-refs--timer
-                  (run-with-idle-timer
-                   locs-and-refs-delay
-                   nil
-                   (lambda ()
-                     (when (buffer-live-p buffer)
-                       (locs-and-refs--activate-buffer buffer))))))))
+		  (run-with-idle-timer
+		   locs-and-refs-delay
+		   nil
+		   (lambda ()
+		     (when (buffer-live-p buffer)
+		       (locs-and-refs--start-buffer buffer))))))))
 
 (defun locs-and-refs--delete-search-results-buffer (frame)
   "Kill L&R search buffers associated with FRAME."
   (let ((prefix locs-and-refs-results-buffer-prefix))
     (dolist (buffer (frame-parameter frame 'buffer-list))
       (when (and (buffer-live-p buffer)
-                 (string-prefix-p prefix (buffer-name buffer)))
-        (kill-buffer buffer)))))
-
-(defun locs-and-refs--activate ()
-  "Activate the main functionality of locs-and-refs mode."
-  (locs-and-refs--check-ripgrep)
-  (locs-and-refs--check-fd)
-  (locs-and-refs--activate-buffers (buffer-list))
-  (add-hook 'after-change-major-mode-hook #'locs-and-refs--activate-buffer)
-  (add-hook 'after-change-functions #'locs-and-refs--mutated)
-  (add-to-list 'delete-frame-functions #'locs-and-refs--delete-search-results-buffer))
-
-(defun locs-and-refs--deactivate ()
-  "Deactivate the main functionality of locs-and-refs mode."
-  (remove-hook 'after-change-major-mode-hook #'locs-and-refs--activate-buffer)
-  (remove-hook 'after-change-functions #'locs-and-refs--mutated)
-  (remove #'locs-and-refs--delete-search-results-buffer delete-frame-functions)
-  (dolist (buffer (buffer-list))
-    (with-current-buffer buffer
-      (remove-overlays nil nil 'lar t)
-      (when locs-and-refs--timer
-        (cancel-timer locs-and-refs--timer)
-        (kill-local-variable 'locs-and-refs--timer)))))
+		 (string-prefix-p prefix (buffer-name buffer)))
+	(kill-buffer buffer)))))
 #+end_src
 
 #+begin_src emacs-lisp
@@ -1034,53 +1065,65 @@ A click on a button opens the associated file."
   (let (groups)
     (dotimes (i (/ (length (match-data)) 2))
       (when (> i 0)
-        (let ((group (match-string i)))
-          (when group (push group groups)))))
+	(let ((group (match-string i)))
+	  (when group (push group groups)))))
     (nreverse groups)))
 
-(defun locs-and-refs--activate-buffer (&optional buffer)
+(defun locs-and-refs--start-buffer (&optional buffer)
   "Activate locs-and-refs functionality for BUFFER or the current buffer."
   (let* ((this-buffer (or buffer (current-buffer)))
-         (loc-regex (locs-and-refs--location-regex))
-         (loc-tag locs-and-refs-location-tag)
-         (ref-tag (locs-and-refs--reference-tag))
-         (ref-regex (locs-and-refs--reference-regex))
-         (regex (rx-to-string `(or ,loc-regex ,ref-regex)))
-         (case-fold-search t)
-         groups tag id name)
+	 (loc-regex (locs-and-refs--location-regex))
+	 (loc-tag locs-and-refs-location-tag)
+	 (ref-tag (locs-and-refs--reference-tag))
+	 (ref-regex (locs-and-refs--reference-regex))
+	 (regex (rx-to-string `(or ,loc-regex ,ref-regex)))
+	 (case-fold-search t)
+	 groups tag id name)
     (with-current-buffer this-buffer
       (when (derived-mode-p 'text-mode 'prog-mode)
-        (save-excursion
-          (dolist (ov (overlays-in (point-min) (point-max)))
-            (when (overlay-get ov 'lar) (delete-overlay ov)))
-          (goto-char (point-min))
-          (save-match-data
-            (while (re-search-forward regex nil t)
-              (setq groups (locs-and-refs--regex-groups))
-              (setq tag (car groups))
-              (setq id (seq-find #'identity (cdr groups)))
-              (setq name (nth 2 groups))
-              (cond
-               ((string= (downcase tag) loc-tag)
-                (locs-and-refs--location-mk
-                 id
-                 this-buffer
-                 (match-beginning 0)
-                 (match-end 0)
-                 name))
-               ((string= (downcase tag) ref-tag)
-                (locs-and-refs--reference-mk
-                 id
-                 this-buffer
-                 (match-beginning 0)
-                 (match-end 0)
-                 name))))))))))
+	(save-excursion
+	  (dolist (ov (overlays-in (point-min) (point-max)))
+	    (when (overlay-get ov 'lar) (delete-overlay ov)))
+	  (goto-char (point-min))
+	  (save-match-data
+	    (while (re-search-forward regex nil t)
+	      (setq groups (locs-and-refs--regex-groups))
+	      (setq tag (car groups))
+	      (setq id (seq-find #'identity (cdr groups)))
+	      (setq name (nth 2 groups))
+	      (cond
+	       ((string= (downcase tag) loc-tag)
+		(locs-and-refs--location-mk
+		 id
+		 this-buffer
+		 (match-beginning 0)
+		 (match-end 0)
+		 name))
+	       ((string= (downcase tag) ref-tag)
+		(locs-and-refs--reference-mk
+		 id
+		 this-buffer
+		 (match-beginning 0)
+		 (match-end 0)
+		 name))))))))))
+#+end_src
+
+
+#+begin_src emacs-lisp
+(defun locs-and-refs--start ()
+  "Start locs-and-refs minor mode.
+For all buffers or new buffers, start a locs-and-refs process."
+  (mapcar #'locs-and-refs--start-buffer (buffer-list))
+  (add-hook 'after-change-major-mode-hook #'locs-and-refs--start-buffer))
 #+end_src
 
 #+begin_src emacs-lisp
-(defun locs-and-refs--activate-buffers (buffers)
-  "Activate locs-and-refs functionality for all buffers in BUFFERS."
-  (mapcar #'locs-and-refs--activate-buffer buffers))
+(defun locs-and-refs--stop ()
+  "Stop locs-and-refs minor mode.
+For all new buffers, do not start an associated locs-and-refs process.
+For all buffers, stop the associated locs-and-refs process."
+  (remove-hook 'after-change-major-mode-hook #'locs-and-refs--start-buffer)
+  (mapcar #'locs-and-refs--stop-buffer (buffer-list)))
 #+end_src
 
 #+begin_src emacs-lisp
@@ -1095,8 +1138,8 @@ A click on a button opens the associated file."
   :group 'locs-and-refs
   :global t
   (if locs-and-refs-mode
-      (locs-and-refs--activate)
-    (locs-and-refs--deactivate)))
+      (locs-and-refs--start)
+    (locs-and-refs--stop)))
 #+end_src
 
 ** Footer
@@ -1138,7 +1181,7 @@ MAKEFLAGS += --no-print-directory
 #+begin_src makefile
 .PHONY: help
 help:
-        grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
+	grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
 #+end_src
 
 ** BUILD
@@ -1148,7 +1191,7 @@ help:
 #+begin_src makefile
 BUILD := _build
 ${BUILD}:
-        mkdir -p $@
+	mkdir -p $@
 #+end_src
 
 ** TRACE
@@ -1184,10 +1227,10 @@ MAIN_ORG := README.org
 TANGLE_HEADING := ${BUILD}/tangle-heading
 tangle-heading: ${TANGLE_HEADING}
 ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
-        ${TRAP}
-        ./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
-        cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
-        tail -n 1 ${TRACE}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
+	cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
+	tail -n 1 ${TRACE}
 #+end_src
 
 ** Makefile
@@ -1199,10 +1242,10 @@ ${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
 MAKEFILE := ${BUILD}/Makefile
 Makefile: ${MAKEFILE}
 ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
-        ${TRAP}
-        ./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
-        cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
-        tail -n 1 ${TRACE}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
+	cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
+	tail -n 1 ${TRACE}
 #+end_src
 
 ** packages.scm
@@ -1214,9 +1257,9 @@ ${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
 PACKAGES_SCM := ${BUILD}/packages.scm
 packages.scm: ${PACKAGES_SCM}
 ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
-        ${TRAP}
-        ./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
-        echo "$@"
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
+	echo "$@"
 #+end_src
 
 ** init.bash
@@ -1228,9 +1271,9 @@ ${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
 INIT_BASH := ${BUILD}/init.bash
 init.bash: ${INIT_BASH}
 ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
-        ${TRAP}
-        ./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
-        echo "$@"
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
+	echo "$@"
 #+end_src
 
 ** env
@@ -1241,23 +1284,23 @@ ${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
 .PHONY: env
 GUIX := guix
 GUIX_SHELL := ${GUIX} shell --container \
-        -F \
-        -N \
-        --file=${PACKAGES_SCM} \
-        --preserve='^TERM$$' \
-        -- bash --init-file ${INIT_BASH}
+	-F \
+	-N \
+	--file=${PACKAGES_SCM} \
+	--preserve='^TERM$$' \
+	-- bash --init-file ${INIT_BASH}
 env: ${PACKAGES_SCM} ${INIT_BASH}
-        CMD="${CMD}"
-        if [[ ! -v GUIX_ENVIRONMENT ]]; then
-          if [[ "$${CMD}" == "" ]]; then
-            ${GUIX_SHELL} -i;
-          else
-            ${GUIX_SHELL} -c "${CMD}";
-          fi
-        else
-          ${CMD}
-          :
-        fi
+	CMD="${CMD}"
+	if [[ ! -v GUIX_ENVIRONMENT ]]; then
+	  if [[ "$${CMD}" == "" ]]; then
+	    ${GUIX_SHELL} -i;
+	  else
+	    ${GUIX_SHELL} -c "${CMD}";
+	  fi
+	else
+	  ${CMD}
+	  :
+	fi
 #+end_src
 
 ** el
@@ -1269,10 +1312,10 @@ env: ${PACKAGES_SCM} ${INIT_BASH}
 LOCS_AND_REFS_EL := ${BUILD}/locs-and-refs.el
 el: ${LOCS_AND_REFS_EL}
 ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
-        ${TRAP}
-        ./tangle-heading ${MAIN_ORG} locs-and-refs.el ${BUILD} &> ${TRACE}
-        [[ -s ${TRACE} ]] && exit 1
-        echo "$@"
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} locs-and-refs.el ${BUILD} &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
 #+end_src
 
 ** elc
@@ -1284,13 +1327,13 @@ ${LOCS_AND_REFS_EL}: ${MAIN_ORG} | ${BUILD}
 LOCS_AND_REFS_ELC := ${BUILD}/locs-and-refs.elc
 elc: ${LOCS_AND_REFS_ELC}
 ${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
-        ${TRAP}
-        emacs -Q --batch \
-        --eval '(setq org-id-track-globally nil)' \
-        --eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
-        -f batch-byte-compile $< &> ${TRACE}
-        [[ -s ${TRACE} ]] && exit 1
-        echo "$@"
+	${TRAP}
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
+	-f batch-byte-compile $< &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
 #+end_src
 
 ** lint
@@ -1302,14 +1345,14 @@ ${LOCS_AND_REFS_ELC}: ${LOCS_AND_REFS_EL}
 LINT_REPORT := ${BUILD}/lint-report.txt
 lint: ${LINT_REPORT}
 ${LINT_REPORT}: ${LOCS_AND_REFS_EL}
-        ${TRAP}
-        emacs --batch \
-        --file $< \
-        --eval '(setq org-id-track-globally nil)' \
-        --eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
-        --eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
-        [[ -s ${TRACE} ]] && exit 1
-        echo "$@"
+	${TRAP}
+	emacs --batch \
+	--file $< \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
+	--eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
 #+end_src
 
 ** checkdoc
@@ -1321,12 +1364,37 @@ ${LINT_REPORT}: ${LOCS_AND_REFS_EL}
 CHECKDOC := ${BUILD}/checkdoc.txt
 checkdoc: ${CHECKDOC}
 ${CHECKDOC}: ${LOCS_AND_REFS_EL}
-        ${TRAP}
-        emacs -Q --batch \
-        --eval '(setq org-id-track-globally nil)' \
-        --eval '(checkdoc-file "$<")' &> ${TRACE}
-        [[ -s ${TRACE} ]] && exit 1
-        echo "$@"
+	${TRAP}
+	emacs -Q --batch \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(checkdoc-file "$<")' &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
+#+end_src
+
+** test
+
+- make test # Returns the path to the analysis of the docstrings of the elisp package.
+
+#+begin_src makefile
+.PHONY: test
+TEST := ${BUILD}/test-log.txt
+LOCS_AND_REFS_TEST_EL := ${BUILD}/locs-and-refs-test.el
+test: ${TEST}
+${TEST}: ${LOCS_AND_REFS_TEST_EL}
+	${TRAP}
+	emacs -Q --batch \
+	-L ${BUILD} \
+	--eval '(setq org-id-track-globally nil)' \
+	--eval '(load-file "$<")' \
+	--eval '(ert-run-tests-batch-and-exit t)' &> $@
+	echo "$@"
+
+${LOCS_AND_REFS_TEST_EL}: ${MAIN_ORG} | ${BUILD}
+	${TRAP}
+	./tangle-heading ${MAIN_ORG} locs-and-refs.el ${BUILD} &> ${TRACE}
+	[[ -s ${TRACE} ]] && exit 1
+	echo "$@"
 #+end_src
 
 ** all
@@ -1336,9 +1404,9 @@ ${CHECKDOC}: ${LOCS_AND_REFS_EL}
 #+begin_src makefile
 .PHONY: all
 all: ${BUILD}
-        ${TRAP}
-        ${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
-        echo ${LOCS_AND_REFS_EL}
+	${TRAP}
+	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
+	echo ${LOCS_AND_REFS_EL}
 #+end_src
 
 ** clean
@@ -1348,5 +1416,5 @@ all: ${BUILD}
 #+begin_src makefile
 .PHONY: clean
 clean:
-        rm -rfv ${BUILD}
+	rm -rfv ${BUILD}
 #+end_src

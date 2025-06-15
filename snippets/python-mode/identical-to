@@ -1,6 +1,5 @@
-# -*- mode: snippet -*-
-# name: empty-set
-# key: O/
+# key: :---
+# name: identical-to
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-∅
+:≡

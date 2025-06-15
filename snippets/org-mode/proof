@@ -1,0 +1,11 @@
+# key: proof
+# name: proof
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+`(let ((level (org-current-level)))
+   (if level
+       (concat (make-string (1+ level) ?*) " Proof")
+       "* Proof"))`
+:PROPERTIES:
+:TYPE: ef106d98-a27a-488d-8184-8f671deaed15
+:END:

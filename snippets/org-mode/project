@@ -1,0 +1,47 @@
+# key: project
+# name: project
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+# :TYPE: 87a591cc-e0a4-4f1a-9df9-8f79eddb0703
+# :ID: `(org-id-new)`
+
+#+PROPERTY: header-args :noweb yes :mkdirp yes :results no
+
+* Introduction
+:PROPERTIES:
+:TYPE: 3399faec-e666-4f62-b755-ea930659c00e
+:END:
+
+* Specification
+:PROPERTIES:
+:TYPE: ea443b26-e53b-4643-a681-eebfc31330df
+:END:
+
+prop
+
+* Solution
+:PROPERTIES:
+:TYPE: ef106d98-a27a-488d-8184-8f671deaed15
+:END:
+
+* Verification
+:PROPERTIES:
+:TYPE: f90c64de-b391-43a6-8098-fa073e6298a6
+:END:
+
+verif
+
+* Discussion
+:PROPERTIES:
+:TYPE: 11584ed0-0f3c-4995-87c8-41ad1bd46f59
+:END:
+
+* Conclusion
+:PROPERTIES:
+:TYPE: 9b310f6a-75a8-4342-841b-026f238621e2
+:END:
+
+* Send
+:PROPERTIES:
+:TYPE: f27d8cbc-988e-4545-8e34-842c2ebd97ed
+:END:

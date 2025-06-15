@@ -1,6 +1,6 @@
 # -*- mode: snippet -*-
-# name: empty-set
-# key: O/
+# name: clearpage
+# key: clearpage
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-∅
+@@latex:\clearpage{}@@

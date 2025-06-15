@@ -4,22 +4,29 @@
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
 `(let ((level (org-current-level)))
-   (if level
-       (concat (make-string (1+ level) ?*) " Exercise")
-       "* Exercise"))`
+   (if (> level 2)
+       (concat (make-string (- level 1) ?*) " Exercise")
+       "** Exercise"))`
 :PROPERTIES:
 :TYPE: b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8
 :ID: `(org-id-new)`
 :END:
 
 `(let ((level (org-current-level)))
-   (if level
-       (concat (make-string (+ 2 level) ?*) " Question")
-       "** Question"))`
+   (if (> level 2)
+       (concat (make-string level ?*) " Question")
+       "*** Question"))`
 
 $0
 
 `(let ((level (org-current-level)))
-   (if level
-       (concat (make-string (+ 2 level) ?*) " Answer")
-       "** Answer"))`
+   (if (> level 2)
+       (concat (make-string level ?*) " Answer")
+       "*** Answer"))`
+
+*content*
+
+
+
+*source*
+

@@ -1,8 +1,11 @@
 # -*- mode: snippet -*-
 # name: specification
-# key: specification
+# key: spec
 # --
-*$1 Specification
+`(let ((level (org-current-level)))
+   (if level
+       (concat (make-string (1+ level) ?*) " Specification")
+       "* Specification"))`
 :PROPERTIES:
-:TYPE: Specification 97ff1d37-612e-4324-818a-367481a38bf2
+:TYPE: e417e440-5951-41e8-8eab-a433b1985035
 :END:
