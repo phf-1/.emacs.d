@@ -1,7 +1,14 @@
 * Definitions are mapped to exercises
-** TODO Iteration 1
+** DONE Iteration 1
 
-~M-x total-recall~ ⇒ Print report, simulate the rest.
+1. Simulate:
+   1. FilePath :≡ Path of a directory in the local file-system.
+   2. DirPath :≡ Path of a directory in the local file-system.
+   3. Report
+   4. TotalRecall
+   5. IO
+
+2. Implement: total-recall()
 
 ** TODO Iteration 2
 
@@ -57,100 +64,3 @@ report has been written to a dedicated report buffer.
 
 - to_exercise : Definition → Exercise
   - λ def :≡ Exercise#mk def#id() "Definition?" def#content() def#perspective()
-
-
-*Algorithm*
-
-total-recall() : Proposition :≡
-  1. db-path : FilePath
-  2. root : DirPath
-  3. io-buffer : Name
-  4. total-recall :≡ TotalRecall#mk root db-path
-  5. io :≡ IO#mk io-buffer
-  1. report :≡ total-recall#start()
-  2. io#print-to-buffer report#string()
-  3. io#minibuffer "total-recall execution finished. Report written to #{io#buffer()}".
-
-
-- FilePath :≡ Path of a directory in the local file-system.
-
-
-- DirPath :≡ Path of a directory in the local file-system.
-
-
-- IO#mk : Name → IO
-  - π#print-to-buffer : String → IO
-  - π#print-to-minibuffer : String → IO
-  - π#buffer() : Buffer
-
-
-- TotalRecall#mk : root:DirPath db-path:FilePath → TotalRecall
-  - π#start() : Report :≡
-    1. searcher :≡ Searcher#mk root
-    2. db :≡ DB#mk db-path
-    3. ui :≡ UI#mk()
-    4. planner :≡ Planner#mk db
-    5. files-counter : Nat :≡ 0
-    6. exercises-counter : Nat :≡ 0
-    7. report :≡ Report#mk()
-    8. report#add "TotalRecall started."
-    9. report#add "Definitions and exercises under #{root} will be reviewed."
-    10. report#add "Review results will be saved in #{db-path}."
-    11. files :≡ searcher#files()
-    12. π#next-file()
-
-  - π#next-file() : Report :≡
-    - match files
-      - [ ] → π#stop()
-      - [file-path] + rest →
-        1. files :≡ rest
-        2. report#add "Reviewing exercises from file: #{file-path}."
-        3. exercises :≡ planner#exercises file-path
-        4. π#next-exercise()
-
-  - π#next-exercise() : Report :≡
-    - match exercises
-      - [ ] →
-        1. files-counter :≡ files-counter + 1
-        2. π#next-file()
-      - [exercise] + rest →
-        1. exercises :≡ rest
-        2. report#add "Reviewing exercise: #{string-join(exercise#path())}."
-        3. match ui#show exercise
-           - 'stop → π#stop()
-           - rating : Rating →
-             1. exercises-counter :≡ exercises-counter + 1
-             2. db#save exercise rating
-             3. π#next-exercise()
-
-  - π#stop() : Report :≡
-    1. db#stop()
-    2. report#add "Reviewing process is finished."
-    3. report#add "#{exercises-counter} exercises or definitions have been reviewed from #{files-counter} files."
-    4. report
-
-- Report#mk() : Report
-  - π#string() : String
-  - π#add : String → Report
-
-- DB#mk : FilePath → DB
-  - π#save : Exercise Rating → DB
-  - π#stop() : 'ok
-
-- Searcher#mk : root:DirPath → Searcher
-  - π#files() : List(ContentFile(root))
-
-- Planner#mk : DB → Planner
-  - π#exercises : FilePath → List(Exercise)
-
-- UI#mk : UI
-  - π#show : Exercise → Rating | 'stop
-
-
-- Id
-- Question
-
-- Answer
-- Rating#mk : Rating
-
-- ContentFile(root:DirPath) :≡ FilePath prefixed by root that contains at least one definition or exercise.
