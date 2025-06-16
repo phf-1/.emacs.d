@@ -1,6 +1,8 @@
-#+PROPERTY: header-args :noweb yes :mkdirp yes
+# :ID:       cdbad43e-8627-4918-9881-0340cab623b5
 
-* Objective
+#+PROPERTY: header-args:emacs-lisp :noweb yes :mkdirp yes :tangle total-recall.el
+
+* Commentary
 :PROPERTIES:
 :ID:       2b6a2d42-bfd0-4658-b25a-b1b7000d1b01
 :END:
@@ -83,230 +85,7 @@ When interpreted with the `locs-and-refs' package, it lets you display
 the exercise in context in another frame.
 #+end_src
 
-* tangle-heading
-:PROPERTIES:
-:header-args+: :tangle tangle-heading :shebang "#!/usr/bin/env -S emacs --script"
-:END:
-
-- ~./tangle-heading file.org file.el directory~
-  - Give ~file.org~
-  - tangles the heading named ~file.el~ into ~./file.el~
-  - moves the resulting file under ~directory~
-
-#+begin_src emacs-lisp
-(require 'org)
-(require 'ob-core)
-
-(setq org-id-track-globally nil)
-
-;; Set Scheme implementation to Guile
-(require 'ob-scheme)
-(setq-default geiser-scheme-implementation 'guile)
-
-(setq make-backup-files nil)
-(setq auto-save-default nil)
-
-(defun user--org-remove-property-drawers ()
-  "After tangling, remove all :PROPERTIES: drawers."
-  (save-excursion
-    (goto-char (point-min))
-    (while (re-search-forward "^.*:PROPERTIES:$" nil t)
-      (let ((start (line-beginning-position)))
-	(when (re-search-forward "^.*:END:\n" nil t)
-	  (delete-region start (point)))))
-    (when (buffer-modified-p)
-      (save-buffer))))
-(add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
-
-(defun org-babel-spec-to-string (spec)
-  "Insert SPEC into the current file.
-
-Insert the source-code specified by SPEC into the current source
-code file.  This function uses `comment-region' which assumes
-that the appropriate major-mode is set.  SPEC has the form:
-
-  (start-line file link source-name params body comment)"
-  (pcase-let*
-      ((`(,start ,file ,link ,source ,info ,body ,comment) spec)
-       (comments (cdr (assq :comments info)))
-       (link? (or (string= comments "both") (string= comments "link")
-		  (string= comments "yes") (string= comments "noweb")))
-       (link-data `(("start-line" . ,(number-to-string start))
-		    ("file" . ,file)
-		    ("link" . ,link)
-		    ("source-name" . ,source)))
-       (insert-comment (lambda (text)
-			 (when (and comments
-				    (not (string= comments "no"))
-				    (org-string-nw-p text))
-			   (if org-babel-tangle-uncomment-comments
-			       ;; Plain comments: no processing.
-			       (insert text)
-			     ;; Ensure comments are made to be comments.  Also ignore
-			     ;; invisible characters when commenting.
-			     (comment-region
-			      (point)
-			      (progn (insert (org-no-properties text))
-				     (point))))))))
-    (when comment (funcall insert-comment comment))
-    (when link?
-      (funcall insert-comment
-	       (org-fill-template
-		org-babel-tangle-comment-format-beg link-data)))
-    (insert body "\n")
-    (when link?
-      (funcall insert-comment
-	       (org-fill-template
-		org-babel-tangle-comment-format-end link-data)))))
-
-(defun tangle-headline-to-dest (name dest)
-  (let (pos)
-    (when (not (file-directory-p dest)) (error "Destination directory `%s' does not exist." dest))
-    (org-with-wide-buffer
-     (save-excursion
-       (setq pos (org-find-exact-headline-in-buffer name (current-buffer) t))
-       (when (null pos) (error "Heading named `%s' not found." name))
-       (goto-char pos)
-       (org-narrow-to-subtree)
-       (org-babel-tangle)
-       (when (not (file-exists-p name)) (error "Tangling `%s' did not build matching file." name))
-       (rename-file name (concat (file-name-as-directory dest) name) t)))))
-
-;; Silence messages.
-(fset 'message (lambda (&rest args) nil))
-
-(let ((org-file (pop argv))
-      (heading-name (pop argv))
-      (dest-dir (pop argv)))
-  (with-current-buffer (find-file-noselect org-file)
-    (tangle-headline-to-dest heading-name dest-dir)))
-#+end_src
-
-* packages.scm
-:PROPERTIES:
-:header-args+: :tangle packages.scm
-:END:
-
-- List of Guix packages.
-
-** locale
-
-- Guix package that provides utf8 locale.
-
-#+name: locale
-#+begin_src scheme
-(use-modules (gnu packages base))
-(define locale
-  (make-glibc-utf8-locales
-   glibc
-   #:locales (list "en_US")
-   #:name "glibc-en-utf8-locales"))
-#+end_src
-
-** elisp-packages
-
-- List of Elisp guix packages.
-
-#+name: elisp-packages
-#+begin_src scheme
-(use-modules (gnu packages emacs-xyz))
-(define elisp-packages (list emacs-package-lint emacs-org))
-#+end_src
-
-** binaries
-
-- List of Guix packages that provides binaries.
-
-#+name: binaries
-#+begin_src scheme
-(use-modules
- (gnu packages base)
- (gnu packages bash)
- (gnu packages emacs)
- (gnu packages rust-apps)
- (gnu packages certs)
- (gnu packages admin)
- (gnu packages build-tools))
-
-(define binaries
-  (list
-
-   ;; build dependencies
-   ;; bash-minimal
-   bash
-   coreutils
-   gnu-make
-   emacs
-   sed
-   nss-certs
-
-   ;; runtime dependencies
-   ripgrep
-   fd))
-#+end_src
-
-** ■
-
-#+begin_src scheme
-`(,locale ,@elisp-packages ,@binaries)
-#+end_src
-
-* init.bash
-:PROPERTIES:
-:header-args+: :tangle init.bash
-:END:
-
-- File that contains Bash environment variable declarations.
-
-#+begin_src bash
-export LC_ALL=en_US.UTF-8
-#+end_src
-
-* Specification
-
-** Definition
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: f7272647-d92e-4893-a98b-1355807301fc
-:END:
-
-
-
-** Definition
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 70342229-3625-40de-a079-385a60ed7999
-:END:
-
-~searcher~ is an actor such that:
-- searcher#search() : List of absolute paths to files that contain at least one
-  review element and is located under root.
-
-** Proposition
-:PROPERTIES:
-:TYPE: 48b45dc9-acb5-4362-a0ab-484bbf20bc9e
-:ID: ee9eb54c-6edb-4874-9b8b-0cf7a77b1035
-:END:
-
-Emacs#total-recall() : Lets the user review all its review elements located in files
-under root.
-
-*** Proof
-:PROPERTIES:
-:TYPE: ef106d98-a27a-488d-8184-8f671deaed15
-:END:
-
-Emacs#total-recall() :≡
-1. files :≡ [[ref:70342229-3625-40de-a079-385a60ed7999][searcher]]#search()
-2. review_elements :≡ files#map(review_elements())#concat()
-3. ui#display(review_elements)
-
-* total-recall.el
-:PROPERTIES:
-:header-args+: :tangle total-recall.el
-:ID:       cdbad43e-8627-4918-9881-0340cab623b5
-:END:
-** Header
+* Header
 
 #+begin_src emacs-lisp
 ;;; total-recall.el --- Spaced repetition system -*- lexical-binding: t; -*-
@@ -316,7 +95,7 @@ Emacs#total-recall() :≡
 ;; Maintainer: Pierre-Henry FRÖHRING <contact@phfrohring.com>
 ;; Homepage: https://github.com/phf-1/total-recall
 ;; Package-Version: 0.9
-;; Package-Requires: ((emacs "30.1"))
+;; Package-Requires: ((emacs "29.4"))
 ;; SPDX-License-Identifier: GPL-3.0-or-later
 ;;
 ;; This program is free software; you can redistribute it and/or modify
@@ -333,7 +112,7 @@ Emacs#total-recall() :≡
 ;;; Code:
 #+end_src
 
-** Dependencies
+* Dependencies
 
 #+begin_src emacs-lisp
 ;; Dependencies
@@ -342,15 +121,15 @@ Emacs#total-recall() :≡
 #+begin_src emacs-lisp
 (unless (sqlite-available-p)
   (error "Emacs must be compiled with built-in support for SQLite databases"))
+(require 'cl-generic)
 (require 'org)
 (require 'time-date)
 (require 'parse-time)
 (require 'org-element)
-(require 'org-element-ast)
 (require 'cl-lib)
 #+end_src
 
-** Configuration
+* Configuration
 
 #+begin_src emacs-lisp
 ;; Configuration
@@ -419,7 +198,7 @@ This package provides `total-recall' for spaced repetition in Emacs."
   :group 'total-recall)
 #+end_src
 
-** Time
+* Time
 
 #+begin_src emacs-lisp
 ;; Time
@@ -451,7 +230,7 @@ ISO8601 is a string in ISO 8601 format. Returns a Lisp timestamp."
   (encode-time 0 0 0 1 1 1970 0))
 #+end_src
 
-** Search
+* Search
 
 #+begin_src emacs-lisp
 ;; Search
@@ -465,21 +244,21 @@ EXT is a string file extension (e.g., \"org\").
 TYPE-ID is a string identifier to search for.
 Returns a list of file paths."
   (let ((cmd (format "%s -g '*.%s' -i --no-heading -n --color=never '%s' %s"
-		     total-recall-ripgrep-cmd ext type-id dir))
-	matches)
+                     total-recall-ripgrep-cmd ext type-id dir))
+        matches)
     (with-temp-buffer
       (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
       (goto-char (point-min))
       (while (not (eobp))
-	(let* ((line (buffer-substring-no-properties
-		      (line-beginning-position) (line-end-position)))
-	       (match (split-string line ":")))
-	  (push (car match) matches))
-	(forward-line 1))
+        (let* ((line (buffer-substring-no-properties
+                      (line-beginning-position) (line-end-position)))
+               (match (split-string line ":")))
+          (push (car match) matches))
+        (forward-line 1))
       (delete-dups matches))))
 #+end_src
 
-** Measure
+* Measure
 
 #+begin_src emacs-lisp
 ;; Measure
@@ -558,7 +337,7 @@ TIME is a Lisp timestamp."
     (make-total-recall--skip-measure :id id :time time))
 #+end_src
 
-** UI
+* UI
 
 #+begin_src emacs-lisp
 ;; UI
@@ -576,8 +355,8 @@ TIME is a Lisp timestamp."
 (defun total-recall--ui-mk ()
   "Build the Total Recall UI."
   (let ((frame (make-frame `((width . ,total-recall-window-width)
-			     (height . ,total-recall-window-height))))
-	(buffer (get-buffer-create "*total-recall*")))
+                             (height . ,total-recall-window-height))))
+        (buffer (get-buffer-create "*total-recall*")))
     (make-total-recall--ui :buffer buffer :frame frame :state :state)))
 #+end_src
 
@@ -631,9 +410,9 @@ ANSWER is a string."
   "Implement the UI API selected by MSG."
   (unless (total-recall--ui-p ui) (error "Not a UI structure"))
   (let ((buffer (total-recall--ui-buffer ui))
-	(frame (total-recall--ui-frame ui))
-	(state (total-recall--ui-state ui))
-	(reply nil))
+        (frame (total-recall--ui-frame ui))
+        (state (total-recall--ui-state ui))
+        (reply nil))
     (select-frame-set-input-focus frame)
     (switch-to-buffer buffer)
     (pcase msg
@@ -648,28 +427,28 @@ ANSWER is a string."
       (:no-exercises
        (unless (eq state :init) (error "State = %s" state))
        (save-excursion
-	 (goto-char (point-max))
-	 (insert "No exercises found.\n"))
+         (goto-char (point-max))
+         (insert "No exercises found.\n"))
        (run-with-timer 2 nil (lambda () (total-recall--ui-rcv ui :kill))))
 
       (`(:display :question ,id ,subject ,question)
        (when (memq state '(:question :answer))
-	 (setf (total-recall--ui-state ui) :state)
-	 (total-recall--ui-rcv ui :init)
-	 (setq state (total-recall--ui-state ui)))
+         (setf (total-recall--ui-state ui) :state)
+         (total-recall--ui-rcv ui :init)
+         (setq state (total-recall--ui-state ui)))
 
        (unless (eq state :init) (error "State = %s" state))
        (save-excursion
-	 (goto-char (point-max))
-	 (insert (format "[[ref:%s][%s]]\n\n\n" id subject))
-	 (insert (format "%s\n\n\n" question)))
+         (goto-char (point-max))
+         (insert (format "[[ref:%s][%s]]\n\n\n" id subject))
+         (insert (format "%s\n\n\n" question)))
        (setf (total-recall--ui-state ui) :question))
 
       (`(:display :answer ,answer)
        (unless (eq state :question) (error "State = %s" state))
        (save-excursion
-	 (goto-char (point-max))
-	 (insert (format "%s\n\n\n" answer)))
+         (goto-char (point-max))
+         (insert (format "%s\n\n\n" answer)))
        (setf (total-recall--ui-state ui) :answer))
 
       (:kill
@@ -680,7 +459,7 @@ ANSWER is a string."
     reply))
 #+end_src
 
-** DB
+* DB
 
 #+begin_src emacs-lisp
 ;; DB
@@ -740,51 +519,51 @@ DB is an SQLite database handle.
 Returns the result of the operation."
   (unless (sqlite-select db "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
     (sqlite-execute db
-		    "CREATE TABLE exercise_log (
-		       type TEXT NOT NULL,
-		       id TEXT NOT NULL,
-		       time TEXT NOT NULL)"))
+                    "CREATE TABLE exercise_log (
+                       type TEXT NOT NULL,
+                       id TEXT NOT NULL,
+                       time TEXT NOT NULL)"))
 
   (pcase msg
     (`(:measure-to-row ,measure)
      (pcase measure
        ((pred total-recall--measure-p)
-	(let ((type
-	       (cond
-		((total-recall--success-measure-p measure) "success")
-		((total-recall--failure-measure-p measure) "failure")))
-	      (id (total-recall--measure-id measure))
-	      (time (total-recall--time-to-iso8601 (total-recall--measure-time measure))))
-	  (list type id time)))
+        (let ((type
+               (cond
+                ((total-recall--success-measure-p measure) "success")
+                ((total-recall--failure-measure-p measure) "failure")))
+              (id (total-recall--measure-id measure))
+              (time (total-recall--time-to-iso8601 (total-recall--measure-time measure))))
+          (list type id time)))
        (_ (error "MEASURE is not a Measure. %S" measure))))
 
     (`(:row-to-measure ,row)
      (pcase row
        (`(,type ,id ,time)
-	(pcase type
-	  ("success" (total-recall--success-measure-mk id (total-recall--iso8601-to-time time)))
-	  ("failure" (total-recall--failure-measure-mk id (total-recall--iso8601-to-time time)))))))
+        (pcase type
+          ("success" (total-recall--success-measure-mk id (total-recall--iso8601-to-time time)))
+          ("failure" (total-recall--failure-measure-mk id (total-recall--iso8601-to-time time)))))))
 
     (`(:save ,measure)
      (pcase measure
        ((pred total-recall--measure-p)
-	(sqlite-execute
-	 db
-	 "INSERT INTO exercise_log (type, id, time) VALUES (?, ?, ?)"
-	 (total-recall--db-rcv db `(:measure-to-row ,measure)))
-	t)
+        (sqlite-execute
+         db
+         "INSERT INTO exercise_log (type, id, time) VALUES (?, ?, ?)"
+         (total-recall--db-rcv db `(:measure-to-row ,measure)))
+        t)
        (_ (error "Unexpected value: %S" measure))))
 
     (`(:select :measures ,id)
      (let (rows)
        (setq rows
-	     (sqlite-select
-	      db
-	      "SELECT type, id, time FROM exercise_log WHERE id = ? ORDER BY time ASC"
-	      (list id)))
+             (sqlite-select
+              db
+              "SELECT type, id, time FROM exercise_log WHERE id = ? ORDER BY time ASC"
+              (list id)))
        (mapcar
-	(lambda (row) (total-recall--db-rcv db `(:row-to-measure ,row)))
-	rows)))
+        (lambda (row) (total-recall--db-rcv db `(:row-to-measure ,row)))
+        rows)))
 
     (:close
      (sqlite-close db)
@@ -793,7 +572,7 @@ Returns the result of the operation."
     (_ (error "Unknown message: %S" msg))))
 #+end_src
 
-** Exercise
+* Exercise
 
 #+begin_src emacs-lisp
 ;; Exercise
@@ -817,9 +596,9 @@ is not a string. Returns an exercise structure."
   (unless (stringp question) (error "Question is not a string"))
   (unless (stringp answer) (error "Answer is not a string"))
   (make-total-recall--exercise :subject subject
-			       :id id
-			       :question question
-			       :answer answer))
+                               :id id
+                               :question question
+                               :answer answer))
 #+end_src
 
 *** exercise-scheduled
@@ -840,9 +619,9 @@ Returns a Lisp timestamp."
 EXERCISE is an exercise structure. MSG can be :subject, :id, :question, :answer,
 or (:scheduled DB). Returns the corresponding value (e.g., string or timestamp)."
   (let ((subject (total-recall--exercise-subject exercise))
-	(id (total-recall--exercise-id exercise))
-	(question (total-recall--exercise-question exercise))
-	(answer (total-recall--exercise-answer exercise)))
+        (id (total-recall--exercise-id exercise))
+        (question (total-recall--exercise-question exercise))
+        (answer (total-recall--exercise-answer exercise)))
 
     (pcase msg
       (:subject subject)
@@ -855,36 +634,36 @@ or (:scheduled DB). Returns the corresponding value (e.g., string or timestamp).
 
       (`(:scheduled ,db)
        (let (measures (last-failure-index -1) nbr last-success-time)
-	 (setq measures (total-recall--db-select db id))
+         (setq measures (total-recall--db-select db id))
 
-	 (let ((i -1))
-	   (dolist (measure measures)
-	     (setq i (+ i 1))
-	     (when (total-recall--failure-measure-p measure)
-	       (setq last-failure-index i))))
+         (let ((i -1))
+           (dolist (measure measures)
+             (setq i (+ i 1))
+             (when (total-recall--failure-measure-p measure)
+               (setq last-failure-index i))))
 
-	 (setq nbr
-	       (if (< last-failure-index 0)
-		   (length measures)
-		 (- (length measures) (1+ last-failure-index))))
+         (setq nbr
+               (if (< last-failure-index 0)
+                   (length measures)
+                 (- (length measures) (1+ last-failure-index))))
 
-	 (setq last-success-time
-	       (when (> nbr 0)
-		 (let ((last-measure (nth (1- (length measures)) measures)))
-		   (if (total-recall--success-measure-p last-measure)
-		       (total-recall--measure-time last-measure)
-		     (error "Last measure is not a success despite NBR > 0")))))
+         (setq last-success-time
+               (when (> nbr 0)
+                 (let ((last-measure (nth (1- (length measures)) measures)))
+                   (if (total-recall--success-measure-p last-measure)
+                       (total-recall--measure-time last-measure)
+                     (error "Last measure is not a success despite NBR > 0")))))
 
-	 (if (zerop nbr)
-	     (total-recall--time-init)
-	   (let* ((delta-days (expt 2 (- nbr 1)))
-		  (delta-secs (* delta-days 24 60 60))
-		  (t-secs (time-to-seconds last-success-time))
-		  (result-secs (+ t-secs delta-secs)))
-	     (seconds-to-time result-secs))))))))
+         (if (zerop nbr)
+             (total-recall--time-init)
+           (let* ((delta-days (expt 2 (- nbr 1)))
+                  (delta-secs (* delta-days 24 60 60))
+                  (t-secs (time-to-seconds last-success-time))
+                  (result-secs (+ t-secs delta-secs)))
+             (seconds-to-time result-secs))))))))
 #+end_src
 
-** Node
+* Node
 
 #+begin_src emacs-lisp
 ;; Node
@@ -896,16 +675,52 @@ or (:scheduled DB). Returns the corresponding value (e.g., string or timestamp).
 (defun total-recall--node-depth-first (node func)
   "Return the list of results from calling FUNC on NODE."
   (let ((head
-	 (mapcan
-	  (lambda (node) (total-recall--node-depth-first node func))
-	  (org-element-contents node)))
-	(last (funcall func node)))
+         (mapcan
+          (lambda (node) (total-recall--node-depth-first node func))
+          (org-element-contents node)))
+        (last (funcall func node)))
     (pcase last
       (:err head)
       (_ (append head (list last))))))
 #+end_src
 
 **** node-to-subject
+
+#+begin_src emacs-lisp
+(defun total-recall--org-element-lineage-map (fun datum &optional types with-self first-match)
+  "Apply FUN on each ancestor of DATUM, from closest to farthest.
+
+DATUM is an object or element.
+
+When optional argument TYPES is a list of symbols, only apply FUN
+on ancestors whose type is contained in that list.
+
+When optional argument WITH-SELF is non-nil, also apply FUN on
+DATUM itself if it matches TYPES restriction.
+
+When optional argument FIRST-MATCH is non-nil, stop at the first
+ancestor for which FUN returns non-nil, and return that value.
+Otherwise, return a list of all non-nil return values in reverse
+order of application (i.e., from farthest ancestor to closest).
+
+FUN is called with one argument: the element or object."
+  (let ((lineage (if with-self
+                     (cons datum (org-element-lineage datum))
+                   (org-element-lineage datum)))
+        results)
+    (catch 'first-match
+      (dolist (element lineage)
+        (when (or (not types)
+                  (memq (org-element-type element) types))
+          (let ((result (funcall fun element)))
+            (when result
+              (if first-match
+                  (throw 'first-match result)
+                (push result results)))))))
+    (if first-match
+        nil  ; If we reach here with first-match, no match was found
+      (nreverse results))))
+#+end_src
 
 #+begin_src emacs-lisp
 (defun total-recall--node-subject (node)
@@ -915,8 +730,8 @@ parents of the node, and C is the title of the node. A node's title
 is the string of the relevant headline."
   (string-join
    (reverse
-    (org-element-lineage-map node
-	(lambda (parent) (org-element-property :raw-value parent))
+    (total-recall--org-element-lineage-map node
+        (lambda (parent) (org-element-property :raw-value parent))
       '(headline)
       t))
    "/"))
@@ -945,33 +760,33 @@ structure is invalid, raise an error."
   (let (should-be-exercise id list-headline question answer)
 
     (setq should-be-exercise
-	  (and (eq (org-element-type node) 'headline)
-	       (string= (org-element-property :TYPE node) total-recall-type-id)))
+          (and (eq (org-element-type node) 'headline)
+               (string= (org-element-property :TYPE node) total-recall-type-id)))
 
     (if should-be-exercise
-	(progn
-	  (setq id (org-element-property :ID node))
-	  (unless (stringp id) (error "Exercise has no ID property"))
-	  (setq list-headline
-		(seq-filter
-		 (lambda (child) (eq (org-element-type child) 'headline))
-		 (org-element-contents node)))
-	  (pcase (length list-headline)
-	    (0 (error "Exercise has no question nor answer. id = %s" id))
-	    (1 (error "Exercise has no answer. id = %s" id))
-	    (_
-	     (setq question (total-recall--node-to-string (car list-headline)))
-	     (setq answer (total-recall--node-to-string (cadr list-headline)))))
+        (progn
+          (setq id (org-element-property :ID node))
+          (unless (stringp id) (error "Exercise has no ID property"))
+          (setq list-headline
+                (seq-filter
+                 (lambda (child) (eq (org-element-type child) 'headline))
+                 (org-element-contents node)))
+          (pcase (length list-headline)
+            (0 (error "Exercise has no question nor answer. id = %s" id))
+            (1 (error "Exercise has no answer. id = %s" id))
+            (_
+             (setq question (total-recall--node-to-string (car list-headline)))
+             (setq answer (total-recall--node-to-string (cadr list-headline)))))
 
-	  (total-recall--exercise-mk
-	   (total-recall--node-subject node)
-	   id
-	   question
-	   answer))
+          (total-recall--exercise-mk
+           (total-recall--node-subject node)
+           id
+           question
+           answer))
       :err)))
 #+end_src
 
-** Filesystem
+* Filesystem
 
 #+begin_src emacs-lisp
 ;; Filesystem
@@ -1048,12 +863,12 @@ Returns a list of exercise structures for :list-exercises."
        (org-mode)
        (org-fold-show-all)
        (let ((org-element-use-cache nil))
-	 (total-recall--node-depth-first
-	  (org-element-parse-buffer 'greater-element)
-	  #'total-recall--node-to-exercise))))))
+         (total-recall--node-depth-first
+          (org-element-parse-buffer 'greater-element)
+          #'total-recall--node-to-exercise))))))
 #+end_src
 
-** total-recall
+* total-recall
 
 #+begin_src emacs-lisp
 ;; total-recall
@@ -1144,57 +959,57 @@ the exercise in context in another frame."
     (user-error "Ripgrep (rg) is not installed. Please install it to use this package"))
 
   (let ((exercises (total-recall--fs-list-exercises total-recall-root-dir))
-	(db (total-recall--db-mk total-recall-database))
-	(ui (total-recall--ui-mk))
-	(use-dialog-box nil)
-	exercise
-	scheduled
-	choice)
+        (db (total-recall--db-mk total-recall-database))
+        (ui (total-recall--ui-mk))
+        (use-dialog-box nil)
+        exercise
+        scheduled
+        choice)
     (total-recall--ui-init ui)
     (if (null exercises)
-	(total-recall--ui-no-exercises ui)
+        (total-recall--ui-no-exercises ui)
       (while exercises
-	(setq exercise (pop exercises))
-	(setq scheduled (total-recall--exercise-scheduled exercise db))
-	(when (time-less-p scheduled (current-time))
-	  (total-recall--ui-display-question
-	   ui
-	   (total-recall--exercise-id exercise)
-	   (total-recall--exercise-subject exercise)
-	   (total-recall--exercise-question exercise))
-	  (setq choice
-		(read-char-choice
-		 (format "Reveal (%c), Skip (%c), Quit (%c): "
-			 total-recall-key-reveal
-			 total-recall-key-skip
-			 total-recall-key-quit)
-		 (list total-recall-key-reveal total-recall-key-skip total-recall-key-quit)))
-	  (pcase choice
-	    ((pred (eq total-recall-key-reveal))
-	     (total-recall--ui-display-answer ui (total-recall--exercise-answer exercise))
-	     (setq choice
-		   (read-char-choice
-		    (format "Success (%c), Failure (%c), Quit (%c): "
-			    total-recall-key-success
-			    total-recall-key-failure
-			    total-recall-key-quit)
-		    (list total-recall-key-success total-recall-key-failure total-recall-key-quit)))
-	     (pcase choice
-	       ((pred (eq total-recall-key-success))
-		(total-recall--db-save db (total-recall--success-measure-mk (total-recall--exercise-id exercise) (current-time))))
-	       ((pred (eq total-recall-key-failure))
-		(total-recall--db-save db (total-recall--failure-measure-mk (total-recall--exercise-id exercise) (current-time))))
-	       ((pred (eq total-recall-key-quit))
-		(setq exercises nil))))
-	    ((pred (eq total-recall-key-skip))
-	     nil)
-	    ((pred (eq total-recall-key-quit))
-	     (setq exercises nil))))))
+        (setq exercise (pop exercises))
+        (setq scheduled (total-recall--exercise-scheduled exercise db))
+        (when (time-less-p scheduled (current-time))
+          (total-recall--ui-display-question
+           ui
+           (total-recall--exercise-id exercise)
+           (total-recall--exercise-subject exercise)
+           (total-recall--exercise-question exercise))
+          (setq choice
+                (read-char-choice
+                 (format "Reveal (%c), Skip (%c), Quit (%c): "
+                         total-recall-key-reveal
+                         total-recall-key-skip
+                         total-recall-key-quit)
+                 (list total-recall-key-reveal total-recall-key-skip total-recall-key-quit)))
+          (pcase choice
+            ((pred (eq total-recall-key-reveal))
+             (total-recall--ui-display-answer ui (total-recall--exercise-answer exercise))
+             (setq choice
+                   (read-char-choice
+                    (format "Success (%c), Failure (%c), Quit (%c): "
+                            total-recall-key-success
+                            total-recall-key-failure
+                            total-recall-key-quit)
+                    (list total-recall-key-success total-recall-key-failure total-recall-key-quit)))
+             (pcase choice
+               ((pred (eq total-recall-key-success))
+                (total-recall--db-save db (total-recall--success-measure-mk (total-recall--exercise-id exercise) (current-time))))
+               ((pred (eq total-recall-key-failure))
+                (total-recall--db-save db (total-recall--failure-measure-mk (total-recall--exercise-id exercise) (current-time))))
+               ((pred (eq total-recall-key-quit))
+                (setq exercises nil))))
+            ((pred (eq total-recall-key-skip))
+             nil)
+            ((pred (eq total-recall-key-quit))
+             (setq exercises nil))))))
     (total-recall--db-close db)
     (total-recall--ui-kill ui)))
 #+end_src
 
-** Footer
+* Footer
 
 #+begin_src emacs-lisp
 (provide 'total-recall)
@@ -1209,260 +1024,6 @@ the exercise in context in another frame."
 ;; indent-tabs-mode: nil
 ;; End:
 #+end_src
-* Makefile
-:PROPERTIES:
-:header-args+: :tangle Makefile
-:END:
-** Configuration
-
-- List of Makefile configurations.
-
-#+begin_src makefile
-SHELL := bash
-.SHELLFLAGS := -ceuo pipefail
-MAKEFLAGS += --no-print-directory
-.ONESHELL:
-.SILENT:
-#+end_src
-
-*** BUILD
-
-- ${BUILD} is the directory under which all generated files are installed.
-
-#+begin_src makefile
-BUILD := _build
-${BUILD}:
-	mkdir -p $@
-#+end_src
-
-*** TRACE
-
-- ${TRACE} is a file used to record an execution trace.
-
-#+begin_src makefile
-TRACE := ${BUILD}/trace.txt
-#+end_src
-
-*** TRAP
-
-- ${TRAP} If something has been written to ${TRACE}, then consider that the rule failed.
-
-#+begin_src makefile
-TRAP := > ${TRACE}; trap 'if [[ $$? -ne 0 ]]; then cat ${TRACE}; fi' EXIT
-#+end_src
-
-*** MAIN_ORG
-
-- ${MAIN_ORG} is the path to source file.
-
-#+begin_src makefile
-MAIN_ORG := total-recall.org
-#+end_src
-
-** help
-
-- make help # Print this help.
-
-#+begin_src makefile
-.PHONY: help
-help:
-	grep '^# - make ' $(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", $$1, $$2}'
-#+end_src
-
-** tangle-heading
-
-- make tangle-heading # Returns the path to the updated ./tangle-heading script.
-
-#+begin_src makefile
-.PHONY: tangle-heading
-TANGLE_HEADING := ${BUILD}/tangle-heading
-tangle-heading: ${TANGLE_HEADING}
-${TANGLE_HEADING}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} tangle-heading ${BUILD} &> ${TRACE}
-	cp -vf ${BUILD}/tangle-heading ./tangle-heading &>> ${TRACE}
-	tail -n 1 ${TRACE}
-#+end_src
-
-** Makefile
-
-- make Makefile # Returns the path to the updated ./Makefile.
-
-#+begin_src makefile
-.PHONY: Makefile
-MAKEFILE := ${BUILD}/Makefile
-Makefile: ${MAKEFILE}
-${MAKEFILE}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} Makefile ${BUILD} &> ${TRACE}
-	cp -vf ${BUILD}/Makefile ./Makefile &>> ${TRACE}
-	tail -n 1 ${TRACE}
-#+end_src
-
-** packages.scm
-
-- make packages.scm # Returns the path to the Guix packages available in the environment.
-
-#+begin_src makefile
-.PHONY: packages.scm
-PACKAGES_SCM := ${BUILD}/packages.scm
-packages.scm: ${PACKAGES_SCM}
-${PACKAGES_SCM}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} packages.scm ${BUILD} &> ${TRACE}
-	echo "$@"
-#+end_src
-
-** init.bash
-
-- make init.bash # Returns the path to parameters that initialize Bash in the environment.
-
-#+begin_src makefile
-.PHONY: init.bash
-INIT_BASH := ${BUILD}/init.bash
-init.bash: ${INIT_BASH}
-${INIT_BASH}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} init.bash ${BUILD} &> ${TRACE}
-	echo "$@"
-#+end_src
-
-** env
-
-- make env # Starts the environment.
-
-#+begin_src makefile
-.PHONY: env
-GUIX := guix
-GUIX_SHELL := ${GUIX} shell --container \
-	-F \
-	-N \
-	--file=${PACKAGES_SCM} \
-	--preserve='^TERM$$' \
-	-- bash --init-file ${INIT_BASH}
-env: ${PACKAGES_SCM} ${INIT_BASH}
-	CMD="${CMD}"
-	if [[ ! -v GUIX_ENVIRONMENT ]]; then
-	  if [[ "$${CMD}" == "" ]]; then
-	    ${GUIX_SHELL} -i;
-	  else
-	    ${GUIX_SHELL} -c "${CMD}";
-	  fi
-	else
-	  ${CMD}
-	  :
-	fi
-#+end_src
-
-** el
-
-- make el # Returns the path to the elisp package.
-
-#+begin_src makefile
-.PHONY: el
-TOTAL_RECALL_EL := ${BUILD}/total-recall.el
-el: ${TOTAL_RECALL_EL}
-${TOTAL_RECALL_EL}: ${MAIN_ORG} | ${BUILD}
-	${TRAP}
-	./tangle-heading ${MAIN_ORG} total-recall.el ${BUILD} &> ${TRACE}
-	# sed -i '1,2d' ${TOTAL_RECALL_EL} &>> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
-#+end_src
-
-** elc
-
-- make elc # Returns the path to the compiled elisp package.
-
-#+begin_src makefile
-.PHONY: elc
-TOTAL_RECALL_ELC := ${BUILD}/total-recall.elc
-elc: ${TOTAL_RECALL_ELC}
-${TOTAL_RECALL_ELC}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(defun reb-target-binding (_sym) (error "pcre2el v1.11"))' \
-	-f batch-byte-compile $< &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
-#+end_src
-
-** lint
-
-- make lint # Returns the path to the linting report of the elisp package.
-
-#+begin_src makefile
-.PHONY: lint
-LINT_REPORT := ${BUILD}/lint-report.txt
-lint: ${LINT_REPORT}
-${LINT_REPORT}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs --batch \
-	--file $< \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval "(progn (require 'package) (add-to-list 'package-archives '(\"melpa\" . \"https://melpa.org/packages/\") t) (package-initialize))" \
-	--eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
-#+end_src
-
-** checkdoc
-
-- make checkdoc # Returns the path to the analysis of the docstrings of the elisp package.
-
-#+begin_src makefile
-.PHONY: checkdoc
-CHECKDOC := ${BUILD}/checkdoc.txt
-checkdoc: ${CHECKDOC}
-${CHECKDOC}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(checkdoc-file "$<")' &> ${TRACE}
-	[[ -s ${TRACE} ]] && exit 1
-	echo "$@"
-#+end_src
-
-** test
-
-- make test # Returns the path to the analysis of the docstrings of the elisp package.
-
-#+begin_src makefile
-.PHONY: test
-TEST := ${BUILD}/test-log.txt
-test: ${TEST}
-${TEST}: ${TOTAL_RECALL_EL}
-	${TRAP}
-	emacs -Q --batch \
-	--eval '(setq org-id-track-globally nil)' \
-	--eval '(load-file "$<")' \
-	--eval '(ert-run-tests-batch-and-exit t)' &> $@
-	echo "$@"
-#+end_src
-
-** all
-
-- make all # Returns the path of the elisp package after lint, checkdoc and elc steps.
-
-#+begin_src makefile
-.PHONY: all
-all: ${BUILD}
-	${TRAP}
-	${MAKE} env CMD="${MAKE} lint checkdoc elc" &> ${TRACE}
-	echo ${TOTAL_RECALL_EL}
-#+end_src
-
-** clean
-
-- make clean # Deletes all generated files.
-
-#+begin_src makefile
-.PHONY: clean
-clean:
-	rm -rfv ${BUILD}
-#+end_src
-
 * send
 ** TODO Given a definition, the matching exercise is deduced.
 SCHEDULED: <2025-05-18 Sun>
