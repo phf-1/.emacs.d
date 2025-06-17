@@ -116,7 +116,7 @@ This package provides `total-recall' for spaced repetition in Emacs."
 
 See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
-* Clock                                                            :noexport:
+* Clock
 :PROPERTIES:
 :ID:       3ca40a21-019b-4bba-b18b-bcec7282b445
 :END:
@@ -343,53 +343,91 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 * IO
 
+** specification
+
 - IO#mk : Name → IO
-  - π#print-to-buffer : String → IO
-  - π#print-to-minibuffer : String → IO
-  - π#buffer() : Buffer
+  - π#buffer : String → IO
+  - π#minibuffer : String → IO
+
+** implementation
 
 #+begin_src emacs-lisp
 ;; IO
+(total-recall--Actor
+ #'total-recall--io-init-mk
+ #'total-recall--io-tx
+ total-recall--IO)
+
+;;;; Interface
+(defun total-recall--io-minibuffer (io string)
+  (total-recall--send io `(minibuffer ,string)))
+
+(defun total-recall--io-buffer (io string)
+  (total-recall--send io `(buffer ,string)))
+
+;;;; Implementation
+(defun total-recall--io-init-mk (buffer-name)
+  (get-buffer-create buffer-name))
+
+(defun total-recall--io-tx (buffer msg)
+  (pcase msg
+    (`(minibuffer ,string)
+     (message "%s" string)
+     `(t ,buffer ,#'total-recall--io-tx))
+
+    (`(buffer ,string)
+     (with-current-buffer buffer
+       (insert string)
+       (insert "\n"))
+     `(t ,buffer ,#'total-recall--io-tx))
+
+    (_
+     (error "Unexpected message. message = %s" msg))))
 #+end_src
 
-#+begin_src emacs-lisp
-(cl-defstruct total-recall--io
-  "Io data structure."
-  name
-  buffer)
-#+end_src
-
-*** io-mk
-
-#+begin_src emacs-lisp
-(defun total-recall--io-mk (name)
-  ""
-  (unless (stringp name) (error "name is not a string. %s" path))
-  (make-total-recall--io :name name :buffer (get-buffer-create name)))
-#+end_src
-
-*** io-print-to-buffer
-
-#+begin_src emacs-lisp
-(defun total-recall--io-print-to-buffer (io string)
-  ""
-  io)
-#+end_src
-
-*** io-print-to-minibuffer
-
-#+begin_src emacs-lisp
-(defun total-recall--io-print-to-minibuffer (io string)
-  ""
-  (message string)
-  io)
-#+end_src
+** test
 
 * Report
+
+** specification
 
 - Report#mk() : Report
   - π#string() : String
   - π#add : String → Report
+
+** implementation
+
+#+begin_src emacs-lisp
+;; Report
+(total-recall--Actor
+ #'total-recall--report-init-mk
+ #'total-recall--report-tx
+ total-recall--Report)
+
+;;;; Interface
+(defun total-recall--report-string (tr)
+  (total-recall--send tr 'string))
+
+(defun total-recall--report-add (tr line)
+  (total-recall--send tr  ̀(add ,line)))
+
+;;;; Implementation
+(defun total-recall--report-init-mk ()
+  '())
+
+(defun total-recall--report-tx (lines msg)
+  (pcase msg
+    ('string
+     `(,(string-join lines "\n") lines #'total-recall--report-tx))
+
+    (`(add ,line)
+     `(t ,(append lines line) #'total-recall--report-tx))
+
+    (_
+     (error "Unexpected message. message = %s" msg))))
+#+end_src
+
+** test
 
 #+begin_src emacs-lisp
 ;; Report
@@ -427,11 +465,40 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 #+end_src
 
 * TotalRecall
+** specification
 
 - TotalRecall#mk : root:DirPath db-path:FilePath → TotalRecall
+  - π#start() : Report
+
+** implementation
 
 #+begin_src emacs-lisp
 ;; TotalRecall
+(total-recall--Actor
+ #'total-recall--total-recall-init-mk
+ #'total-recall--total-recall-tx
+ total-recall--TotalRecall)
+
+;;;; Interface
+(defun total-recall--total-recall-start (tr)
+  (total-recall--send tr 'start))
+
+;;;; Implementation
+(defun total-recall--total-recall-init-mk (_any)
+  nil)
+
+(defun total-recall--total-recall-tx (state msg)
+  (pcase msg
+    ('start
+     `(,(total-recall--Report nil) ,state #'total-recall--total-recall-tx))
+    (_
+     (error "Unexpected message. message = %s" msg))))
+#+end_src
+
+** test
+
+#+begin_src emacs-lisp
+
 #+end_src
 
 #+begin_src emacs-lisp
@@ -544,21 +611,16 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 #+begin_src emacs-lisp
 ;; total-recall
-#+end_src
-
-#+begin_src emacs-lisp
 ;;;###autoload
 (defun total-recall ()
   ""
   (interactive)
-  (let* ((db-path total-recall-db-path)
-        (root total-recall-root)
-        (io-buffer-name total-recall-io-buffer-name)
-        (tr (total-recall--total-recall-mk root db-path))
-        (io (total-recall--io-mk io-buffer-name))
-        (report (total-recall--total-recall-start tr)))
-    (total-recall--io-print-to-buffer io (total-recall--report-string report))
-    (total-recall--io-print-to-minibuffer io (format "total-recall execution finished. Report written to %s" io-buffer-name))))
+  (let* ((io-buffer-name total-recall-io-buffer-name)
+         (tr (total-recall--TotalRecall `(,total-recall-root ,total-recall-db-path)))
+         (io (total-recall--IO io-buffer-name))
+         (report (total-recall--total-recall-start tr)))
+    (total-recall--io-buffer io (total-recall--report-string report))
+    (total-recall--io-minibuffer io (format "total-recall execution finished. Report written to %s" io-buffer-name))))
 #+end_src
 
 * Footer
