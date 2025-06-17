@@ -1,4 +1,5 @@
 * Definitions are mapped to exercises
+** DONE Actor
 ** DONE Iteration 1
 
 1. Simulate:
@@ -12,7 +13,12 @@
 
 ** TODO Iteration 2
 
-Implement Searcher
+1. Simulate:
+   1. DB
+   2. UI
+   3. Planner
+
+2. Implement: Searcher
 
 ** TODO Iteration 3
 

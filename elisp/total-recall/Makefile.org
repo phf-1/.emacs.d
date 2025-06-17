@@ -73,11 +73,14 @@ env: ${PACKAGES_SCM} | ${BUILD}
 #+begin_src makefile
 .PHONY: el
 TOTAL_RECALL_EL := ${BUILD}/total-recall.el
+TOTAL_RECALL_TEST_EL := ${BUILD}/total-recall-test.el
 el: ${TOTAL_RECALL_EL}
-${TOTAL_RECALL_EL}: solution.org | ${BUILD}
+${TOTAL_RECALL_EL}: solution.org solution-test.org | ${BUILD}
 	emacs -Q --batch --file "$<" --eval '(org-babel-tangle)'
 	mv total-recall.el "$@"
+	mv total-recall-test.el "${TOTAL_RECALL_TEST_EL}"
 	echo "$@"
+	echo "${TOTAL_RECALL_TEST_EL}"
 #+end_src
 
 ** lint
@@ -130,7 +133,8 @@ test: ${TEST}
 ${TEST}: ${TOTAL_RECALL_EL}
 	emacs -Q --batch \
 	--eval '(setq org-id-track-globally nil)' \
-	--eval '(load-file "$<")' \
+	--eval '(load-file "${TOTAL_RECALL_EL}")' \
+	--eval '(load-file "${TOTAL_RECALL_TEST_EL}")' \
 	--eval '(ert-run-tests-batch-and-exit t)' 2>&1 | tee "$@"
 	echo "$@"
 #+end_src

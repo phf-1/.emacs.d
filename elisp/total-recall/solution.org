@@ -43,9 +43,7 @@ TODO
 
 #+begin_src emacs-lisp
 ;; Dependencies
-#+end_src
 
-#+begin_src emacs-lisp
 (unless (sqlite-available-p)
   (error "Emacs must be compiled with built-in support for SQLite databases"))
 (require 'cl-generic)
@@ -60,9 +58,7 @@ TODO
 
 #+begin_src emacs-lisp
 ;; Configuration
-#+end_src
 
-#+begin_src emacs-lisp
 (defgroup total-recall nil
   "Customization options for Total Recall.
 This package provides `total-recall' for spaced repetition in Emacs."
@@ -85,27 +81,97 @@ This package provides `total-recall' for spaced repetition in Emacs."
   :group 'total-recall)
 #+end_src
 
-* Model                                                            :noexport:
+* Actor
+** specification
 
-- Model#mk : Id → Model
-  - π#id() : Id
+- Tx :≡ State Message → Message × State × Tx
+- InitState :≡ Any → State
+- Actor : init:InitState tx:Tx → Actor(init tx)
+  - π : State → π
+  - α : π
+  - send α msg : Any
+
+** implementation
 
 #+begin_src emacs-lisp
-;; Model
+;; Actor
+
+(defmacro total-recall--Actor (init-state-mk init-tx name)
+  `(defun ,name (init-state)
+     (let ((state (funcall ,init-state-mk init-state))
+           (tx ,init-tx))
+       (lambda (message)
+         (pcase (funcall tx state message)
+           (`(,reply ,next-state ,next-tx)
+            (setf state next-state)
+            (setf tx next-tx)
+            reply)
+           (other
+            (error "Unexpected transition. %s" other)))))))
+
+(defun total-recall--send (actor msg) (funcall actor msg))
 #+end_src
 
+** test
+
+See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
+
+* Clock                                                            :noexport:
+:PROPERTIES:
+:ID:       3ca40a21-019b-4bba-b18b-bcec7282b445
+:END:
+
+** specification
+
+- Clock : Nat → Clock
+  - π#time() : Nat
+  - π#tick() : Clock
+
+** implementation
+
 #+begin_src emacs-lisp
-(cl-defstruct total-recall--model
-  "Model data structure."
-  id)
+;; Clock
+
+(defun total-recall--clock-read (clock)
+  (total-recall--send clock 'read))
+
+(defun total-recall--clock-tick (clock)
+  (total-recall--send clock 'tick))
+
+(defun total-recall--clock-init-state-mk (any)
+  (unless
+      (and (integerp any) (> any -1))
+    (error "Unexpected init state. %s" any))
+  any)
+
+(defun total-recall--clock-tx (time msg)
+  (pcase msg
+    ('read
+     (list time time #'total-recall--clock-tx))
+
+    ('tick
+     (list nil (+ time 1) #'total-recall--clock-tx))
+
+    (_
+     (error "Unexpected msg. %s" msg))))
+
+(total-recall--Actor #'total-recall--clock-init-state-mk #'total-recall--clock-tx total-recall--Clock)
 #+end_src
 
-*** model-mk
+** test
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle "total-recall-test.el"
+:END:
 
 #+begin_src emacs-lisp
-(defun total-recall--model-mk (id)
-  ""
-  (make-total-recall--model :id id))
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Clock ()
+  (let ((clock (total-recall--Clock 0)))
+    (should (= (total-recall--clock-read clock) 0))
+    (total-recall--clock-tick clock)
+    (should (= (total-recall--clock-read clock) 1))))
 #+end_src
 
 * Rating
@@ -363,49 +429,6 @@ This package provides `total-recall' for spaced repetition in Emacs."
 * TotalRecall
 
 - TotalRecall#mk : root:DirPath db-path:FilePath → TotalRecall
-  - π#start() : Report :≡
-    1. searcher :≡ Searcher#mk root
-    2. db :≡ DB#mk db-path
-    3. ui :≡ UI#mk()
-    4. planner :≡ Planner#mk db
-    5. files-counter : Nat :≡ 0
-    6. exercises-counter : Nat :≡ 0
-    7. report :≡ Report#mk()
-    8. report#add "TotalRecall started."
-    9. report#add "Definitions and exercises under #{root} will be reviewed."
-    10. report#add "Review results will be saved in #{db-path}."
-    11. files :≡ searcher#files()
-    12. π#next-file()
-
-  - π#next-file() : Report :≡
-    - match files
-      - [ ] → π#stop()
-      - [file-path] + rest →
-        1. files :≡ rest
-        2. report#add "Reviewing exercises from file: #{file-path}."
-        3. exercises :≡ planner#exercises file-path
-        4. π#next-exercise()
-
-  - π#next-exercise() : Report :≡
-    - match exercises
-      - [ ] →
-        1. files-counter :≡ files-counter + 1
-        2. π#next-file()
-      - [exercise] + rest →
-        1. exercises :≡ rest
-        2. report#add "Reviewing exercise: #{string-join(exercise#path())}."
-        3. match ui#show exercise
-           - 'stop → π#stop()
-           - rating : Rating →
-             1. exercises-counter :≡ exercises-counter + 1
-             2. db#save exercise rating
-             3. π#next-exercise()
-
-  - π#stop() : Report :≡
-    1. db#stop()
-    2. report#add "Reviewing process is finished."
-    3. report#add "#{exercises-counter} exercises or definitions have been reviewed from #{files-counter} files."
-    4. report
 
 #+begin_src emacs-lisp
 ;; TotalRecall
@@ -429,8 +452,80 @@ This package provides `total-recall' for spaced repetition in Emacs."
 
 *** total-recall-start
 
+- π#start() : Report :≡
+  1. searcher :≡ Searcher#mk root
+  2. db :≡ DB#mk db-path
+  3. ui :≡ UI#mk()
+  4. planner :≡ Planner#mk db
+  5. files-counter : Nat :≡ 0
+  6. exercises-counter : Nat :≡ 0
+  7. report :≡ Report#mk()
+  8. report#add "TotalRecall started."
+  9. report#add "Definitions and exercises under #{root} will be reviewed."
+  10. report#add "Review results will be saved in #{db-path}."
+  11. files :≡ searcher#files()
+  12. π#next-file()
+
+
 #+begin_src emacs-lisp
 (defun total-recall--total-recall-start (total-recall)
+  ""
+  (total-recall--report-mk))
+#+end_src
+
+*** total-recall-next-file
+
+- π#next-file() : Report :≡
+  - match files
+    - [ ] → π#stop()
+    - [file-path] + rest →
+      1. files :≡ rest
+      2. report#add "Reviewing exercises from file: #{file-path}."
+      3. exercises :≡ planner#exercises file-path
+      4. π#next-exercise()
+
+
+#+begin_src emacs-lisp
+(defun total-recall--total-recall-next-file (total-recall)
+  ""
+  (total-recall--report-mk))
+#+end_src
+
+*** total-recall-next-exercise
+
+- π#next-exercise() : Report :≡
+  - match exercises
+    - [ ] →
+      1. files-counter :≡ files-counter + 1
+      2. π#next-file()
+    - [exercise] + rest →
+      1. exercises :≡ rest
+      2. report#add "Reviewing exercise: #{string-join(exercise#path())}."
+      3. match ui#show exercise
+         - 'stop → π#stop()
+         - rating : Rating →
+           1. exercises-counter :≡ exercises-counter + 1
+           2. db#save exercise rating
+           3. π#next-exercise()
+
+
+#+begin_src emacs-lisp
+(defun total-recall--total-recall-next-exercise (total-recall)
+  ""
+  (total-recall--report-mk))
+#+end_src
+
+*** total-recall-stop
+
+- π#stop() : Report :≡
+  1. db#stop()
+  2. report#add "Reviewing process is finished."
+  3. report#add "#{exercises-counter} exercises or definitions have been reviewed from #{files-counter} files."
+  4. report
+
+
+#+begin_src emacs-lisp
+(defun total-recall--total-recall-stop (total-recall)
   ""
   (total-recall--report-mk))
 #+end_src
