@@ -84,7 +84,7 @@ This package provides `total-recall' for spaced repetition in Emacs."
 * Actor
 ** specification
 
-- Tx :≡ State Message → Message × State × Tx
+- Tx :≡ State Message Actor → Message × State × Tx
 - InitState :≡ Any → State
 - Actor : init:InitState tx:Tx → Actor(init tx)
   - π : State → π
@@ -96,20 +96,29 @@ This package provides `total-recall' for spaced repetition in Emacs."
 #+begin_src emacs-lisp
 ;; Actor
 
-(defmacro total-recall--Actor (init-state-mk init-tx name)
-  `(defun ,name (init-state)
-     (let ((state (funcall ,init-state-mk init-state))
-           (tx ,init-tx))
-       (lambda (message)
-         (pcase (funcall tx state message)
-           (`(,reply ,next-state ,next-tx)
-            (setf state next-state)
-            (setf tx next-tx)
-            reply)
-           (other
-            (error "Unexpected transition. %s" other)))))))
+(defmacro total-recall--Actor (init name)
+  `(defun ,name (data)
+     (let* ((memory (funcall ,init data))
+            (self (lambda (msg)
+                    (let* ((compiler (gethash 'compiler memory))
+                           (stack (puthash 'stack (funcall compiler msg) memory)))
+                      (while (not (null stack))
+                        (puthash 'stack (cdr stack) memory)
+                        (funcall (gethash 'exec memory) memory (car stack))
+                        (setq stack (gethash 'stack memory)))
+                      (gethash 'out memory)))))
+       (puthash 'self self memory)
+       self)))
 
 (defun total-recall--send (actor msg) (funcall actor msg))
+
+(defun total-recall--Actor-memory (compiler exec)
+  (let ((memory (make-hash-table :test 'eq)))
+    (puthash 'compiler compiler memory)
+    (puthash 'exec exec memory)
+    (puthash 'stack '() memory)
+    (puthash 'out nil memory)
+    memory))
 #+end_src
 
 ** test
@@ -131,31 +140,47 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 #+begin_src emacs-lisp
 ;; Clock
+(total-recall--Actor
+ #'total-recall--Clock-init
+ total-recall--Clock)
 
-(defun total-recall--clock-read (clock)
+;;;; Interface
+(defun total-recall--Clock-read (clock)
   (total-recall--send clock 'read))
 
-(defun total-recall--clock-tick (clock)
+(defun total-recall--Clock-tick (clock)
   (total-recall--send clock 'tick))
 
-(defun total-recall--clock-init-state-mk (any)
-  (unless
-      (and (integerp any) (> any -1))
-    (error "Unexpected init state. %s" any))
-  any)
+(defun total-recall--Clock-tick2 (clock)
+  (total-recall--send clock 'tick2))
 
-(defun total-recall--clock-tx (time msg)
+;;;; Implementation
+(defun total-recall--Clock-compiler (msg)
   (pcase msg
+    ('read '(read))
+    ('tick '(tick))
+    ('tick2 '(tick tick))
+    (_ (error "Unexpected msg. %s" msg))))
+
+(defun total-recall--Clock-exec (memory inst)
+  (pcase inst
     ('read
-     (list time time #'total-recall--clock-tx))
+     (let ((time (gethash 'time memory)))
+       (puthash 'out time memory)))
 
     ('tick
-     (list nil (+ time 1) #'total-recall--clock-tx))
+     (let ((time (gethash 'time memory)))
+       (puthash 'time (+ time 1) memory)
+       (puthash 'out (gethash 'self memory) memory)))
 
-    (_
-     (error "Unexpected msg. %s" msg))))
+    (_ (error "Unexpected instruction. %s" inst))))
 
-(total-recall--Actor #'total-recall--clock-init-state-mk #'total-recall--clock-tx total-recall--Clock)
+(defun total-recall--Clock-init (time)
+  (let ((memory (total-recall--Actor-memory
+                 #'total-recall--Clock-compiler
+                 #'total-recall--Clock-exec)))
+    (puthash 'time time memory)
+    memory))
 #+end_src
 
 ** test
@@ -169,12 +194,12 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 (ert-deftest total-recall--Clock ()
   (let ((clock (total-recall--Clock 0)))
-    (should (= (total-recall--clock-read clock) 0))
-    (total-recall--clock-tick clock)
-    (should (= (total-recall--clock-read clock) 1))))
+    (should (= (total-recall--Clock-read clock) 0))
+    (should (= (total-recall--Clock-read (total-recall--Clock-tick clock)) 1))
+    (should (= (total-recall--Clock-read (total-recall--Clock-tick2 clock)) 3))))
 #+end_src
 
-* Rating
+* COMMENT Rating
 
 - Rating#mk : Id → Rating
   - π#id() : Id
@@ -197,7 +222,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   (make-total-recall--rating :id id))
 #+end_src
 
-* UI
+* COMMENT UI
 
 - UI#mk : UI
   - π#show : Exercise → Rating | 'stop
@@ -220,7 +245,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   (make-total-recall--ui :id id))
 #+end_src
 
-* Planner
+* COMMENT Planner
 
 - Planner#mk : DB → Planner
   - π#exercises : FilePath → List(Exercise)
@@ -243,7 +268,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   (make-total-recall--planner :id id))
 #+end_src
 
-* Searcher
+* COMMENT Searcher
 
 - ContentFile(root:DirPath) :≡ FilePath prefixed by root that contains at least one
   definition or exercise.
@@ -269,7 +294,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   (make-total-recall--searcher :id id))
 #+end_src
 
-* DB
+* COMMENT DB
 
 - DB#mk : FilePath → DB
   - π#save : Exercise Rating → DB
@@ -293,7 +318,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   (make-total-recall--db :id id))
 #+end_src
 
-* Filepath
+* COMMENT Filepath
 
 - Filepath#mk : Path → Filepath
   - π#path() : Path
@@ -317,7 +342,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   (make-total-recall--filepath :path path))
 #+end_src
 
-* Dirpath
+* COMMENT Dirpath
 
 - Dirpath#mk : Path → Dirpath
   - π#path() : Path
@@ -341,7 +366,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   (make-total-recall--dirpath :path path))
 #+end_src
 
-* IO
+* COMMENT IO
 
 ** specification
 
@@ -354,32 +379,38 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 #+begin_src emacs-lisp
 ;; IO
 (total-recall--Actor
- #'total-recall--io-init-mk
- #'total-recall--io-tx
+ #'total-recall--IO-init-mk
+ #'total-recall--IO-tx
  total-recall--IO)
 
 ;;;; Interface
-(defun total-recall--io-minibuffer (io string)
+(defun total-recall--IO-minibuffer (io string)
   (total-recall--send io `(minibuffer ,string)))
 
-(defun total-recall--io-buffer (io string)
+(defun total-recall--IO-buffer (io string)
   (total-recall--send io `(buffer ,string)))
 
+(defun total-recall--IO-buffer-name (io)
+  (total-recall--send io 'buffer-name))
+
 ;;;; Implementation
-(defun total-recall--io-init-mk (buffer-name)
+(defun total-recall--IO-init-mk (buffer-name)
   (get-buffer-create buffer-name))
 
-(defun total-recall--io-tx (buffer msg)
+(defun total-recall--IO-tx (buffer msg)
   (pcase msg
     (`(minibuffer ,string)
      (message "%s" string)
-     `(t ,buffer ,#'total-recall--io-tx))
+     `(t ,buffer ,#'total-recall--IO-tx))
 
     (`(buffer ,string)
      (with-current-buffer buffer
        (insert string)
        (insert "\n"))
-     `(t ,buffer ,#'total-recall--io-tx))
+     `(t ,buffer ,#'total-recall--IO-tx))
+
+    ('buffer-name
+     `(t ,(buffer-name buffer) ,#'total-recall--IO-tx))
 
     (_
      (error "Unexpected message. message = %s" msg))))
@@ -387,7 +418,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 ** test
 
-* Report
+* COMMENT Report
 
 ** specification
 
@@ -405,7 +436,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
  total-recall--Report)
 
 ;;;; Interface
-(defun total-recall--report-string (tr)
+(defun total-recall--Report-string (tr)
   (total-recall--send tr 'string))
 
 (defun total-recall--report-add (tr line)
@@ -451,7 +482,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 *** report-string
 
 #+begin_src emacs-lisp
-(defun total-recall--report-string (report)
+(defun total-recall--Report-string (report)
   ""
   "report")
 #+end_src
@@ -464,35 +495,84 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   report)
 #+end_src
 
-* TotalRecall
+* COMMENT TotalRecall
 ** specification
 
 - TotalRecall#mk : root:DirPath db-path:FilePath → TotalRecall
-  - π#start() : Report
+  - π#start() : Report :≡
+    1. searcher :≡ Searcher#mk root
+    2. db :≡ DB#mk db-path
+    3. ui :≡ UI#mk()
+    4. planner :≡ Planner#mk db
+    5. files-counter : Nat :≡ 0
+    6. exercises-counter : Nat :≡ 0
+    7. report :≡ Report#mk()
+    8. report#add "TotalRecall started."
+    9. report#add "Definitions and exercises under #{root} will be reviewed."
+    10. report#add "Review results will be saved in #{db-path}."
+    11. files :≡ searcher#files()
+    12. π#next-file()
 
 ** implementation
 
 #+begin_src emacs-lisp
 ;; TotalRecall
 (total-recall--Actor
- #'total-recall--total-recall-init-mk
- #'total-recall--total-recall-tx
+ #'total-recall--TotalRecall-init-mk
+ #'total-recall--TotalRecall-tx
  total-recall--TotalRecall)
 
 ;;;; Interface
-(defun total-recall--total-recall-start (tr)
+(defun total-recall--TotalRecall-start (tr)
   (total-recall--send tr 'start))
 
 ;;;; Implementation
-(defun total-recall--total-recall-init-mk (_any)
-  nil)
+(defun total-recall--TotalRecall-init-mk (any)
+  (pcase-let ((`(,root ,db-path) any))
+    (let* ((db (total-recall--DB db-path))
+           (files-counter 0)
+           (exercises-counter 0)
+           (searcher (total-recall--Searcher root))
+           (files (total-recall--Searcher-files searcher))
+           (ui (total-recall--UI t))
+           (planner (total-recall--Planner db))
+           (report (total-recall--Report t)))
+      `(,root
+        ,db-path
+        ,files
+        ,planner
+        ,ui
+        ,db
+        ,files-counter
+        ,exercises-counter
+        ,report))))
 
-(defun total-recall--total-recall-tx (state msg)
-  (pcase msg
-    ('start
-     `(,(total-recall--Report nil) ,state #'total-recall--total-recall-tx))
-    (_
-     (error "Unexpected message. message = %s" msg))))
+(defun total-recall--TotalRecall-tx (state msg )
+  (pcase-let ((`(,root
+                 ,db-path
+                 ,files
+                 ,planner
+                 ,ui
+                 ,db
+                 ,files-counter
+                 ,exercises-counter
+                 ,report)
+               state))
+
+    (pcase msg
+      ('start
+       (total-report--Report-add report "TotalRecall started.")
+       (total-report--Report-add report (format "Definitions and exercises under %s will be reviewed." root))
+       (total-report--Report-add report (format "Review results will be saved in %s." db-path))
+       (total-recall--send self 'next-file)
+       `(,report ,state ,#'total-recall--TotalRecall-tx))
+
+      ('next-file
+       (total-report--Report-add report "next-file")
+       `(,report ,state ,#'total-recall--TotalRecall-tx))
+
+      (_
+       (error "Unexpected message. message = %s" msg)))))
 #+end_src
 
 ** test
@@ -502,7 +582,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 #+end_src
 
 #+begin_src emacs-lisp
-(cl-defstruct total-recall--total-recall
+(cl-defstruct total-recall--TotalRecall
   ""
   root db-path)
 #+end_src
@@ -510,9 +590,9 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 *** total-recall-mk
 
 #+begin_src emacs-lisp
-(defun total-recall--total-recall-mk (root db-path)
+(defun total-recall--TotalRecall-mk (root db-path)
   ""
-  (make-total-recall--total-recall
+  (make-total-recall--TotalRecall
    :root root
    :db-path db-path))
 #+end_src
@@ -520,22 +600,10 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 *** total-recall-start
 
 - π#start() : Report :≡
-  1. searcher :≡ Searcher#mk root
-  2. db :≡ DB#mk db-path
-  3. ui :≡ UI#mk()
-  4. planner :≡ Planner#mk db
-  5. files-counter : Nat :≡ 0
-  6. exercises-counter : Nat :≡ 0
-  7. report :≡ Report#mk()
-  8. report#add "TotalRecall started."
-  9. report#add "Definitions and exercises under #{root} will be reviewed."
-  10. report#add "Review results will be saved in #{db-path}."
-  11. files :≡ searcher#files()
-  12. π#next-file()
 
 
 #+begin_src emacs-lisp
-(defun total-recall--total-recall-start (total-recall)
+(defun total-recall--TotalRecall-start (total-recall)
   ""
   (total-recall--report-mk))
 #+end_src
@@ -553,7 +621,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 
 #+begin_src emacs-lisp
-(defun total-recall--total-recall-next-file (total-recall)
+(defun total-recall--TotalRecall-next-file (total-recall)
   ""
   (total-recall--report-mk))
 #+end_src
@@ -577,7 +645,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 
 #+begin_src emacs-lisp
-(defun total-recall--total-recall-next-exercise (total-recall)
+(defun total-recall--TotalRecall-next-exercise (total-recall)
   ""
   (total-recall--report-mk))
 #+end_src
@@ -592,12 +660,12 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 
 #+begin_src emacs-lisp
-(defun total-recall--total-recall-stop (total-recall)
+(defun total-recall--TotalRecall-stop (total-recall)
   ""
   (total-recall--report-mk))
 #+end_src
 
-* total-recall
+* COMMENT total-recall
 
 - total-recall() : Proposition :≡
   1. db-path : FilePath
@@ -615,12 +683,11 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 (defun total-recall ()
   ""
   (interactive)
-  (let* ((io-buffer-name total-recall-io-buffer-name)
-         (tr (total-recall--TotalRecall `(,total-recall-root ,total-recall-db-path)))
-         (io (total-recall--IO io-buffer-name))
-         (report (total-recall--total-recall-start tr)))
-    (total-recall--io-buffer io (total-recall--report-string report))
-    (total-recall--io-minibuffer io (format "total-recall execution finished. Report written to %s" io-buffer-name))))
+  (let* ((tr (total-recall--TotalRecall `(,total-recall-root ,total-recall-db-path)))
+         (report (total-recall--TotalRecall-start tr))
+         (io (total-recall--IO total-recall-io-buffer-name)))
+    (total-recall--IO-buffer io (total-recall--Report-string report))
+    (total-recall--IO-minibuffer io (format "total-recall execution finished. Report written to %s" (total-recall--IO-buffer-name io)))))
 #+end_src
 
 * Footer
