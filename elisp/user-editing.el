@@ -4,7 +4,7 @@
 ;;    because it removes tabs in makefile code blocks.
 
 
-;; (setq-default indent-tabs-mode nil)
+(setq-default indent-tabs-mode nil)
 ;; (setq whitespace-style '(face tabs trailing lines-tail))
 (put 'downcase-region 'disabled nil)
 (put 'upcase-region 'disabled nil)

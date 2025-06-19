@@ -1006,7 +1006,7 @@ and return an error indicator."
   ;; TODO Org Mode maintainer.
   ;(org-element--cache-self-verify nil)
   ;(org-element--cache-self-verify-frequency 1.0)
-  (org-fontify-emphasized-text nil)
+  (org-fontify-emphasized-text t)
   (org-babel-python-command-nonsession "python3")
   (org-startup-folded 'show2levels)
   (org-ellipsis " ")
