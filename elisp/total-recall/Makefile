@@ -52,7 +52,7 @@ ${TOTAL_RECALL_EL}: solution.org | ${BUILD}
 LINT_REPORT := ${BUILD}/lint-report.txt
 lint: ${LINT_REPORT}
 ${LINT_REPORT}: ${TOTAL_RECALL_EL}
-	emacs --batch --dir "${BUILD}" \
+	emacs --batch --chdir "${BUILD}" \
 	--file "$<" \
 	--eval '(setq org-id-track-globally nil)' \
 	--eval "(progn (require 'package-lint) (let ((errors (package-lint-buffer))) (when errors (message \"%s\" errors))))" 2>&1 | tee "$@"
@@ -87,6 +87,12 @@ ${TEST}: ${TOTAL_RECALL_EL}
 	--eval '(load-file "${TOTAL_RECALL_TEST_EL}")' \
 	--eval '(ert-run-tests-batch-and-exit t)' 2>&1 | tee "$@"
 	echo "$@"
+
+.PHONY: manual-test
+CONFIGURATION_EL := "${BUILD}"/configuration.el
+manual-test: ${TOTAL_RECALL_EL}
+	cp configuration.el "${CONFIGURATION_EL}"
+	emacs -Q -nw --chdir "${BUILD}" -l "$<" -l "${CONFIGURATION_EL}" --eval '(toggle-debug-on-error)'
 
 .PHONY: all
 all:

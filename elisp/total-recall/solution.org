@@ -75,7 +75,7 @@ This package provides `total-recall' for spaced repetition in Emacs."
   :type 'string
   :group 'total-recall)
 
-(defcustom total-recall-io-buffer-name "*TotalRecall report buffer*"
+(defcustom total-recall-io-buffer-name "*TotalRecall*"
   ""
   :type 'string
   :group 'total-recall)
@@ -84,13 +84,9 @@ This package provides `total-recall' for spaced repetition in Emacs."
 * Actor
 ** specification
 
-~Instruction~ is finite set of symbols.
+~Instruction~ is finite set of symbols. ~Stack :≡ List(Instruction)~. ~Compiler :≡ Any →
+Stack~. A ~memory~ is a mutable object such that:
 
-~Stack :≡ List(Instruction)~.
-
-~Compiler :≡ Any → Stack~.
-
-A ~memory~ is a mutable object such that:
 - ~memory#self()~ is t or the address of an object,
 - ~memory#compiler()~ is a compiler,
 - ~memory#interpreter()~ is an interpreter,
@@ -98,13 +94,10 @@ A ~memory~ is a mutable object such that:
 - ~memory#out()~ is an arbitrary value.
 
 ~Interpreter :≡ Memory Instruction → Memory~. Given ~interpreter : Interpreter~,
-~interpreter(m i)~ has the same address as ~m~ but not necessarily the same values.
-
-~Init :≡ Any → Memory~.
-
-~Actor :≡ Init → Any → Any → Any~. Given ~actor :≡ Actor(init data)~, ~actor(msg)~ is
-the reply of ~actor~ to the message ~msg~. The reply is computed as follows. Given
-~memory :≡ init(data)~, we have:
+~interpreter(m i)~ has the same address as ~m~ but not necessarily the same values. ~Init
+:≡ Any → Memory~. ~Actor :≡ Init → Any → Any → Any~. Given ~actor :≡ Actor(init data)~,
+~actor(msg)~ is the reply of ~actor~ to the message ~msg~. The reply is computed as
+follows. Given ~memory :≡ init(data)~, we have:
 
 - actor(msg) ≡
   1. memory#stack memory#compiler()(msg)
@@ -114,11 +107,10 @@ the reply of ~actor~ to the message ~msg~. The reply is computed as follows. Giv
        2. memory#interpreter() memory#memory() inst
      - [] → memory#out()
 
-~send actor msg~ sends the message ~msg~ to ~actor~ and returns its reply.
-
-In other words, a type of actors is specified by an init function and actors
-communicate by passing messages, keeping a protected internal memory. Also, an actor
-may rewrite its entire memory as it sees fit.
+~send actor msg~ sends the message ~msg~ to ~actor~ and returns its reply. In other words,
+a type of actors is specified by an init function and actors communicate by passing
+messages, keeping a protected internal memory. Also, an actor may rewrite its entire
+memory as it sees fit.
 
 ** implementation
 
@@ -146,7 +138,7 @@ may rewrite its entire memory as it sees fit.
     (puthash 'compiler compiler memory)
     (puthash 'interpreter interpreter memory)
     (puthash 'stack '() memory)
-    (puthash 'self t memory)    
+    (puthash 'self t memory)
     (puthash 'out nil memory)
     memory))
 #+end_src
@@ -154,6 +146,32 @@ may rewrite its entire memory as it sees fit.
 ** test
 
 See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
+
+* TODO Messages
+** specification
+
+** implementation
+
+#+begin_src emacs-lisp
+(defmacro total-recall--message (name)
+  `(defun ,(intern (concat "total-recall--" (symbol-name name))) (actor &rest args)
+     (total-recall--send actor
+			 (pcase args
+			   ('() ',name)
+			   (_ (cons ',name args))))))
+
+(total-recall--message read)
+(total-recall--message tick)
+(total-recall--message tick2)
+(total-recall--message start)
+(total-recall--message add)
+(total-recall--message string)
+(total-recall--message buffer)
+(total-recall--message minibuffer)
+(total-recall--message buffer-name)
+#+end_src
+
+** test
 
 * Clock
 :PROPERTIES:
@@ -170,47 +188,37 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It mea
 
 #+begin_src emacs-lisp
 ;; Clock
+
 (total-recall--Actor
  #'total-recall--Clock-init
  total-recall--Clock)
 
-;;;; Interface
-(defun total-recall--read (actor)
-  (total-recall--send actor 'read))
+(defun total-recall--Clock-init (time)
+  (let ((memory (total-recall--Actor-memory
+                 #'total-recall--Clock-compiler
+                 #'total-recall--Clock-interpreter)))
+    (puthash 'time time memory)
+    memory))
 
-(defun total-recall--tick (actor)
-  (total-recall--send actor 'tick))
-
-(defun total-recall--tick2 (actor)
-  (total-recall--send actor 'tick2))
-
-;;;; Implementation
 (defun total-recall--Clock-compiler (msg)
   (pcase msg
     ('read '(read))
     ('tick '(tick))
     ('tick2 '(tick tick))
-    (_ (error "Unexpected msg. %s" msg))))
+    (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--Clock-exec (memory inst)
-  (pcase inst
-    ('read
-     (let ((time (gethash 'time memory)))
-       (puthash 'out time memory)))
+(defun total-recall--Clock-interpreter (memory inst)
+  (let ((time (gethash 'time memory)))
+    
+    (pcase inst
+      ('read
+       (puthash 'out time memory))
 
-    ('tick
-     (let ((time (gethash 'time memory)))
+      ('tick
        (puthash 'time (+ time 1) memory)
-       (puthash 'out (gethash 'self memory) memory)))
+       (puthash 'out (gethash 'self memory) memory))
 
-    (_ (error "Unexpected instruction. %s" inst))))
-
-(defun total-recall--Clock-init (time)
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--Clock-compiler
-                 #'total-recall--Clock-exec)))
-    (puthash 'time time memory)
-    memory))
+      (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -229,227 +237,7 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It mea
     (should (= (total-recall--read (total-recall--tick2 clock)) 3))))
 #+end_src
 
-* COMMENT Rating
-
-- Rating#mk : Id → Rating
-  - π#id() : Id
-
-#+begin_src emacs-lisp
-;; Rating
-#+end_src
-
-#+begin_src emacs-lisp
-(cl-defstruct total-recall--rating
-  "Rating data structure."
-  id)
-#+end_src
-
-*** rating-mk
-
-#+begin_src emacs-lisp
-(defun total-recall--rating-mk (id)
-  ""
-  (make-total-recall--rating :id id))
-#+end_src
-
-* COMMENT UI
-
-- UI#mk : UI
-  - π#show : Exercise → Rating | 'stop
-
-#+begin_src emacs-lisp
-;; UI
-#+end_src
-
-#+begin_src emacs-lisp
-(cl-defstruct total-recall--ui
-  "UI data structure."
-  id)
-#+end_src
-
-*** ui-mk
-
-#+begin_src emacs-lisp
-(defun total-recall--ui-mk (id)
-  ""
-  (make-total-recall--ui :id id))
-#+end_src
-
-* COMMENT Planner
-
-- Planner#mk : DB → Planner
-  - π#exercises : FilePath → List(Exercise)
-
-#+begin_src emacs-lisp
-;; Planner
-#+end_src
-
-#+begin_src emacs-lisp
-(cl-defstruct total-recall--planner
-  "Planner data structure."
-  id)
-#+end_src
-
-*** planner-mk
-
-#+begin_src emacs-lisp
-(defun total-recall--planner-mk (id)
-  ""
-  (make-total-recall--planner :id id))
-#+end_src
-
-* COMMENT Searcher
-
-- ContentFile(root:DirPath) :≡ FilePath prefixed by root that contains at least one
-  definition or exercise.
-
-- Searcher#mk : root:DirPath → Searcher
-  - π#files() : List(ContentFile(root))
-
-#+begin_src emacs-lisp
-;; Searcher
-#+end_src
-
-#+begin_src emacs-lisp
-(cl-defstruct total-recall--searcher
-  "Searcher data structure."
-  id)
-#+end_src
-
-*** searcher-mk
-
-#+begin_src emacs-lisp
-(defun total-recall--searcher-mk (id)
-  ""
-  (make-total-recall--searcher :id id))
-#+end_src
-
-* COMMENT DB
-
-- DB#mk : FilePath → DB
-  - π#save : Exercise Rating → DB
-  - π#stop() : 'ok
-
-#+begin_src emacs-lisp
-;; DB
-#+end_src
-
-#+begin_src emacs-lisp
-(cl-defstruct total-recall--db
-  "DB data structure."
-  id)
-#+end_src
-
-*** db-mk
-
-#+begin_src emacs-lisp
-(defun total-recall--db-mk (id)
-  ""
-  (make-total-recall--db :id id))
-#+end_src
-
-* COMMENT Filepath
-
-- Filepath#mk : Path → Filepath
-  - π#path() : Path
-
-#+begin_src emacs-lisp
-;; Filepath
-#+end_src
-
-#+begin_src emacs-lisp
-(cl-defstruct total-recall--filepath
-  "Filepath data structure."
-  path)
-#+end_src
-
-*** filepath-mk
-
-#+begin_src emacs-lisp
-(defun total-recall--filepath-mk (path)
-  ""
-  (unless (file-regular-p path) (error "path is not a regular file. %s" path))
-  (make-total-recall--filepath :path path))
-#+end_src
-
-* COMMENT Dirpath
-
-- Dirpath#mk : Path → Dirpath
-  - π#path() : Path
-
-#+begin_src emacs-lisp
-;; Dirpath
-#+end_src
-
-#+begin_src emacs-lisp
-(cl-defstruct total-recall--dirpath
-  "Dirpath data structure."
-  path)
-#+end_src
-
-*** dirpath-mk
-
-#+begin_src emacs-lisp
-(defun total-recall--dirpath-mk (path)
-  ""
-  (unless (file-directory-p path) (error "path is not a directory. %s" path))
-  (make-total-recall--dirpath :path path))
-#+end_src
-
-* TODO IO
-
-** specification
-
-- IO#mk : Name → IO
-  - π#buffer : String → IO
-  - π#minibuffer : String → IO
-
-** implementation
-
-#+begin_src emacs-lisp
-;; IO
-(total-recall--Actor
- #'total-recall--IO-init-mk
- #'total-recall--IO-tx
- total-recall--IO)
-
-;;;; Interface
-(defun total-recall--minibuffer (io string)
-  (total-recall--send io `(minibuffer ,string)))
-
-(defun total-recall--buffer (io string)
-  (total-recall--send io `(buffer ,string)))
-
-(defun total-recall--buffer-name (io)
-  (total-recall--send io 'buffer-name))
-
-;;;; Implementation
-(defun total-recall--IO-init-mk (buffer-name)
-  (get-buffer-create buffer-name))
-
-(defun total-recall--IO-tx (buffer msg)
-  (pcase msg
-    (`(minibuffer ,string)
-     (message "%s" string)
-     `(t ,buffer ,#'total-recall--IO-tx))
-
-    (`(buffer ,string)
-     (with-current-buffer buffer
-       (insert string)
-       (insert "\n"))
-     `(t ,buffer ,#'total-recall--IO-tx))
-
-    ('buffer-name
-     `(t ,(buffer-name buffer) ,#'total-recall--IO-tx))
-
-    (_
-     (error "Unexpected message. message = %s" msg))))
-#+end_src
-
-** test
-
 * TODO Report
-
 ** specification
 
 - Report#mk() : Report
@@ -460,240 +248,308 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It mea
 
 #+begin_src emacs-lisp
 ;; Report
+
 (total-recall--Actor
- #'total-recall--report-init-mk
- #'total-recall--report-tx
+ #'total-recall--Report-init
  total-recall--Report)
 
-;;;; Interface
-(defun total-recall--string (tr)
-  (total-recall--send tr 'string))
+(defun total-recall--Report-init (time)
+  (let ((memory (total-recall--Actor-memory
+                 #'total-recall--Report-compiler
+                 #'total-recall--Report-interpreter)))
+    (puthash 'time time memory)
+    memory))
 
-(defun total-recall--report-add (tr line)
-  (total-recall--send tr  ̀(add ,line)))
-
-;;;; Implementation
-(defun total-recall--report-init-mk ()
-  '())
-
-(defun total-recall--report-tx (lines msg)
+(defun total-recall--Report-compiler (msg)
   (pcase msg
-    ('string
-     `(,(string-join lines "\n") lines #'total-recall--report-tx))
-
     (`(add ,line)
-     `(t ,(append lines line) #'total-recall--report-tx))
+     `(,msg))
 
-    (_
-     (error "Unexpected message. message = %s" msg))))
+    ('string
+     `(,msg))
+    ;; TODO
+    (_ (error "Unexpected msg. msg = %s" msg))))
+
+(defun total-recall--Report-interpreter (memory inst)
+  (let ()
+    (pcase inst
+      (`(add ,line)
+       memory)
+
+      ('string
+       (puthash 'out "report" memory))
+      
+      ;; TODO
+      (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
 ** test
 
-#+begin_src emacs-lisp
-;; Report
-#+end_src
+* TODO Searcher
+** specification
+
+** implementation
 
 #+begin_src emacs-lisp
-(cl-defstruct total-recall--report
-  "Report data structure."
-  strings)
+;; Searcher
+
+(total-recall--Actor
+ #'total-recall--Searcher-init
+ total-recall--Searcher)
+
+(defun total-recall--Searcher-init (time)
+  (let ((memory (total-recall--Actor-memory
+                 #'total-recall--Searcher-compiler
+                 #'total-recall--Searcher-interpreter)))
+    (puthash 'time time memory)
+    memory))
+
+(defun total-recall--Searcher-compiler (msg)
+  (pcase msg
+    ;; TODO
+    (_ (error "Unexpected msg. msg = %s" msg))))
+
+(defun total-recall--Searcher-interpreter (memory inst)
+  (let ()
+    (pcase inst
+      ;; TODO
+      (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
-*** report-mk
+** test
+
+* TODO DB
+** specification
+
+- DB#mk : FilePath → DB
+  - π#save : Exercise Rating → DB
+  - π#stop() : 'ok
+
+** implementation
 
 #+begin_src emacs-lisp
-(defun total-recall--report-mk ()
-  ""
-  (make-total-recall--report
-   :strings '()))
+;; DB
+
+(total-recall--Actor
+ #'total-recall--DB-init
+ total-recall--DB)
+
+(defun total-recall--DB-init (time)
+  (let ((memory (total-recall--Actor-memory
+                 #'total-recall--DB-compiler
+                 #'total-recall--DB-interpreter)))
+    (puthash 'time time memory)
+    memory))
+
+(defun total-recall--DB-compiler (msg)
+  (pcase msg
+    ;; TODO
+    (_ (error "Unexpected msg. msg = %s" msg))))
+
+(defun total-recall--DB-interpreter (memory inst)
+  (let ()
+    (pcase inst
+      ;; TODO
+      (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
-*** report-string
+** test
+
+* TODO Planner
+** specification
+
+** implementation
 
 #+begin_src emacs-lisp
-(defun total-recall--string (report)
-  ""
-  "report")
+;; Planner
+
+(total-recall--Actor
+ #'total-recall--Planner-init
+ total-recall--Planner)
+
+(defun total-recall--Planner-init (time)
+  (let ((memory (total-recall--Actor-memory
+                 #'total-recall--Planner-compiler
+                 #'total-recall--Planner-interpreter)))
+    (puthash 'time time memory)
+    memory))
+
+(defun total-recall--Planner-compiler (msg)
+  (pcase msg
+    ;; TODO
+    (_ (error "Unexpected msg. msg = %s" msg))))
+
+(defun total-recall--Planner-interpreter (memory inst)
+  (let ()
+    (pcase inst
+      ;; TODO
+      (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
-*** report-add
+** test
+
+* TODO UI
+** specification
+** implementation
 
 #+begin_src emacs-lisp
-(defun total-recall--report-add (report string)
-  ""
-  report)
+;; UI
+
+(total-recall--Actor
+ #'total-recall--UI-init
+ total-recall--UI)
+
+(defun total-recall--UI-init (time)
+  (let ((memory (total-recall--Actor-memory
+                 #'total-recall--UI-compiler
+                 #'total-recall--UI-interpreter)))
+    (puthash 'time time memory)
+    memory))
+
+(defun total-recall--UI-compiler (msg)
+  (pcase msg
+    ;; TODO
+    (_ (error "Unexpected msg. msg = %s" msg))))
+
+(defun total-recall--UI-interpreter (memory inst)
+  (let ()
+    (pcase inst
+      ;; TODO
+      (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
+
+** test
+* TODO IO
+** specification
+
+Given a string ~name~, an ~io :≡ IO(name)~ represents input/outputs of the current
+program. ~io#buffer(s)~ writes the string ~s~ to an output buffer named ~name~.
+~io#minibuffer(s)~ writes the string ~s~ to Emacs minibuffer.
+
+** implementation
+
+#+begin_src emacs-lisp
+;; IO
+
+(total-recall--Actor
+ #'total-recall--IO-init
+ total-recall--IO)
+
+(defun total-recall--IO-init (name)
+  (let ((memory (total-recall--Actor-memory
+                 #'total-recall--IO-compiler
+                 #'total-recall--IO-interpreter)))
+    (puthash 'buffer (get-buffer-create name) memory)
+    (puthash 'name (buffer-name (gethash 'buffer memory)) memory)    
+    memory))
+
+(defun total-recall--IO-compiler (msg)
+  (pcase msg
+    (`(minibuffer ,string)
+     `(,msg))
+
+    (`(buffer ,string)
+     `(,msg))
+
+    ('buffer-name
+     `(,msg))
+    
+    ;; TODO
+    (_ (error "Unexpected msg. msg = %s" msg))))
+
+(defun total-recall--IO-interpreter (memory inst)
+  (let ((self (gethash 'self memory))
+	(buffer (gethash 'buffer memory)))
+    
+    (pcase inst
+      (`(minibuffer ,string)
+       (message "%s" (string-trim string))
+       (puthash 'out self memory))
+
+      (`(buffer ,string)
+       (with-current-buffer buffer
+	 (insert (string-join (list string "\n"))))
+       (puthash 'out self memory))
+
+      ('buffer-name
+       (puthash 'out (gethash 'name memory) memory))
+      
+      ;; TODO
+      (_ (error "Unexpected instruction. inst = %s" inst)))))
+#+end_src
+
+** test
 
 * TODO TotalRecall
 ** specification
 
-- TotalRecall#mk : root:DirPath db-path:FilePath → TotalRecall
-  - π#start() : Report :≡
-    1. searcher :≡ Searcher#mk root
-    2. db :≡ DB#mk db-path
-    3. ui :≡ UI#mk()
-    4. planner :≡ Planner#mk db
-    5. files-counter : Nat :≡ 0
-    6. exercises-counter : Nat :≡ 0
-    7. report :≡ Report#mk()
-    8. report#add "TotalRecall started."
-    9. report#add "Definitions and exercises under #{root} will be reviewed."
-    10. report#add "Review results will be saved in #{db-path}."
-    11. files :≡ searcher#files()
-    12. π#next-file()
+~tr :≡ TotalRecall root db-path~ is an actor such that ~tr#start()~ searches for Org Mode
+files under ~root~ containing elements like exercises and/or definitions. For each
+file, the headings are interpreted as a tree and the elements are ordered in a depth
+first manner. The list of elements is mapped to a list of exercises which is then
+prunned using data in ~db-path~ and a planner object. The prunned list is then sent to
+the UI to be presented to the user. Data gathered from the data is then saved to
+~db-path~. Finally, a report of execution is returned to the caller.
 
 ** implementation
 
 #+begin_src emacs-lisp
 ;; TotalRecall
+
 (total-recall--Actor
- #'total-recall--TotalRecall-init-mk
- #'total-recall--TotalRecall-tx
+ #'total-recall--TotalRecall-init
  total-recall--TotalRecall)
 
-;;;; Interface
-(defun total-recall--start (tr)
-  (total-recall--send tr 'start))
+(defun total-recall--TotalRecall-init (data)
+  (pcase data
+    (`(,root ,db-path)
+     (let ((memory (total-recall--Actor-memory
+                    #'total-recall--TotalRecall-compiler
+                    #'total-recall--TotalRecall-interpreter)))
+       (puthash 'root root memory)
+       (puthash 'db-path db-path memory)
+       (puthash 'searcher (total-recall--Searcher root) memory)
+       (puthash 'db (total-recall--DB db-path) memory)
+       (puthash 'planner (total-recall--Planner (gethash 'db memory)) memory)
+       (puthash 'ui (total-recall--UI t) memory)
+       (puthash 'nbr-files 0 memory)
+       (puthash 'nbr-exercises 0 memory)
+       memory))
+    (_ (error "Unexpected data. data ≡ %s" data))))
 
-;;;; Implementation
-(defun total-recall--TotalRecall-init-mk (any)
-  (pcase-let ((`(,root ,db-path) any))
-    (let* ((db (total-recall--DB db-path))
-           (files-counter 0)
-           (exercises-counter 0)
-           (searcher (total-recall--Searcher root))
-           (files (total-recall--Searcher-files searcher))
-           (ui (total-recall--UI t))
-           (planner (total-recall--Planner db))
-           (report (total-recall--Report t)))
-      `(,root
-        ,db-path
-        ,files
-        ,planner
-        ,ui
-        ,db
-        ,files-counter
-        ,exercises-counter
-        ,report))))
+(defun total-recall--TotalRecall-compiler (msg)
+  (pcase msg
+    ('start '(start))
+    (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--TotalRecall-tx (state msg )
-  (pcase-let ((`(,root
-                 ,db-path
-                 ,files
-                 ,planner
-                 ,ui
-                 ,db
-                 ,files-counter
-                 ,exercises-counter
-                 ,report)
-               state))
+(defun total-recall--TotalRecall-interpreter (memory inst)
+  (let ((root (gethash 'root memory))
+        (db-path (gethash 'db-path memory))
+        (searcher (gethash 'searcher memory))
+        (db (gethash 'db memory))
+        (planner (gethash 'planner memory))
+        (ui (gethash 'ui memory))
+        (nbr-files (gethash 'nbr-files memory))
+        (nbr-exercises (gethash 'nbr-exercises memory))
+        (report (gethash 'report memory)))
 
-    (pcase msg
+    (pcase inst
       ('start
-       (total-report--Report-add report "TotalRecall started.")
-       (total-report--Report-add report (format "Definitions and exercises under %s will be reviewed." root))
-       (total-report--Report-add report (format "Review results will be saved in %s." db-path))
-       (total-recall--send self 'next-file)
-       `(,report ,state ,#'total-recall--TotalRecall-tx))
+       (let ((nbr-files (puthash 'nbr-files 0 memory))
+             (nbr-exercises (puthash 'nbr-exercises 0 memory))
+             (report (puthash 'report (total-recall--Report t) memory)))
+         (total-recall--add report "TotalRecall started.")
+         (total-recall--add report (format "Definitions and exercises under %s will be reviewed." root))
+         (total-recall--add report (format "Review results will be saved in %s." db-path))
+         ;; TODO
+         (total-recall--add report (format "%s files have been reviewed." (gethash 'nbr-files memory)))
+         (total-recall--add report (format "%s exercises have been reviewed." (gethash 'nbr-exercises memory)))
+         (puthash 'out report memory)))
 
-      ('next-file
-       (total-report--Report-add report "next-file")
-       `(,report ,state ,#'total-recall--TotalRecall-tx))
-
-      (_
-       (error "Unexpected message. message = %s" msg)))))
+      (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
 ** test
-
-#+begin_src emacs-lisp
-
-#+end_src
-
-#+begin_src emacs-lisp
-(cl-defstruct total-recall--TotalRecall
-  ""
-  root db-path)
-#+end_src
-
-*** total-recall-mk
-
-#+begin_src emacs-lisp
-(defun total-recall--TotalRecall-mk (root db-path)
-  ""
-  (make-total-recall--TotalRecall
-   :root root
-   :db-path db-path))
-#+end_src
-
-*** total-recall-start
-
-- π#start() : Report :≡
-
-
-#+begin_src emacs-lisp
-(defun total-recall--start (total-recall)
-  ""
-  (total-recall--report-mk))
-#+end_src
-
-*** total-recall-next-file
-
-- π#next-file() : Report :≡
-  - match files
-    - [ ] → π#stop()
-    - [file-path] + rest →
-      1. files :≡ rest
-      2. report#add "Reviewing exercises from file: #{file-path}."
-      3. exercises :≡ planner#exercises file-path
-      4. π#next-exercise()
-
-
-#+begin_src emacs-lisp
-(defun total-recall--TotalRecall-next-file (total-recall)
-  ""
-  (total-recall--report-mk))
-#+end_src
-
-*** total-recall-next-exercise
-
-- π#next-exercise() : Report :≡
-  - match exercises
-    - [ ] →
-      1. files-counter :≡ files-counter + 1
-      2. π#next-file()
-    - [exercise] + rest →
-      1. exercises :≡ rest
-      2. report#add "Reviewing exercise: #{string-join(exercise#path())}."
-      3. match ui#show exercise
-         - 'stop → π#stop()
-         - rating : Rating →
-           1. exercises-counter :≡ exercises-counter + 1
-           2. db#save exercise rating
-           3. π#next-exercise()
-
-
-#+begin_src emacs-lisp
-(defun total-recall--TotalRecall-next-exercise (total-recall)
-  ""
-  (total-recall--report-mk))
-#+end_src
-
-*** total-recall-stop
-
-- π#stop() : Report :≡
-  1. db#stop()
-  2. report#add "Reviewing process is finished."
-  3. report#add "#{exercises-counter} exercises or definitions have been reviewed from #{files-counter} files."
-  4. report
-
-
-#+begin_src emacs-lisp
-(defun total-recall--TotalRecall-stop (total-recall)
-  ""
-  (total-recall--report-mk))
-#+end_src
 
 * DONE total-recall
 ** specification
@@ -712,7 +568,7 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It mea
          (report (total-recall--start tr))
          (io (total-recall--IO total-recall-io-buffer-name)))
     (total-recall--buffer io (total-recall--string report))
-    (total-recall--minibuffer io (format "total-recall execution finished. Report written to %s" (total-recall--buffer-name io)))))
+    (total-recall--minibuffer io (format "total-recall execution finished. Report written to the buffer named: %s" (total-recall--buffer-name io)))))
 #+end_src
 
 ** test
