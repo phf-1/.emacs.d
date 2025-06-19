@@ -2,12 +2,12 @@
 
 #+PROPERTY: header-args:emacs-lisp :noweb yes :mkdirp yes :tangle total-recall.el
 
-* Commentary
+* Specification
 :PROPERTIES:
 :ID:       2b6a2d42-bfd0-4658-b25a-b1b7000d1b01
 :END:
 
-#+name: commentary
+#+name: specification
 #+begin_src org
 TODO
 #+end_src
@@ -34,7 +34,7 @@ TODO
 ;;
 ;;; Commentary:
 ;;
-;; <<commentary>>
+;; <<specification>>
 ;;
 ;;; Code:
 #+end_src
@@ -84,12 +84,41 @@ This package provides `total-recall' for spaced repetition in Emacs."
 * Actor
 ** specification
 
-- Tx :≡ State Message Actor → Message × State × Tx
-- InitState :≡ Any → State
-- Actor : init:InitState tx:Tx → Actor(init tx)
-  - π : State → π
-  - α : π
-  - send α msg : Any
+~Instruction~ is finite set of symbols.
+
+~Stack :≡ List(Instruction)~.
+
+~Compiler :≡ Any → Stack~.
+
+A ~memory~ is a mutable object such that:
+- ~memory#self()~ is t or the address of an object,
+- ~memory#compiler()~ is a compiler,
+- ~memory#interpreter()~ is an interpreter,
+- ~memory#stack()~ is a stack,
+- ~memory#out()~ is an arbitrary value.
+
+~Interpreter :≡ Memory Instruction → Memory~. Given ~interpreter : Interpreter~,
+~interpreter(m i)~ has the same address as ~m~ but not necessarily the same values.
+
+~Init :≡ Any → Memory~.
+
+~Actor :≡ Init → Any → Any → Any~. Given ~actor :≡ Actor(init data)~, ~actor(msg)~ is
+the reply of ~actor~ to the message ~msg~. The reply is computed as follows. Given
+~memory :≡ init(data)~, we have:
+
+- actor(msg) ≡
+  1. memory#stack memory#compiler()(msg)
+  2. match memory#stack()
+     - [inst] + rest →
+       1. memory#stack rest
+       2. memory#interpreter() memory#memory() inst
+     - [] → memory#out()
+
+~send actor msg~ sends the message ~msg~ to ~actor~ and returns its reply.
+
+In other words, a type of actors is specified by an init function and actors
+communicate by passing messages, keeping a protected internal memory. Also, an actor
+may rewrite its entire memory as it sees fit.
 
 ** implementation
 
@@ -104,7 +133,7 @@ This package provides `total-recall' for spaced repetition in Emacs."
                            (stack (puthash 'stack (funcall compiler msg) memory)))
                       (while (not (null stack))
                         (puthash 'stack (cdr stack) memory)
-                        (funcall (gethash 'exec memory) memory (car stack))
+                        (funcall (gethash 'interpreter memory) memory (car stack))
                         (setq stack (gethash 'stack memory)))
                       (gethash 'out memory)))))
        (puthash 'self self memory)
@@ -112,11 +141,12 @@ This package provides `total-recall' for spaced repetition in Emacs."
 
 (defun total-recall--send (actor msg) (funcall actor msg))
 
-(defun total-recall--Actor-memory (compiler exec)
+(defun total-recall--Actor-memory (compiler interpreter)
   (let ((memory (make-hash-table :test 'eq)))
     (puthash 'compiler compiler memory)
-    (puthash 'exec exec memory)
+    (puthash 'interpreter interpreter memory)
     (puthash 'stack '() memory)
+    (puthash 'self t memory)    
     (puthash 'out nil memory)
     memory))
 #+end_src
@@ -132,9 +162,9 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 ** specification
 
-- Clock : Nat → Clock
-  - π#time() : Nat
-  - π#tick() : Clock
+Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It means that
+~clock#read()~ is its current time and ~t :≡ clock#read(); clock#tick()#read() = t +
+1~.
 
 ** implementation
 
@@ -145,14 +175,14 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
  total-recall--Clock)
 
 ;;;; Interface
-(defun total-recall--Clock-read (clock)
-  (total-recall--send clock 'read))
+(defun total-recall--read (actor)
+  (total-recall--send actor 'read))
 
-(defun total-recall--Clock-tick (clock)
-  (total-recall--send clock 'tick))
+(defun total-recall--tick (actor)
+  (total-recall--send actor 'tick))
 
-(defun total-recall--Clock-tick2 (clock)
-  (total-recall--send clock 'tick2))
+(defun total-recall--tick2 (actor)
+  (total-recall--send actor 'tick2))
 
 ;;;; Implementation
 (defun total-recall--Clock-compiler (msg)
@@ -194,9 +224,9 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 (ert-deftest total-recall--Clock ()
   (let ((clock (total-recall--Clock 0)))
-    (should (= (total-recall--Clock-read clock) 0))
-    (should (= (total-recall--Clock-read (total-recall--Clock-tick clock)) 1))
-    (should (= (total-recall--Clock-read (total-recall--Clock-tick2 clock)) 3))))
+    (should (= (total-recall--read clock) 0))
+    (should (= (total-recall--read (total-recall--tick clock)) 1))
+    (should (= (total-recall--read (total-recall--tick2 clock)) 3))))
 #+end_src
 
 * COMMENT Rating
@@ -366,7 +396,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   (make-total-recall--dirpath :path path))
 #+end_src
 
-* COMMENT IO
+* TODO IO
 
 ** specification
 
@@ -384,13 +414,13 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
  total-recall--IO)
 
 ;;;; Interface
-(defun total-recall--IO-minibuffer (io string)
+(defun total-recall--minibuffer (io string)
   (total-recall--send io `(minibuffer ,string)))
 
-(defun total-recall--IO-buffer (io string)
+(defun total-recall--buffer (io string)
   (total-recall--send io `(buffer ,string)))
 
-(defun total-recall--IO-buffer-name (io)
+(defun total-recall--buffer-name (io)
   (total-recall--send io 'buffer-name))
 
 ;;;; Implementation
@@ -418,7 +448,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 ** test
 
-* COMMENT Report
+* TODO Report
 
 ** specification
 
@@ -436,7 +466,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
  total-recall--Report)
 
 ;;;; Interface
-(defun total-recall--Report-string (tr)
+(defun total-recall--string (tr)
   (total-recall--send tr 'string))
 
 (defun total-recall--report-add (tr line)
@@ -482,7 +512,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 *** report-string
 
 #+begin_src emacs-lisp
-(defun total-recall--Report-string (report)
+(defun total-recall--string (report)
   ""
   "report")
 #+end_src
@@ -495,7 +525,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   report)
 #+end_src
 
-* COMMENT TotalRecall
+* TODO TotalRecall
 ** specification
 
 - TotalRecall#mk : root:DirPath db-path:FilePath → TotalRecall
@@ -523,7 +553,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
  total-recall--TotalRecall)
 
 ;;;; Interface
-(defun total-recall--TotalRecall-start (tr)
+(defun total-recall--start (tr)
   (total-recall--send tr 'start))
 
 ;;;; Implementation
@@ -603,7 +633,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 
 #+begin_src emacs-lisp
-(defun total-recall--TotalRecall-start (total-recall)
+(defun total-recall--start (total-recall)
   ""
   (total-recall--report-mk))
 #+end_src
@@ -665,30 +695,27 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
   (total-recall--report-mk))
 #+end_src
 
-* COMMENT total-recall
+* DONE total-recall
+** specification
 
-- total-recall() : Proposition :≡
-  1. db-path : FilePath
-  2. root : DirPath
-  3. io-buffer-name : Name
-  4. total-recall :≡ TotalRecall#mk root db-path
-  5. io :≡ IO#mk io-buffer-name
-  6. report :≡ total-recall#start()
-  7. io#print-to-buffer report#string()
-  8. io#print-to-minibuffer "total-recall execution finished. Report written to #{io#buffer()}".
+~total-recall()~ implements the [[ref:2b6a2d42-bfd0-4658-b25a-b1b7000d1b01][specification]].
+
+** implementation
 
 #+begin_src emacs-lisp
 ;; total-recall
+
 ;;;###autoload
 (defun total-recall ()
-  ""
   (interactive)
   (let* ((tr (total-recall--TotalRecall `(,total-recall-root ,total-recall-db-path)))
-         (report (total-recall--TotalRecall-start tr))
+         (report (total-recall--start tr))
          (io (total-recall--IO total-recall-io-buffer-name)))
-    (total-recall--IO-buffer io (total-recall--Report-string report))
-    (total-recall--IO-minibuffer io (format "total-recall execution finished. Report written to %s" (total-recall--IO-buffer-name io)))))
+    (total-recall--buffer io (total-recall--string report))
+    (total-recall--minibuffer io (format "total-recall execution finished. Report written to %s" (total-recall--buffer-name io)))))
 #+end_src
+
+** test
 
 * Footer
 
