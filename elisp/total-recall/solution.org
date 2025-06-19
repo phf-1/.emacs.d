@@ -79,6 +79,16 @@ This package provides `total-recall' for spaced repetition in Emacs."
   ""
   :type 'string
   :group 'total-recall)
+
+(defcustom total-recall-def-id "f590edb9-5fa3-4a07-8f3d-f513950d5663"
+  ""
+  :type 'string
+  :group 'total-recall)
+
+(defcustom total-recall-ex-id "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
+  ""
+  :type 'string
+  :group 'total-recall)
 #+end_src
 
 * Actor
@@ -169,6 +179,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 (total-recall--message buffer)
 (total-recall--message minibuffer)
 (total-recall--message buffer-name)
+(total-recall--message files)
 #+end_src
 
 ** test
@@ -285,8 +296,25 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It mea
 
 ** test
 
-* TODO Searcher
+* DONE Searcher
 ** specification
+
+Given a path of a directory named ~root~ in the current file-system, ~searcher :≡
+Searcher root~ is an actor used to search files and directories satisfying some
+predicates. ~searcher#files()~ is a list of paths to regular files, each of which
+contains at least one definition or exercise. A regular file contains a definition if
+it contains the string:
+#+begin_example
+:ID: DefinitionID
+#+end_example
+
+where ~DefinitionID~ stands for the ID of the Definition type. A regular file contains
+an exercise if it contains the string:
+#+begin_example
+:ID: ExerciseID
+#+end_example
+
+where ~ExerciseID~ stands for the ID of the Exercise type.
 
 ** implementation
 
@@ -297,22 +325,61 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It mea
  #'total-recall--Searcher-init
  total-recall--Searcher)
 
-(defun total-recall--Searcher-init (time)
+(defun total-recall--Searcher-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Searcher-compiler
                  #'total-recall--Searcher-interpreter)))
-    (puthash 'time time memory)
-    memory))
+    (pcase data
+      (`(,root ,def-id ,ex-id)
+
+       (unless (file-directory-p (puthash 'root root memory))
+	 (error "root is not a directory. root = %s" root))
+       
+       (let ((ripgrep "rg"))
+	 (unless (stringp (puthash 'ripgrep (executable-find ripgrep) memory))
+	   (error "ripgrep not found in PATH. ripgrep = %s" ripgrep)))
+
+       (unless (stringp (puthash 'def-id def-id memory))
+	 (error "def-id is not a string. def-id = %s" def-id))
+
+       (unless (stringp (puthash 'ex-id ex-id memory))
+	 (error "ex-id is not a string. ex-id = %s" ex-id))
+
+       (puthash
+	'cmd
+	(format "%s -g '*.org' -i --no-heading -n --color=never -m 1 '%s' %s"
+                (gethash 'ripgrep memory)
+		(format "%s|%s" (gethash 'def-id memory) (gethash 'ex-id memory))
+		(gethash 'root memory))
+	memory)
+
+       memory)
+      (_ (error "Unexpected data. data = %s" data)))))
 
 (defun total-recall--Searcher-compiler (msg)
   (pcase msg
-    ;; TODO
+    ('files
+     '(files))
     (_ (error "Unexpected msg. msg = %s" msg))))
 
 (defun total-recall--Searcher-interpreter (memory inst)
-  (let ()
+  (let ((ripgrep (gethash 'ripgrep memory))
+	(def-id (gethash 'def-id memory))
+	(ex-id (gethash 'ex-id memory))
+	(cmd (gethash 'cmd memory)))
     (pcase inst
-      ;; TODO
+      ('files
+       (let (matches)
+	 (with-temp-buffer
+	   (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
+	   (goto-char (point-min))
+	   (while (not (eobp))
+             (let* ((line (buffer-substring-no-properties
+			   (line-beginning-position) (line-end-position)))
+		    (match (split-string line ":")))
+               (push (car match) matches))
+             (forward-line 1)))
+	 (puthash 'out (delete-dups matches) memory)))
       (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
@@ -419,12 +486,13 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It mea
 #+end_src
 
 ** test
-* TODO IO
+* DONE IO
 ** specification
 
 Given a string ~name~, an ~io :≡ IO(name)~ represents input/outputs of the current
 program. ~io#buffer(s)~ writes the string ~s~ to an output buffer named ~name~.
-~io#minibuffer(s)~ writes the string ~s~ to Emacs minibuffer.
+~io#minibuffer(s)~ writes the string ~s~ to Emacs minibuffer. ~io#buffer-name()~ is the
+name of the buffer ~io#buffer()~.
 
 ** implementation
 
@@ -459,7 +527,8 @@ program. ~io#buffer(s)~ writes the string ~s~ to an output buffer named ~name~.
 
 (defun total-recall--IO-interpreter (memory inst)
   (let ((self (gethash 'self memory))
-	(buffer (gethash 'buffer memory)))
+	(buffer (gethash 'buffer memory))
+	(name (gethash 'name memory)))
     
     (pcase inst
       (`(minibuffer ,string)
@@ -472,7 +541,7 @@ program. ~io#buffer(s)~ writes the string ~s~ to an output buffer named ~name~.
        (puthash 'out self memory))
 
       ('buffer-name
-       (puthash 'out (gethash 'name memory) memory))
+       (puthash 'out name memory))
       
       ;; TODO
       (_ (error "Unexpected instruction. inst = %s" inst)))))
@@ -502,13 +571,13 @@ the UI to be presented to the user. Data gathered from the data is then saved to
 
 (defun total-recall--TotalRecall-init (data)
   (pcase data
-    (`(,root ,db-path)
+    (`(,root ,db-path ,def-id ,ex-id)
      (let ((memory (total-recall--Actor-memory
                     #'total-recall--TotalRecall-compiler
                     #'total-recall--TotalRecall-interpreter)))
        (puthash 'root root memory)
        (puthash 'db-path db-path memory)
-       (puthash 'searcher (total-recall--Searcher root) memory)
+       (puthash 'searcher (total-recall--Searcher (list root def-id ex-id)) memory)
        (puthash 'db (total-recall--DB db-path) memory)
        (puthash 'planner (total-recall--Planner (gethash 'db memory)) memory)
        (puthash 'ui (total-recall--UI t) memory)
@@ -541,6 +610,7 @@ the UI to be presented to the user. Data gathered from the data is then saved to
          (total-recall--add report "TotalRecall started.")
          (total-recall--add report (format "Definitions and exercises under %s will be reviewed." root))
          (total-recall--add report (format "Review results will be saved in %s." db-path))
+	 (total-recall--files searcher)
          ;; TODO
          (total-recall--add report (format "%s files have been reviewed." (gethash 'nbr-files memory)))
          (total-recall--add report (format "%s exercises have been reviewed." (gethash 'nbr-exercises memory)))
@@ -564,7 +634,11 @@ the UI to be presented to the user. Data gathered from the data is then saved to
 ;;;###autoload
 (defun total-recall ()
   (interactive)
-  (let* ((tr (total-recall--TotalRecall `(,total-recall-root ,total-recall-db-path)))
+  (let* ((tr (total-recall--TotalRecall (list
+					 total-recall-root
+					 total-recall-db-path
+					 total-recall-def-id
+					 total-recall-ex-id)))
          (report (total-recall--start tr))
          (io (total-recall--IO total-recall-io-buffer-name)))
     (total-recall--buffer io (total-recall--string report))
