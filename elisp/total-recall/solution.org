@@ -967,7 +967,6 @@ the UI to be presented to the user. Data gathered from the data is then saved to
          (puthash 'out report memory)))
 
       (`(process-files ,files)
-       (message "process-file files. files = %s" files)
        (pcase files
          ('()
           (puthash 'out self memory))
@@ -982,8 +981,6 @@ the UI to be presented to the user. Data gathered from the data is then saved to
        (puthash 'out self memory))
 
       (`(process-exercises ,exercises)
-       (message "process-exercises exercises. exercises = %s"
-                (mapcar (lambda (ex) (total-recall--string ex)) exercises))
        (pcase exercises
          ('()
           (puthash 'out self memory))
@@ -994,7 +991,6 @@ the UI to be presented to the user. Data gathered from the data is then saved to
 
       (`(process-exercise ,exercise)
        (total-recall--add report (format "exercise = %s %s" (total-recall--id exercise) (total-recall--path exercise)))
-       (message "process-exercise exercise. exercise = %s" (total-recall--string exercise))
        (puthash 'out self memory))
 
       (_ (error "Unexpected instruction. inst = %s" inst)))))
