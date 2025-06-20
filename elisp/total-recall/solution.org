@@ -157,7 +157,7 @@ memory as it sees fit.
 
 See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
-* TODO Messages
+* Messages
 ** specification
 
 ** implementation
@@ -269,12 +269,11 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It mea
     (should (= (total-recall--read (total-recall--tick2 clock)) 3))))
 #+end_src
 
-* TODO Report
+* DONE Report
 ** specification
 
-- Report#mk() : Report
-  - π#string() : String
-  - π#add : String → Report
+~report :≡ Report()~ is a report. ~report#add(string)~ adds the string ~string~ to the
+report. ~report#string()~ is string representation of the report.
 
 ** implementation
 
@@ -285,11 +284,11 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It mea
  #'total-recall--Report-init
  total-recall--Report)
 
-(defun total-recall--Report-init (time)
+(defun total-recall--Report-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Report-compiler
                  #'total-recall--Report-interpreter)))
-    (puthash 'time time memory)
+    (puthash 'lines '() memory)
     memory))
 
 (defun total-recall--Report-compiler (msg)
@@ -299,23 +298,38 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a Clock. It mea
 
     ('string
      `(,msg))
-    ;; TODO
+
     (_ (error "Unexpected msg. msg = %s" msg))))
 
 (defun total-recall--Report-interpreter (memory inst)
-  (let ()
+  (let ((self (gethash 'self memory))
+        (lines (gethash 'lines memory)))
     (pcase inst
       (`(add ,line)
-       memory)
+       (puthash 'lines (cons line lines) memory)
+       (puthash 'out self memory))
 
       ('string
-       (puthash 'out "report" memory))
+       (puthash 'out (string-join (reverse lines) "\n") memory))
 
-      ;; TODO
       (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
 ** test
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle "total-recall-test.el"
+:END:
+
+#+begin_src emacs-lisp
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Report ()
+  (let ((report (total-recall--Report t)))
+    (total-recall--add report "line1")
+    (total-recall--add report "line2")
+    (should (string= (total-recall--string report) "line1\nline2"))))
+#+end_src
 
 * DONE Searcher
 ** specification
