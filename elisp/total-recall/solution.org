@@ -174,6 +174,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 (total-recall--message tick)
 (total-recall--message tick2)
 (total-recall--message start)
+(total-recall--message stop)
 (total-recall--message add)
 (total-recall--message string)
 (total-recall--message buffer)
@@ -191,6 +192,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 (total-recall--message parse)
 (total-recall--message select)
 (total-recall--message show)
+(total-recall--message save)
 #+end_src
 
 ** test
@@ -756,13 +758,25 @@ is the string of the relevant headline."
 
 (defun total-recall--DB-compiler (msg)
   (pcase msg
-    ;; TODO
+    ('stop
+     `(,msg))
+
+    (`(save ,rating)
+     `(,msg))
+
     (_ (error "Unexpected msg. msg = %s" msg))))
 
 (defun total-recall--DB-interpreter (memory inst)
-  (let ()
+  (let ((self (gethash 'self memory)))
     (pcase inst
-      ;; TODO
+      (`(save ,rating)
+       ;; TODO.
+       (puthash 'out self memory))
+
+      ('stop
+       ;; TODO release resources.
+       (puthash 'out self memory))
+
       (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
@@ -807,6 +821,46 @@ reviewed at the time of the call given data represented by the database ~db~.
 #+end_src
 
 ** test
+* TODO Rating
+** specification
+
+** implementation
+
+#+begin_src emacs-lisp
+;; Rating
+
+(total-recall--Actor
+ #'total-recall--Rating-init
+ total-recall--Rating)
+
+(defun total-recall--Rating-init (data)
+  (let ((memory (total-recall--Actor-memory
+                 #'total-recall--Rating-compiler
+                 #'total-recall--Rating-interpreter)))
+    memory))
+
+(defun total-recall--Rating-compiler (msg)
+  (pcase msg
+    (_ (error "Unexpected msg. msg = %s" msg))))
+
+(defun total-recall--Rating-interpreter (memory inst)
+  (let ((self (gethash 'self memory)))
+    (pcase inst
+      (_ (error "Unexpected instruction. inst = %s" inst)))))
+#+end_src
+
+** test
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle "total-recall-test.el"
+:END:
+
+#+begin_src emacs-lisp
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Rating ()
+  (should (eq t t)))
+#+end_src
 
 * TODO UI
 ** specification
@@ -819,22 +873,34 @@ reviewed at the time of the call given data represented by the database ~db~.
  #'total-recall--UI-init
  total-recall--UI)
 
-(defun total-recall--UI-init (time)
+(defun total-recall--UI-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--UI-compiler
                  #'total-recall--UI-interpreter)))
-    (puthash 'time time memory)
+    ;; TODO
     memory))
 
 (defun total-recall--UI-compiler (msg)
   (pcase msg
-    ;; TODO
+    (`(show exercise ,exercise)
+     `(,msg))
+
+    (`(show report ,report)
+     `(,msg))
+
     (_ (error "Unexpected msg. msg = %s" msg))))
 
 (defun total-recall--UI-interpreter (memory inst)
-  (let ()
+  (let ((self (gethash 'self memory)))
     (pcase inst
-      ;; TODO
+      (`(show exercise ,exercise)
+       ;; TODO
+       (puthash 'out `(rating ,(total-recall--Rating t)) memory))
+
+      (`(show report ,report)
+       ;; TODO
+       (puthash 'out self memory))
+
       (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
@@ -902,7 +968,7 @@ name of the buffer ~io#buffer()~.
 
 ** test
 
-* TODO TotalRecall
+* DONE TotalRecall
 ** specification
 
 ~tr :≡ TotalRecall root db-path~ is an actor such that ~tr#start()~ searches for Org Mode
@@ -937,12 +1003,14 @@ the UI to be presented to the user. Data gathered from the data is then saved to
        (puthash 'ui (total-recall--UI t) memory)
        (puthash 'nbr-files 0 memory)
        (puthash 'nbr-exercises 0 memory)
+       (puthash 'inst-are-ignored nil memory)
        memory))
     (_ (error "Unexpected data. data ≡ %s" data))))
 
 (defun total-recall--TotalRecall-compiler (msg)
   (pcase msg
     ('start '(start))
+    ('stop '(stop))
     (`(process-files ,files) `(,msg))
     (`(process-file ,file) `(,msg))
     (`(process-exercises ,exercises) `(,msg))
@@ -960,49 +1028,62 @@ the UI to be presented to the user. Data gathered from the data is then saved to
         (ui (gethash 'ui memory))
         (nbr-files (gethash 'nbr-files memory))
         (nbr-exercises (gethash 'nbr-exercises memory))
-        (report (gethash 'report memory)))
+        (report (gethash 'report memory))
+        (inst-are-ignored (gethash 'inst-are-ignored memory)))
 
-    (pcase inst
-      ('start
-       (let ((nbr-files (puthash 'nbr-files 0 memory))
-             (nbr-exercises (puthash 'nbr-exercises 0 memory))
-             (report (puthash 'report (total-recall--Report t) memory)))
-         (total-recall--add report "TotalRecall started.")
-         (total-recall--add report (format "Definitions and exercises under %s will be reviewed." root))
-         (total-recall--add report (format "Review results will be saved in %s." db-path))
-         (total-recall--process-files self (total-recall--files searcher))
+    (when (not inst-are-ignored)
+      (pcase inst
+        ('stop
+         (total-recall--stop db)
          (total-recall--add report (format "%s files have been reviewed." (gethash 'nbr-files memory)))
          (total-recall--add report (format "%s exercises have been reviewed." (gethash 'nbr-exercises memory)))
-         (puthash 'out report memory)))
+         (total-recall--show ui 'report report)
+         (puthash 'inst-are-ignored t memory)
+         (puthash 'out self memory))
 
-      (`(process-files ,files)
-       (pcase files
-         ('()
-          (puthash 'out self memory))
-         (`(,file . ,files)
-          (total-recall--process-file self file)
-          (puthash 'nbr-files (+ nbr-files 1) memory)
-          (total-recall--process-files self files))))
+        ('start
+         (let ((nbr-files (puthash 'nbr-files 0 memory))
+               (nbr-exercises (puthash 'nbr-exercises 0 memory))
+               (report (puthash 'report (total-recall--Report t) memory)))
+           (total-recall--add report "TotalRecall started.")
+           (total-recall--add report (format "Definitions and exercises under %s will be reviewed." root))
+           (total-recall--add report (format "Review results will be saved in %s." db-path))
+           (total-recall--process-files self (total-recall--files searcher))
+           (total-recall--stop self)
+           (puthash 'out report memory)))
 
-      (`(process-file ,file)
-       (total-recall--add report (format "file = %s" file))
-       (total-recall--process-exercises self (total-recall--parse parser file))
-       (puthash 'out self memory))
+        (`(process-files ,files)
+         (pcase files
+           ('()
+            (puthash 'out self memory))
+           (`(,file . ,files)
+            (total-recall--process-file self file)
+            (puthash 'nbr-files (+ nbr-files 1) memory)
+            (total-recall--process-files self files))))
 
-      (`(process-exercises ,exercises)
-       (pcase exercises
-         ('()
-          (puthash 'out self memory))
-         (`(,exercise . ,exercises)
-          (total-recall--process-exercise self exercise)
-          (puthash 'nbr-exercises (+ nbr-exercises 1) memory)
-          (total-recall--process-exercises self exercises))))
+        (`(process-file ,file)
+         (total-recall--add report (format "file = %s" file))
+         (total-recall--process-exercises self (total-recall--parse parser file))
+         (puthash 'out self memory))
 
-      (`(process-exercise ,exercise)
-       (total-recall--add report (format "exercise = %s %s" (total-recall--id exercise) (total-recall--path exercise)))
-       (puthash 'out self memory))
+        (`(process-exercises ,exercises)
+         (pcase exercises
+           ('()
+            (puthash 'out self memory))
+           (`(,exercise . ,exercises)
+            (total-recall--process-exercise self exercise)
+            (puthash 'nbr-exercises (+ nbr-exercises 1) memory)
+            (total-recall--process-exercises self exercises))))
 
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+        (`(process-exercise ,exercise)
+         (total-recall--add report (format "exercise = %s %s" (total-recall--id exercise) (total-recall--path exercise)))
+         (pcase (total-recall--show ui 'exercise exercise)
+           ('stop (total-recall--stop self))
+           (`(rating ,rating)
+            (total-recall--save db rating)))
+         (puthash 'out self memory))
+
+        (_ (error "Unexpected instruction. inst = %s" inst))))))
 #+end_src
 
 ** test
