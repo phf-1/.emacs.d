@@ -783,22 +783,26 @@ reviewed at the time of the call given data represented by the database ~db~.
  #'total-recall--Planner-init
  total-recall--Planner)
 
-(defun total-recall--Planner-init (time)
+(defun total-recall--Planner-init (db)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Planner-compiler
                  #'total-recall--Planner-interpreter)))
-    (puthash 'time time memory)
+    (puthash 'db db memory)
     memory))
 
 (defun total-recall--Planner-compiler (msg)
   (pcase msg
-    ;; TODO
+    (`(select ,exercises)
+     `(,msg))
     (_ (error "Unexpected msg. msg = %s" msg))))
 
 (defun total-recall--Planner-interpreter (memory inst)
-  (let ()
+  (let ((db (gethash 'db memory)))
     (pcase inst
-      ;; TODO
+      (`(select ,exercises)
+       ;; TODO
+       (puthash 'out exercises memory))
+
       (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
