@@ -769,6 +769,9 @@ is the string of the relevant headline."
 * TODO Planner
 ** specification
 
+~planner :≡ Planner db~ is a planner. ~planner#select exercises~ selects exercises to be
+reviewed at the time of the call given data represented by the database ~db~.
+
 ** implementation
 
 #+begin_src emacs-lisp
