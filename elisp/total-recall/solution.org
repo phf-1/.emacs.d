@@ -423,6 +423,11 @@ where ~ExerciseID~ stands for the ID of the Exercise type.
 * DONE Exercise
 ** specification
 
+~exercise :≡ Exercise(id path question answer)~ represents an exercise. ~exercise#id()~
+is a UUID string. ~exercise#question()~, ~exercise#answer()~ are strings. ~exercise#path()~
+is a string of the form ~A/B/…/Z~ that locates the exercise relative to its context
+/i.e./ The exercise is about ~Z~ which parent heading is ~…~ up until ~A~.
+
 ** implementation
 
 #+begin_src emacs-lisp
