@@ -729,7 +729,6 @@ is the string of the relevant headline."
 
 ** test
 
-* TODO Planner
 * TODO DB
 ** specification
 
@@ -767,6 +766,7 @@ is the string of the relevant headline."
 
 ** test
 
+* TODO Planner
 ** specification
 
 ** implementation
@@ -973,10 +973,11 @@ the UI to be presented to the user. Data gathered from the data is then saved to
           (puthash 'out self memory))
          (`(,file . ,files)
           (total-recall--process-file self file)
+          (puthash 'nbr-files (+ nbr-files 1) memory)
           (total-recall--process-files self files))))
 
       (`(process-file ,file)
-       (message "process-file file. file = %s" file)
+       (total-recall--add report (format "file = %s" file))
        (total-recall--process-exercises self (total-recall--parse parser file))
        (puthash 'out self memory))
 
@@ -988,9 +989,11 @@ the UI to be presented to the user. Data gathered from the data is then saved to
           (puthash 'out self memory))
          (`(,exercise . ,exercises)
           (total-recall--process-exercise self exercise)
+          (puthash 'nbr-exercises (+ nbr-exercises 1) memory)
           (total-recall--process-exercises self exercises))))
 
       (`(process-exercise ,exercise)
+       (total-recall--add report (format "exercise = %s %s" (total-recall--id exercise) (total-recall--path exercise)))
        (message "process-exercise exercise. exercise = %s" (total-recall--string exercise))
        (puthash 'out self memory))
 
