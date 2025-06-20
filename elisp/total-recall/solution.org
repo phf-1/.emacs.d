@@ -500,6 +500,13 @@ is a string of the form ~A/B/…/Z~ that locates the exercise relative to its co
 * DONE Definition
 ** specification
 
+~definition :≡ Definition(id path content)~ represents a definition. ~definition#id()~ is
+a UUID string. ~definition#content()~ is a string. ~definition#path()~ is a string of the
+form ~A/B/…/Z~ that locates the definition relative to its context /i.e./ The definition
+is about ~Z~ which parent heading is ~…~ up until ~A~. ~definition~ may be viewed as an
+exercise where the answer is the content and the question asks what is the definition
+associated to the path.
+
 ** implementation
 
 #+begin_src emacs-lisp
