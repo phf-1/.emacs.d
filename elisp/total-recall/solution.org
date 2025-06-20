@@ -189,6 +189,8 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 (total-recall--message question)
 (total-recall--message answer)
 (total-recall--message parse)
+(total-recall--message select)
+(total-recall--message show)
 #+end_src
 
 ** test
