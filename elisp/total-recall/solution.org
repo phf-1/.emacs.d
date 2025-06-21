@@ -109,6 +109,13 @@ This package provides `total-recall' for spaced repetition in Emacs."
 
 (defun total-recall--not-implemented-warning ()
   (message "WARNING: NotImplemented"))
+
+(defun total-recall--string-uuid-p (str)
+  "Return t if STR is a valid UUID, nil otherwise."
+  (and (stringp str)
+       (string-match-p
+        "^[0-9a-fA-F]\\{8\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{12\\}$"
+        str)))
 #+end_src
 
 * Actor
@@ -121,7 +128,7 @@ atom or list) named ~Instruction~, ~memory~ answers at least to these calls:
 - ~memory#self()~ : Nil | ~actor~
 - ~memory#rcv()~ : Any → List(Instruction)
 - ~memory#stack()~ : List(Instruction)
-- ~memory#exec()~ : Memory Instruction → Memory
+- ~memory#tx()~ : Memory Instruction → Memory
 - ~memory#out()~ : Any
 
 Given ~init : Any → Memory~, and a symbol ~Name~, then ~Actor(init Name)~ defines ~Name :
@@ -132,7 +139,7 @@ Any → Name~. ~actor :≡ Name data~ is an actor which memory is ~memory :≡ i
   2. match memory#stack()
      - cons(inst rest) →
        1. memory#stack rest
-       2. memory#exec() memory#memory() inst
+       2. memory#tx() memory#memory() inst
      - '() → memory#out()
 
 ~send actor msg :≡ actor msg~. In other words: sending a message to an actor is
@@ -159,7 +166,7 @@ has to check the proof itself.
                            (stack (puthash 'stack (funcall rcv msg) memory)))
                       (while (not (null stack))
                         (puthash 'stack (cdr stack) memory)
-                        (funcall (gethash 'exec memory) memory (car stack))
+                        (funcall (gethash 'tx memory) memory (car stack))
                         (setq stack (gethash 'stack memory)))
                       (gethash 'out memory)))))
        (puthash 'self self memory)
@@ -167,10 +174,10 @@ has to check the proof itself.
 
 (defun total-recall--send (actor msg) (funcall actor msg))
 
-(defun total-recall--Actor-memory (rcv exec)
+(defun total-recall--Actor-memory (rcv tx)
   (let ((memory (make-hash-table :test 'eq)))
     (puthash 'rcv rcv memory)
-    (puthash 'exec exec memory)
+    (puthash 'tx tx memory)
     (puthash 'stack '() memory)
     (puthash 'self t memory)
     (puthash 'out nil memory)
@@ -194,28 +201,29 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
                            ('() ',name)
                            (_ (cons ',name args))))))
 
-(total-recall--message read)
-(total-recall--message tick)
-(total-recall--message tick2)
-(total-recall--message start)
-(total-recall--message stop)
 (total-recall--message add)
-(total-recall--message string)
+(total-recall--message answer)
 (total-recall--message buffer)
-(total-recall--message minibuffer)
+(total-recall--message buffer-name)
+(total-recall--message files)
 (total-recall--message id)
+(total-recall--message minibuffer)
+(total-recall--message now)
+(total-recall--message parse)
 (total-recall--message path)
 (total-recall--message question)
-(total-recall--message answer)
-(total-recall--message parse)
+(total-recall--message ratings)
+(total-recall--message read)
+(total-recall--message save)
 (total-recall--message select)
 (total-recall--message show-exercise)
 (total-recall--message show-report)
-(total-recall--message save)
-(total-recall--message now)
-(total-recall--message files)
-(total-recall--message buffer-name)
-(total-recall--message strings)
+(total-recall--message start)
+(total-recall--message stop)
+(total-recall--message string)
+(total-recall--message struct)
+(total-recall--message tick)
+(total-recall--message tick2)
 #+end_src
 
 ** test
@@ -227,9 +235,9 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 ** specification
 
-Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a clock. It means that
+Given a natural number named ~time~, ~clock :≡ Clock time~ is a clock. It means that
 ~clock#read()~ is its current time and ~t :≡ clock#read(); clock#tick()#read() = t + 1~.
-~clock#now()~ is a string satisfying ISO8601 representing the time at the call.
+~clock#now()~ is a lisp timestamp representing the UTC time at the call.
 
 ** implementation
 
@@ -243,7 +251,7 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a clock. It mea
 (defun total-recall--Clock-init (time)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Clock-rcv
-                 #'total-recall--Clock-exec)))
+                 #'total-recall--Clock-tx)))
     (puthash 'time time memory)
     memory))
 
@@ -255,7 +263,7 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a clock. It mea
     ('now '(now))
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--Clock-exec (memory inst)
+(defun total-recall--Clock-tx (memory inst)
   (let ((time (gethash 'time memory)))
 
     (pcase inst
@@ -263,7 +271,7 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a clock. It mea
        (puthash 'out time memory))
 
       ('now
-       (puthash 'out (format-time-string "%FT%TZ" (time-convert (current-time) 'list) t) memory))
+       (puthash 'out (time-convert (current-time) 'list) memory))
 
       ('tick
        (puthash 'time (+ time 1) memory)
@@ -288,7 +296,7 @@ Given a natural number named ~time~, ~clock :≡ Clock(time)~ is a clock. It mea
     (should (= (total-recall--read (total-recall--tick2 clock)) 3))))
 #+end_src
 
-* DONE Report
+* Report
 ** specification
 
 ~report :≡ Report()~ is a report. ~report#add string~ adds the string ~string~ to the
@@ -306,7 +314,7 @@ report. ~report#string()~ is string representation of the report.
 (defun total-recall--Report-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Report-rcv
-                 #'total-recall--Report-exec)))
+                 #'total-recall--Report-tx)))
     (puthash 'lines '() memory)
     memory))
 
@@ -320,7 +328,7 @@ report. ~report#string()~ is string representation of the report.
 
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--Report-exec (memory inst)
+(defun total-recall--Report-tx (memory inst)
   (let ((self (gethash 'self memory))
         (lines (gethash 'lines memory)))
     (pcase inst
@@ -350,7 +358,7 @@ report. ~report#string()~ is string representation of the report.
     (should (string= (total-recall--string report) "line1\nline2"))))
 #+end_src
 
-* DONE Searcher
+* Searcher
 ** specification
 
 Given a path of a directory named ~root~ in the current file-system, ~searcher :≡
@@ -379,7 +387,7 @@ A regular file contains an exercise if it contains the string:
 (defun total-recall--Searcher-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Searcher-rcv
-                 #'total-recall--Searcher-exec)))
+                 #'total-recall--Searcher-tx)))
     (pcase data
       (`(,root ,def-id ,ex-id)
 
@@ -413,7 +421,7 @@ A regular file contains an exercise if it contains the string:
      '(files))
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--Searcher-exec (memory inst)
+(defun total-recall--Searcher-tx (memory inst)
   (let ((ripgrep (gethash 'ripgrep memory))
         (def-id (gethash 'def-id memory))
         (ex-id (gethash 'ex-id memory))
@@ -436,7 +444,7 @@ A regular file contains an exercise if it contains the string:
 
 ** test
 
-* DONE Exercise
+* Exercise
 ** specification
 
 ~exercise :≡ Exercise(id path question answer)~ represents an exercise. ~exercise#id()~
@@ -457,7 +465,7 @@ is a one line string representation of the exercise for debugging purposes.
 (defun total-recall--Exercise-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Exercise-rcv
-                 #'total-recall--Exercise-exec)))
+                 #'total-recall--Exercise-tx)))
     (pcase data
       (`(,id ,path ,question ,answer)
        (puthash 'id id memory)
@@ -487,7 +495,7 @@ is a one line string representation of the exercise for debugging purposes.
 
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--Exercise-exec (memory inst)
+(defun total-recall--Exercise-tx (memory inst)
   (let ((id (gethash 'id memory))
         (path (gethash 'path memory))
         (question (gethash 'question memory))
@@ -514,7 +522,7 @@ is a one line string representation of the exercise for debugging purposes.
 
 ** test
 
-* DONE Definition
+* Definition
 ** specification
 
 ~definition :≡ Definition(id path content)~ represents a definition. ~definition#id()~ is
@@ -537,7 +545,7 @@ the exercise for debugging purposes.
 (defun total-recall--Definition-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Definition-rcv
-                 #'total-recall--Definition-exec)))
+                 #'total-recall--Definition-tx)))
     (pcase data
       (`(,id ,path ,content)
        (puthash 'id id memory)
@@ -569,7 +577,7 @@ the exercise for debugging purposes.
 
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--Definition-exec (memory inst)
+(defun total-recall--Definition-tx (memory inst)
   (let ((id (gethash 'id memory))
         (path (gethash 'path memory))
         (content (gethash 'content memory)))
@@ -595,7 +603,7 @@ the exercise for debugging purposes.
 
 ** test
 
-* DONE Parser
+* Parser
 ** specification
 
 ~parser :≡ Parser(def-id ex-id)~ is a parser such that ~parser#parse file~ is a list of
@@ -616,7 +624,7 @@ strings that identify headings that are considered to be definitions or exercise
 (defun total-recall--Parser-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Parser-rcv
-                 #'total-recall--Parser-exec)))
+                 #'total-recall--Parser-tx)))
     (pcase data
       (`(,def-id ,ex-id)
        (puthash 'def-id def-id memory)
@@ -630,7 +638,7 @@ strings that identify headings that are considered to be definitions or exercise
     (`(parse ,file) `(,msg))
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--Parser-exec (memory inst)
+(defun total-recall--Parser-tx (memory inst)
   (let ((def-id (gethash 'def-id memory))
         (ex-id (gethash 'ex-id memory)))
     (pcase inst
@@ -747,12 +755,13 @@ is the string of the relevant headline."
 
 ** test
 
-* DONE Rating
+* Rating
 ** specification
 
 
 ~rating :≡ Rating date id value~ is a rating of the entity denoted by the string ~id~ at
-date ~date~, an ISO8601 string, with the value ~value~, a symbol.
+date ~date~, lisp timestamp, with the value ~value~, a symbol. ~rating#struct()~ is the
+list ~date, id, value~.
 
 ** implementation
 
@@ -764,7 +773,7 @@ date ~date~, an ISO8601 string, with the value ~value~, a symbol.
 (defun total-recall--Rating-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Rating-rcv
-                 #'total-recall--Rating-exec)))
+                 #'total-recall--Rating-tx)))
     (pcase data
       (`(,date ,id ,value)
        (puthash 'date date memory)
@@ -775,18 +784,22 @@ date ~date~, an ISO8601 string, with the value ~value~, a symbol.
 
 (defun total-recall--Rating-rcv (msg)
   (pcase msg
-    ('strings '(strings))
+    ('struct '(struct))
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--Rating-exec (memory inst)
+(defun total-recall--Rating-tx (memory inst)
   (let ((self (gethash 'self memory))
         (date (gethash 'date memory))
         (id (gethash 'id memory))
         (value (gethash 'value memory)))
     (pcase inst
-      ('strings
-       (puthash 'out `(,date ,id ,(symbol-name value)) memory))
+      ('struct
+       (puthash 'out `(,date ,id ,value) memory))
       (_ (error "Unexpected instruction. inst = %s" inst)))))
+
+(defun total-recall--Rating-eq (r1 r2)
+  (equal (total-recall--struct r1)
+         (total-recall--struct r2)))
 #+end_src
 
 ** test
@@ -802,33 +815,48 @@ date ~date~, an ISO8601 string, with the value ~value~, a symbol.
   (should (eq t t)))
 #+end_src
 
-* TODO DB
+* DB
 ** specification
 
-~db :≡ DB db-path~ is a database that writes its data to the file denoted by the
-string ~db-path~. ~db#save rating~ saves the rating ~rating~. ~db#stop()~ releases the
-resources associated with ~db~.
+~db :≡ DB db-path~ is a database that writes its data to the file denoted by the string
+~db-path~. ~db#save rating~ saves the rating ~rating~. ~db#ratings id~ is the list of ratings
+associated with the given ~id~. ~db#stop()~ releases the resources associated with ~db~.
 
 ** implementation
 
 #+begin_src emacs-lisp
 ;; DB
 
-(total-recall--Actor
- #'total-recall--DB-init
- total-recall--DB)
+(total-recall--Actor #'total-recall--DB-init total-recall--DB)
 
-(defun total-recall--DB-init (time)
+(defun total-recall--DB-init (db-path)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--DB-rcv
-                 #'total-recall--DB-exec)))
-    (total-recall--not-implemented-warning)
-    (puthash 'time time memory)
-    memory))
+                 #'total-recall--DB-tx))
+        (sqlite nil))
+
+    (unless (sqlite-available-p)
+      (error "Emacs must be compiled with built-in support for SQLite rowbases"))
+
+    (setq sqlite (sqlite-open db-path))
+
+    (unless (sqlite-select sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
+      (sqlite-execute sqlite
+                      "CREATE TABLE exercise_log (
+                       type TEXT NOT NULL,
+                       id TEXT NOT NULL,
+                       time TEXT NOT NULL)")
+
+      (puthash 'sqlite sqlite memory)
+
+      memory)))
 
 (defun total-recall--DB-rcv (msg)
   (pcase msg
     (`(save ,rating)
+     `(,msg))
+
+    (`(ratings ,id)
      `(,msg))
 
     ('stop
@@ -836,22 +864,88 @@ resources associated with ~db~.
 
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--DB-exec (memory inst)
-  (let ((self (gethash 'self memory)))
+(defun total-recall--DB-tx (memory inst)
+  (let ((self (gethash 'self memory))
+        (sqlite (gethash 'sqlite memory)))
     (pcase inst
       (`(save ,rating)
-       (message "%s" (total-recall--strings rating))
-       (total-recall--not-implemented-warning)
+       (pcase (total-recall--struct rating)
+         (`(,date ,id ,value)
+          (let ((row nil))
+            (setq row
+                  (list
+                   (if (memq value '(success failure skip))
+                       (symbol-name value)
+                     (error "Unexpected value. value = %s" value))
+
+                   (if (total-recall--string-uuid-p id)
+                       id
+                     (error "id is not a UUID string. id = %s" id))
+
+                   (format-time-string "%FT%TZ" (time-convert date 'list) t)))
+
+            (sqlite-execute
+             sqlite
+             "INSERT INTO exercise_log (type, id, time) VALUES (?, ?, ?)"
+             row)))
+
+         (struct (error "Unexpected struct. struct = %s" struct)))
        (puthash 'out self memory))
 
+      (`(ratings ,id)
+       (unless (total-recall--string-uuid-p id)
+         (error "id is not a UUID string. id = %s" id))
+
+       (let (rows ratings)
+         (setq rows
+               (sqlite-select
+                sqlite
+                "SELECT type, id, time FROM exercise_log WHERE id = ? ORDER BY time ASC"
+                (list id)))
+
+         (setq ratings
+               (mapcar
+                (lambda (row)
+                  (pcase row
+                    (`(,type ,id ,time)
+                     (total-recall--Rating
+                      `(,(parse-iso8601-time-string time)
+                        ,(if (total-recall--string-uuid-p id) id
+                           (error "id is not a UUID string. id = %s" id))
+                        ,(if (member type '("success" "failure" "skip")) (intern type)
+                           (error "Unexpected type. id = %s, type = %s" type id)))))
+                    (_ (error "Unexpected row. row = %s" row))))
+                rows))
+
+         (puthash 'out ratings memory)))
+
       ('stop
-       (total-recall--not-implemented-warning)
+       (sqlite-close sqlite)
        (puthash 'out self memory))
 
       (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
 
 ** test
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle "total-recall-test.el"
+:END:
+
+#+begin_src emacs-lisp
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--DB ()
+  "Test Total Recall database functionality using an in-memory database."
+  (let ((db (total-recall--DB nil))
+        (id "123e4567-e89b-12d3-a456-426614174000")
+        (time (parse-iso8601-time-string (format-time-string "%FT%TZ" (current-time) t)))
+        (rating nil))
+
+    (setq rating (total-recall--Rating (list time id 'success)))
+    (should (eq (total-recall--save db rating) db))
+    (should (total-recall--Rating-eq rating (car (total-recall--ratings db id))))))
+#+end_src
 
 * TODO Planner
 ** specification
@@ -872,7 +966,7 @@ represented by the database ~db~.
 (defun total-recall--Planner-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Planner-rcv
-                 #'total-recall--Planner-exec)))
+                 #'total-recall--Planner-tx)))
     (pcase data
       (`(,db ,clock)
        (puthash 'db db memory)
@@ -886,7 +980,7 @@ represented by the database ~db~.
      `(,msg))
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--Planner-exec (memory inst)
+(defun total-recall--Planner-tx (memory inst)
   (let ((db (gethash 'db memory)))
     (pcase inst
       (`(select ,exercises)
@@ -897,7 +991,7 @@ represented by the database ~db~.
 #+end_src
 
 ** test
-* DONE UI
+* UI
 ** specification
 
 Given a buffer name ~name~, ~width~ and ~height~ of the frame in numbers of characters and
@@ -913,7 +1007,7 @@ exercise~ shows the exercise ~exercise~ to the user and return either ~'stop~ or
 (total-recall--Actor #'total-recall--UI-init total-recall--UI)
 
 (defun total-recall--UI-init (data)
-  (let ((memory (total-recall--Actor-memory #'total-recall--UI-rcv #'total-recall--UI-exec)))
+  (let ((memory (total-recall--Actor-memory #'total-recall--UI-rcv #'total-recall--UI-tx)))
     (pcase data
       (`(,name ,width ,height ,clock)
        (puthash 'buffer (get-buffer-create name) memory)
@@ -939,7 +1033,7 @@ exercise~ shows the exercise ~exercise~ to the user and return either ~'stop~ or
 
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--UI-exec (memory inst)
+(defun total-recall--UI-tx (memory inst)
   (let ((self (gethash 'self memory))
         (clock (gethash 'clock memory))
         (frame (gethash 'frame memory))
@@ -947,22 +1041,22 @@ exercise~ shows the exercise ~exercise~ to the user and return either ~'stop~ or
 
     (pcase inst
       (`(show-exercise ,exercise)
-       (total-recall--UI-exec memory 'show-frame)
-       (total-recall--UI-exec memory 'clear)
-       (total-recall--UI-exec memory `(show-content ,(total-recall--path exercise)))
-       (total-recall--UI-exec memory `(show-content ,(total-recall--question exercise)))
-       (total-recall--UI-exec memory '(ask ((?1 . "Stop") (?2 . "Skip") (?3 . "Reveal"))))
+       (total-recall--UI-tx memory 'show-frame)
+       (total-recall--UI-tx memory 'clear)
+       (total-recall--UI-tx memory `(show-content ,(total-recall--path exercise)))
+       (total-recall--UI-tx memory `(show-content ,(total-recall--question exercise)))
+       (total-recall--UI-tx memory '(ask ((?1 . "Stop") (?2 . "Skip") (?3 . "Reveal"))))
        (pcase (gethash 'out memory)
-         (?1 (total-recall--UI-exec memory 'stop))
-         (?2 (total-recall--UI-exec memory `(skip ,exercise)))
+         (?1 (total-recall--UI-tx memory 'stop))
+         (?2 (total-recall--UI-tx memory `(skip ,exercise)))
          (?3
-          (total-recall--UI-exec memory `(show-content ,(total-recall--answer exercise)))
-          (total-recall--UI-exec memory '(ask ((?1 . "Success") (?2 . "Failure") (?3 . "Skip") (?4 . "Stop"))))
+          (total-recall--UI-tx memory `(show-content ,(total-recall--answer exercise)))
+          (total-recall--UI-tx memory '(ask ((?1 . "Success") (?2 . "Failure") (?3 . "Skip") (?4 . "Stop"))))
           (pcase (gethash 'out memory)
-            (?1 (total-recall--UI-exec memory `(success ,exercise)))
-            (?2 (total-recall--UI-exec memory `(failure ,exercise)))
-            (?3 (total-recall--UI-exec memory `(skip ,exercise)))
-            (?4 (total-recall--UI-exec memory 'stop))))))
+            (?1 (total-recall--UI-tx memory `(success ,exercise)))
+            (?2 (total-recall--UI-tx memory `(failure ,exercise)))
+            (?3 (total-recall--UI-tx memory `(skip ,exercise)))
+            (?4 (total-recall--UI-tx memory 'stop))))))
 
       ('show-frame
        (select-frame-set-input-focus frame)
@@ -980,13 +1074,13 @@ exercise~ shows the exercise ~exercise~ to the user and return either ~'stop~ or
        (puthash 'out self memory))
 
       (`(show-report ,report)
-       (total-recall--UI-exec memory 'clear)
-       (total-recall--UI-exec memory 'show-frame)
-       (total-recall--UI-exec memory `(show-content ,(total-recall--string report)))
+       (total-recall--UI-tx memory 'clear)
+       (total-recall--UI-tx memory 'show-frame)
+       (total-recall--UI-tx memory `(show-content ,(total-recall--string report)))
        (puthash 'out self memory))
 
       (`(show-content ,content)
-       (total-recall--UI-exec memory 'show-frame)
+       (total-recall--UI-tx memory 'show-frame)
        (with-current-buffer buffer
          (setq buffer-read-only nil)
          (save-excursion
@@ -1004,7 +1098,7 @@ exercise~ shows the exercise ~exercise~ to the user and return either ~'stop~ or
        (puthash 'out 'stop memory))
 
       (`(ask ,options)
-       (total-recall--UI-exec memory 'show-frame)
+       (total-recall--UI-tx memory 'show-frame)
        (let (strs str key)
          (setq strs
                (mapcar
@@ -1041,7 +1135,7 @@ exercise~ shows the exercise ~exercise~ to the user and return either ~'stop~ or
 #+end_src
 
 ** test
-* DONE IO
+* IO
 ** specification
 
 Given a string ~name~, an ~io :≡ IO(name)~ represents input/outputs of the current
@@ -1061,7 +1155,7 @@ name of the buffer ~io#buffer()~.
 (defun total-recall--IO-init (name)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--IO-rcv
-                 #'total-recall--IO-exec)))
+                 #'total-recall--IO-tx)))
     (puthash 'buffer (get-buffer-create name) memory)
     (puthash 'name (buffer-name (gethash 'buffer memory)) memory)
     memory))
@@ -1079,7 +1173,7 @@ name of the buffer ~io#buffer()~.
 
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--IO-exec (memory inst)
+(defun total-recall--IO-tx (memory inst)
   (let ((self (gethash 'self memory))
         (buffer (gethash 'buffer memory))
         (name (gethash 'name memory)))
@@ -1102,7 +1196,7 @@ name of the buffer ~io#buffer()~.
 
 ** test
 
-* DONE TotalRecall
+* TotalRecall
 ** specification
 
 ~tr :≡ TotalRecall root db-path~ is an actor such that ~tr#start()~ searches for Org Mode
@@ -1123,7 +1217,7 @@ the UI to be presented to the user. Data gathered from the data is then saved to
 (defun total-recall--TotalRecall-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--TotalRecall-rcv
-                 #'total-recall--TotalRecall-exec)))
+                 #'total-recall--TotalRecall-tx)))
     (puthash 'clock (total-recall--Clock t) memory)
 
     (puthash 'db-path total-recall-db-path memory)
@@ -1156,7 +1250,7 @@ the UI to be presented to the user. Data gathered from the data is then saved to
     ('stop '(stop))
     (_ (error "Unexpected msg. msg = %s" msg))))
 
-(defun total-recall--TotalRecall-exec (memory inst)
+(defun total-recall--TotalRecall-tx (memory inst)
   (let ((self (gethash 'self memory))
         (root (gethash 'root memory))
         (db-path (gethash 'db-path memory))
@@ -1182,7 +1276,7 @@ the UI to be presented to the user. Data gathered from the data is then saved to
          (total-recall--add report (format "Review results will be saved in %s." db-path))
          (puthash 'files (total-recall--files searcher) memory)
          (total-recall--add report (format "%s files have been found." (length (gethash 'files memory))))
-         (total-recall--TotalRecall-exec memory 'process-files)
+         (total-recall--TotalRecall-tx memory 'process-files)
          (total-recall--add report (format "%s files have been reviewed." (gethash 'nbr-files memory)))
          (total-recall--add report (format "%s exercises have been reviewed." (gethash 'nbr-exercises memory)))
          (puthash 'out report memory)))
@@ -1193,14 +1287,14 @@ the UI to be presented to the user. Data gathered from the data is then saved to
           (puthash 'out self memory))
          (`(,file . ,files)
           (puthash 'files files memory)
-          (total-recall--TotalRecall-exec memory `(process-file ,file))
-          (total-recall--TotalRecall-exec memory 'process-files))))
+          (total-recall--TotalRecall-tx memory `(process-file ,file))
+          (total-recall--TotalRecall-tx memory 'process-files))))
 
       (`(process-file ,file)
        (total-recall--add report (format "file = %s" file))
        (puthash 'exercises (total-recall--parse parser file) memory)
        (total-recall--add report (format "%s exercises have been found." (length (gethash 'exercises memory))))
-       (total-recall--TotalRecall-exec memory 'process-exercises)
+       (total-recall--TotalRecall-tx memory 'process-exercises)
        (puthash 'nbr-files (+ nbr-files 1) memory))
 
       ('process-exercises
@@ -1209,8 +1303,8 @@ the UI to be presented to the user. Data gathered from the data is then saved to
           (puthash 'out self memory))
          (`(,exercise . ,exercises)
           (puthash 'exercises exercises memory)
-          (total-recall--TotalRecall-exec memory `(process-exercise ,exercise))
-          (total-recall--TotalRecall-exec memory 'process-exercises))))
+          (total-recall--TotalRecall-tx memory `(process-exercise ,exercise))
+          (total-recall--TotalRecall-tx memory 'process-exercises))))
 
       (`(process-exercise ,exercise)
        (total-recall--add report (format "exercise = %s %s" (total-recall--id exercise) (total-recall--path exercise)))
@@ -1234,7 +1328,7 @@ the UI to be presented to the user. Data gathered from the data is then saved to
 
 ** test
 
-* DONE total-recall
+* total-recall
 ** specification
 
 ~total-recall()~ implements the [[ref:2b6a2d42-bfd0-4658-b25a-b1b7000d1b01][specification]].
