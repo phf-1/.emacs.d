@@ -66,67 +66,80 @@ This package provides `total-recall' for spaced repetition in Emacs."
   :prefix "total-recall-")
 
 (defcustom total-recall-root-dir (expand-file-name "~")
-  ""
+  "Specifies the root directory for Total Recall file searches.
+This is a string representing the directory path where Org Mode files are searched."
   :type 'string
   :group 'total-recall)
 
 (defcustom total-recall-database (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
-  ""
+  "Specifies the path to the Total Recall SQLite database.
+This is a string representing the file path for storing review data."
   :type 'string
   :group 'total-recall)
 
 (defcustom total-recall-ripgrep-cmd "rg"
-  "Name or path of the Ripgrep executable."
+  "Specifies the name or path of the Ripgrep executable.
+This is a string used to locate the Ripgrep command for file searching."
   :type 'string
   :group 'total-recall)
 
 (defcustom total-recall-io-buffer-name "*TotalRecall*"
-  ""
+  "Specifies the name of the Total Recall output buffer.
+This is a string used for the buffer where reports are written."
   :type 'string
   :group 'total-recall)
 
 (defcustom total-recall-def-type "f590edb9-5fa3-4a07-8f3d-f513950d5663"
-  ""
+  "Specifies the UUID for identifying definition headings in Org files.
+This is a string used to mark headings as definitions in Total Recall."
   :type 'string
   :group 'total-recall)
 
 (defcustom total-recall-ex-type "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
-  ""
+  "Specifies the UUID for identifying exercise headings in Org files.
+This is a string used to mark headings as exercises in Total Recall."
   :type 'string
   :group 'total-recall)
 
 (defcustom total-recall-window-width 160
-  "Width of the Total Recall UI in characters."
+  "Specifies the width of the Total Recall UI frame in characters.
+This is an integer defining the frame width for the UI."
   :type 'integer
   :group 'total-recall)
 
 (defcustom total-recall-window-height 90
-  "Height of the Total Recall UI in characters."
+  "Specifies the height of the Total Recall UI frame in characters.
+This is an integer defining the frame height for the UI."
   :type 'integer
   :group 'total-recall)
 
 (defcustom total-recall-key-skip ?k
-  "Key to skip an exercise in Total Recall UI."
+  "Specifies the key to skip an exercise in the Total Recall UI.
+This is a character used to skip the current exercise."
   :type 'character
   :group 'total-recall)
 
 (defcustom total-recall-key-quit ?q
-  "Key to quit the Total Recall session."
+  "Specifies the key to quit the Total Recall session.
+This is a character used to exit the UI session."
   :type 'character
   :group 'total-recall)
 
 (defcustom total-recall-key-success ?s
-  "Key to mark an exercise as successful in Total Recall UI."
+  "Specifies the key to mark an exercise as successful in the Total Recall UI.
+This is a character used to record a successful review."
   :type 'character
   :group 'total-recall)
 
 (defcustom total-recall-key-failure ?f
-  "Key to mark an exercise as failed in Total Recall UI."
+  "Specifies the key to mark an exercise as failed in the Total Recall UI.
+This is a character used to record a failed review."
   :type 'character
   :group 'total-recall)
 
 (defcustom total-recall-key-reveal ?r
-  "Key to reveal the answer in Total Recall UI."
+  "Specifies the key to reveal the answer in the Total Recall UI.
+This is a character used to show the exercise answer."
   :type 'character
   :group 'total-recall)
 #+end_src
