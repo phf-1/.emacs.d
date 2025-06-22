@@ -171,6 +171,40 @@ This package provides `total-recall' for spaced repetition in Emacs."
       (when (funcall pred item)
         (setq last-index index)))
     last-index))
+
+(defun total-recall--org-element-lineage-map (fun datum &optional types with-self first-match)
+  "Apply FUN on each ancestor of DATUM, from closest to farthest.
+
+DATUM is an object or element.
+
+When optional argument TYPES is a list of symbols, only apply FUN
+on ancestors whose type is contained in that list.
+
+When optional argument WITH-SELF is non-nil, also apply FUN on
+DATUM itself if it matches TYPES restriction.
+
+When optional argument FIRST-MATCH is non-nil, stop at the first
+ancestor for which FUN returns non-nil, and return that value.
+Otherwise, return a list of all non-nil return values in reverse
+order of application (i.e., from farthest ancestor to closest).
+
+FUN is called with one argument: the element or object."
+  (let ((lineage (if with-self
+                     (cons datum (org-element-lineage datum))
+                   (org-element-lineage datum)))
+        results)
+    (catch 'first-match
+      (dolist (element lineage)
+        (when (or (not types)
+                  (memq (org-element-type element) types))
+          (let ((result (funcall fun element)))
+            (when result
+              (if first-match
+                  (throw 'first-match result)
+                (push result results)))))))
+    (if first-match
+        nil  ; If we reach here with first-match, no match was found
+      (nreverse results))))
 #+end_src
 
 * Actor
@@ -803,8 +837,7 @@ structure is invalid, raise an error."
             file
             id
             subjet
-            content
-            )))
+            content)))
       :err)))
 
 (defun total-recall--node-to-string (node)
@@ -823,7 +856,7 @@ parents of the node, and C is the title of the node. A node's title
 is the string of the relevant headline."
   (string-join
    (reverse
-    (org-element-lineage-map node
+    (total-recall--org-element-lineage-map node
         (lambda (parent) (org-element-property :raw-value parent))
       '(headline)
       t))
