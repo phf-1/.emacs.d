@@ -170,7 +170,7 @@ Shows a message 'WARNING: NotImplemented' in the echo area."
   (message "WARNING: NotImplemented"))
 
 (defun total-recall--string-uuid-p (str)
-  "Checks if STR is a valid UUID string.
+  "Check if STR is a valid UUID string.
 Returns t if STR matches the UUID format, nil otherwise."
   (and (stringp str)
        (string-match-p
@@ -178,7 +178,7 @@ Returns t if STR matches the UUID format, nil otherwise."
         str)))
 
 (defun total-recall--timestamp-leq (t1 t2)
-  "Checks if timestamp T1 is less than or equal to T2.
+  "Check if timestamp T1 is less than or equal to T2.
 Returns t if T1 is less than or equal to T2, nil otherwise."
   (or (time-less-p t1 t2)
       (equal t1 t2)))
@@ -186,7 +186,7 @@ Returns t if T1 is less than or equal to T2, nil otherwise."
 (setq total-recall--day (* 24 60 60)) ;; number of seconds in a day.
 
 (defun total-recall--find-last-index (lst pred)
-  "Finds the last index in LST where PRED returns non-nil.
+  "Find the last index in LST where PRED return non-nil.
 LST is a list, and PRED is a function taking a list element.
 Returns the index of the last matching element or nil if none."
   (let ((index -1)
@@ -198,7 +198,7 @@ Returns the index of the last matching element or nil if none."
     last-index))
 
 (defun total-recall--org-element-lineage-map (fun datum &optional types with-self first-match)
-  "Applies FUN to each ancestor of DATUM, from closest to farthest.
+  "Apply FUN to each ancestor of DATUM, from closest to farthest.
 DATUM is an Org element or object.
 TYPES, if non-nil, is a list of symbols to restrict ancestors.
 WITH-SELF, if non-nil, includes DATUM if it matches TYPES.
@@ -262,7 +262,7 @@ has to check the proof itself.
 ;; Actor
 
 (defmacro total-recall--Actor (init name)
-  "Defines an actor named NAME with initialization function INIT.
+  "Define an actor named NAME with initialization function INIT.
 INIT is a function that takes DATA and returns a memory hash table.
 NAME is a symbol naming the actor function, which processes messages."
   `(defun ,name (data)
@@ -279,13 +279,13 @@ NAME is a symbol naming the actor function, which processes messages."
        self)))
 
 (defun total-recall--send (actor msg)
-  "Sends MSG to ACTOR and returns the result.
+  "Send MSG to ACTOR and return the result.
 ACTOR is a function created by `total-recall--Actor'.
 MSG is the message to process."
   (funcall actor msg))
 
 (defun total-recall--Actor-memory (rcv tx)
-  "Creates a memory hash table for an actor with RCV and TX functions.
+  "Create a memory hash table for an actor with RCV and TX functions.
 RCV is a function that processes incoming messages.
 TX is a function that handles transactions.
 Returns the initialized memory hash table."
@@ -309,7 +309,7 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 
 #+begin_src emacs-lisp
 (defmacro total-recall--message (name)
-  "Defines a message function for NAME to send to an actor.
+  "Define a message function for NAME to send to an actor.
 NAME is a symbol used to create a function `total-recall--NAME'.
 The function sends a message to an actor with optional arguments."
   `(defun ,(intern (concat "total-recall--" (symbol-name name))) (actor &rest args)
@@ -369,7 +369,7 @@ Given a natural number named ~time~, ~clock :≡ Clock time~ is a clock. It mean
  total-recall--Clock)
 
 (defun total-recall--Clock-init (time)
-  "Initializes a clock actor with TIME.
+  "Initialize a clock actor with TIME.
 TIME is a natural number representing the initial clock time.
 Returns a memory hash table for the clock actor."
   (let ((memory (total-recall--Actor-memory
@@ -379,7 +379,7 @@ Returns a memory hash table for the clock actor."
     memory))
 
 (defun total-recall--Clock-rcv (msg)
-  "Processes incoming MSG for the clock actor.
+  "Process incoming MSG for the clock actor.
 MSG is a symbol or list representing a clock command.
 Returns a list of instructions to be executed."
   (pcase msg
@@ -387,10 +387,10 @@ Returns a list of instructions to be executed."
     ('tick '(tick))
     ('tick2 '(tick tick))
     ('now '(now))
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Clock-tx (memory inst)
-  "Handles transaction INST for the clock actor using MEMORY.
+  "Handle transaction INST for the clock actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a symbol representing a clock instruction.
 Updates MEMORY based on INST."
@@ -407,7 +407,7 @@ Updates MEMORY based on INST."
        (puthash 'time (+ time 1) memory)
        (puthash 'out (gethash 'self memory) memory))
 
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -442,7 +442,7 @@ report. ~report#string()~ is string representation of the report.
  total-recall--Report)
 
 (defun total-recall--Report-init (data)
-  "Initializes a report actor with DATA.
+  "Initialize a report actor with DATA.
 DATA is ignored in this implementation.
 Returns a memory hash table for the report actor."
   (let ((memory (total-recall--Actor-memory
@@ -452,7 +452,7 @@ Returns a memory hash table for the report actor."
     memory))
 
 (defun total-recall--Report-rcv (msg)
-  "Processes incoming MSG for the report actor.
+  "Process incoming MSG for the report actor.
 MSG is a list or symbol, such as `(add LINE)` or `string`.
 Returns a list containing the instruction to execute."
   (pcase msg
@@ -462,10 +462,10 @@ Returns a list containing the instruction to execute."
     ('string
      `(,msg))
 
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Report-tx (memory inst)
-  "Handles transaction INST for the report actor using MEMORY.
+  "Handle transaction INST for the report actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a list or symbol, such as `(add LINE)` or `string`.
 Updates MEMORY based on INST."
@@ -479,7 +479,7 @@ Updates MEMORY based on INST."
       ('string
        (puthash 'out (string-join (reverse lines) "\n") memory))
 
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -525,7 +525,7 @@ A regular file contains an exercise if it contains the string:
  total-recall--Searcher)
 
 (defun total-recall--Searcher-init (data)
-  "Initializes a searcher actor with DATA.
+  "Initialize a searcher actor with DATA.
 DATA is a list of (ROOT DEF-ID EX-ID), where ROOT is a directory path,
 DEF-ID and EX-ID are strings identifying definitions and exercises.
 Returns a memory hash table for the searcher actor."
@@ -536,17 +536,17 @@ Returns a memory hash table for the searcher actor."
       (`(,root ,def-id ,ex-id)
 
        (unless (file-directory-p (puthash 'root root memory))
-         (error "root is not a directory. root = %s" root))
+         (error "Root is not a directory: root = %s" root))
 
        (let ((ripgrep total-recall-ripgrep-cmd))
          (unless (stringp (puthash 'ripgrep (executable-find ripgrep) memory))
-           (error "ripgrep not found in PATH. ripgrep = %s" ripgrep)))
+           (error "Ripgrep not found in PATH: ripgrep = %s" ripgrep)))
 
        (unless (stringp (puthash 'def-id def-id memory))
-         (error "def-id is not a string. def-id = %s" def-id))
+         (error "Def-id is not a string: def-id = %s" def-id))
 
        (unless (stringp (puthash 'ex-id ex-id memory))
-         (error "ex-id is not a string. ex-id = %s" ex-id))
+         (error "Ex-id is not a string: ex-id = %s" ex-id))
 
        (puthash
         'cmd
@@ -557,19 +557,19 @@ Returns a memory hash table for the searcher actor."
         memory)
 
        memory)
-      (_ (error "Unexpected data. data = %s" data)))))
+      (_ (error "Unexpected data: data = %s" data)))))
 
 (defun total-recall--Searcher-rcv (msg)
-  "Processes incoming MSG for the searcher actor.
+  "Process incoming MSG for the searcher actor.
 MSG is the symbol `files` to request file paths.
 Returns a list containing the `files` instruction."
   (pcase msg
     ('files
      '(files))
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Searcher-tx (memory inst)
-  "Handles transaction INST for the searcher actor using MEMORY.
+  "Handle transaction INST for the searcher actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is the symbol `files` to search for files.
 Updates MEMORY with the list of found file paths."
@@ -590,7 +590,7 @@ Updates MEMORY with the list of found file paths."
                (push (car match) matches))
              (forward-line 1)))
          (puthash 'out (delete-dups matches) memory)))
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -615,7 +615,7 @@ is a one line string representation of the exercise for debugging purposes.
  total-recall--Exercise)
 
 (defun total-recall--Exercise-init (data)
-  "Initializes an exercise actor with DATA.
+  "Initialize an exercise actor with DATA.
 DATA is a list of (FILE ID PATH QUESTION ANSWER), where FILE is a path,
 ID is a UUID string, PATH, QUESTION, and ANSWER are strings.
 Returns a memory hash table for the exercise actor."
@@ -631,10 +631,10 @@ Returns a memory hash table for the exercise actor."
        (puthash 'answer answer memory)
        memory)
       (_
-       (error "Unexpected data. data = %s" data)))))
+       (error "Unexpected data: data = %s" data)))))
 
 (defun total-recall--Exercise-rcv (msg)
-  "Processes incoming MSG for the exercise actor.
+  "Process incoming MSG for the exercise actor.
 MSG is a symbol like `file`, `id`, `path`, `question`, `answer`, or `string`.
 Returns a list containing the corresponding instruction."
   (pcase msg
@@ -656,10 +656,10 @@ Returns a list containing the corresponding instruction."
     ('string
      '(string))
 
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Exercise-tx (memory inst)
-  "Handles transaction INST for the exercise actor using MEMORY.
+  "Handle transaction INST for the exercise actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a symbol like `file`, `id`, `path`, `question`, `answer`, or `string`.
 Updates MEMORY with the requested data."
@@ -688,7 +688,7 @@ Updates MEMORY with the requested data."
       ('string
        (puthash 'out (string-join `("Exercise(" ,id ,path ,(total-recall--truncate-str question) ,(total-recall--truncate-str answer) ")") " ") memory))
 
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -713,7 +713,7 @@ which this definition has been extracted from.
 (total-recall--Actor #'total-recall--Definition-init total-recall--Definition)
 
 (defun total-recall--Definition-init (data)
-  "Initializes a definition actor with DATA.
+  "Initialize a definition actor with DATA.
 DATA is a list of (FILE ID PATH CONTENT), where FILE is a path,
 ID is a UUID string, PATH and CONTENT are strings.
 Returns a memory hash table for the definition actor."
@@ -728,12 +728,13 @@ Returns a memory hash table for the definition actor."
        (puthash 'content content memory)
        memory)
       (_
-       (error "Unexpected data. data = %s" data)))))
+       (error "Unexpected data: data = %s" data)))))
 
 (defun total-recall--Definition-rcv (msg)
-  "Processes incoming MSG for the definition actor.
-MSG is a symbol like `file`, `id`, `path`, `content`, `question`, `answer`, or `string`.
-Returns a list containing the corresponding instruction."
+  "Process incoming MSG for the definition actor.
+MSG is a symbol like `file`, `id`, `path`, `content`, `question`,
+`answer`, or `string`.  Returns a list containing the corresponding
+instruction."
   (pcase msg
     ('file
      `(file))
@@ -756,10 +757,10 @@ Returns a list containing the corresponding instruction."
     ('string
      '(string))
 
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Definition-tx (memory inst)
-  "Handles transaction INST for the definition actor using MEMORY.
+  "Handle transaction INST for the definition actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a symbol like `file`, `id`, `path`, `content`, `question`, or `string`.
 Updates MEMORY with the requested data."
@@ -787,7 +788,7 @@ Updates MEMORY with the requested data."
       ('string
        (puthash 'out (string-join `("Definition(" ,id ,path ,(total-recall--truncate-str content) ")") " ") memory))
 
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -811,7 +812,7 @@ strings that identify headings that are considered to be definitions or exercise
  total-recall--Parser)
 
 (defun total-recall--Parser-init (data)
-  "Initializes a parser actor with DATA.
+  "Initialize a parser actor with DATA.
 DATA is a list of (DEF-ID EX-ID), where DEF-ID and EX-ID are strings
 identifying definition and exercise headings.
 Returns a memory hash table for the parser actor."
@@ -824,18 +825,18 @@ Returns a memory hash table for the parser actor."
        (puthash 'ex-id ex-id memory)
        memory)
       (_
-       (error "Unexpected data. data = %s" data)))))
+       (error "Unexpected data: data = %s" data)))))
 
 (defun total-recall--Parser-rcv (msg)
-  "Processes incoming MSG for the parser actor.
+  "Process incoming MSG for the parser actor.
 MSG is a list like `(parse FILE)` where FILE is a file path.
 Returns a list containing the parse instruction."
   (pcase msg
     (`(parse ,file) `(,msg))
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Parser-tx (memory inst)
-  "Handles transaction INST for the parser actor using MEMORY.
+  "Handle transaction INST for the parser actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a list like `(parse FILE)` where FILE is a file path.
 Updates MEMORY with the parsed elements."
@@ -854,10 +855,10 @@ Updates MEMORY with the parsed elements."
              (org-element-parse-buffer 'greater-element)
              (lambda (node) (total-recall--node-to-element file node)))))
         memory))
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 
 (defun total-recall--node-depth-first (node func)
-  "Traverses NODE depth-first and applies FUNC to each node.
+  "Traverse NODE depth-first and apply FUNC to each node.
 NODE is an Org element, and FUNC is a function taking a node.
 Returns a list of non-error results from FUNC."
   (let ((head
@@ -870,7 +871,7 @@ Returns a list of non-error results from FUNC."
       (_ (append head (list last))))))
 
 (defun total-recall--node-to-element (file node)
-  "Converts NODE to an exercise or definition element from FILE.
+  "Convert NODE to an exercise or definition element from FILE.
 FILE is the path to the Org file, and NODE is an Org element.
 Returns an exercise or definition actor, or `:err` if not applicable."
   (let ((exercise-result (total-recall--node-to-exercise file node)))
@@ -879,7 +880,7 @@ Returns an exercise or definition actor, or `:err` if not applicable."
       exercise-result)))
 
 (defun total-recall--node-to-exercise (file node)
-  "Converts NODE to an exercise actor from FILE.
+  "Convert NODE to an exercise actor from FILE.
 FILE is the path to the Org file, and NODE is an Org element.
 Returns an exercise actor or `:err` if NODE is not an exercise."
   (let (should-be-exercise id list-headline question answer)
@@ -897,8 +898,8 @@ Returns an exercise actor or `:err` if NODE is not an exercise."
                  (lambda (child) (eq (org-element-type child) 'headline))
                  (org-element-contents node)))
           (pcase (length list-headline)
-            (0 (error "Exercise has no question nor answer. id = %s" id))
-            (1 (error "Exercise has no answer. id = %s" id))
+            (0 (error "Exercise has no question nor answer: id = %s" id))
+            (1 (error "Exercise has no answer: id = %s" id))
             (_
              (setq question (total-recall--node-to-string (car list-headline)))
              (setq answer (total-recall--node-to-string (cadr list-headline)))))
@@ -913,7 +914,7 @@ Returns an exercise actor or `:err` if NODE is not an exercise."
       :err)))
 
 (defun total-recall--node-to-definition (file node)
-  "Converts NODE to a definition actor from FILE.
+  "Convert NODE to a definition actor from FILE.
 FILE is the path to the Org file, and NODE is an Org element.
 Returns a definition actor or `:err` if NODE is not a definition."
   (let (should-be-definition id subject content)
@@ -926,7 +927,7 @@ Returns a definition actor or `:err` if NODE is not a definition."
         (progn
           (setq id (org-element-property :ID node))
           (setq subject (total-recall--node-subject node))
-          (unless (stringp id) (error "Definition has no ID property. file = %s" file))
+          (unless (stringp id) (error "Definition has no ID property: file = %s" file))
           (setq content (total-recall--node-to-string node))
           (total-recall--Definition
            (list
@@ -937,7 +938,7 @@ Returns a definition actor or `:err` if NODE is not a definition."
       :err)))
 
 (defun total-recall--node-to-string (node)
-  "Converts NODE to a string with headline leveled to level 1.
+  "Convert NODE to a string with headline leveled to level 1.
 NODE is an Org element.
 Returns the trimmed string representation."
   (replace-regexp-in-string
@@ -948,7 +949,7 @@ Returns the trimmed string representation."
      (org-element-property :end node)))))
 
 (defun total-recall--node-subject (node)
-  "Extracts the subject of NODE as a path-like string.
+  "Extract the subject of NODE as a path-like string.
 NODE is an Org headline element.
 Returns a string like A/B/C, where C is NODE’s title and A, B are ancestors."
   (string-join
@@ -979,7 +980,7 @@ list ~date, id, value~.
 (total-recall--Actor #'total-recall--Rating-init total-recall--Rating)
 
 (defun total-recall--Rating-init (data)
-  "Initializes a rating actor with DATA.
+  "Initialize a rating actor with DATA.
 DATA is a list of (DATE ID VALUE), where DATE is a timestamp,
 ID is a UUID string, and VALUE is a symbol.
 Returns a memory hash table for the rating actor."
@@ -995,17 +996,17 @@ Returns a memory hash table for the rating actor."
     memory))
 
 (defun total-recall--Rating-rcv (msg)
-  "Processes incoming MSG for the rating actor.
+  "Process incoming MSG for the rating actor.
 MSG is a symbol like `struct`, `date`, or `value`.
 Returns a list containing the corresponding instruction."
   (pcase msg
     ('struct '(struct))
     ('date '(date))
     ('value '(value))
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Rating-tx (memory inst)
-  "Handles transaction INST for the rating actor using MEMORY.
+  "Handle transaction INST for the rating actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a symbol like `struct`, `date`, or `value`.
 Updates MEMORY with the requested data."
@@ -1020,10 +1021,10 @@ Updates MEMORY with the requested data."
        (puthash 'out date memory))
       ('value
        (puthash 'out value memory))
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 
 (defun total-recall--Rating-eq (r1 r2)
-  "Checks if rating actors R1 and R2 are equal.
+  "Check if rating actors R1 and R2 are equal.
 R1 and R2 are rating actors.
 Returns t if their structures are equal, nil otherwise."
   (equal (total-recall--struct r1)
@@ -1058,7 +1059,7 @@ associated with the given ~id~. ~db#stop()~ releases the resources associated wi
 (total-recall--Actor #'total-recall--DB-init total-recall--DB)
 
 (defun total-recall--DB-init (db-path)
-  "Initializes a database actor with DB-PATH.
+  "Initialize a database actor with DB-PATH.
 DB-PATH is a string or nil for an in-memory SQLite database.
 Returns a memory hash table for the database actor."
   (let ((memory (total-recall--Actor-memory
@@ -1081,7 +1082,7 @@ Returns a memory hash table for the database actor."
     memory))
 
 (defun total-recall--DB-rcv (msg)
-  "Processes incoming MSG for the database actor.
+  "Process incoming MSG for the database actor.
 MSG is a list like `(save RATING)`, `(ratings ID)`, or `stop`.
 Returns a list containing the corresponding instruction."
   (pcase msg
@@ -1094,10 +1095,10 @@ Returns a list containing the corresponding instruction."
     ('stop
      `(,msg))
 
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--DB-tx (memory inst)
-  "Handles transaction INST for the database actor using MEMORY.
+  "Handle transaction INST for the database actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a list or symbol like `(save RATING)`, `(ratings ID)`, or `stop`.
 Updates MEMORY based on INST."
@@ -1112,11 +1113,11 @@ Updates MEMORY based on INST."
                   (list
                    (if (memq value '(success failure skip))
                        (symbol-name value)
-                     (error "Unexpected value. value = %s" value))
+                     (error "Unexpected value: value = %s" value))
 
                    (if (total-recall--string-uuid-p id)
                        id
-                     (error "id is not a UUID string. id = %s" id))
+                     (error "ID is not a UUID string: id = %s" id))
 
                    (format-time-string "%FT%TZ" (time-convert date 'list) t)))
 
@@ -1125,12 +1126,12 @@ Updates MEMORY based on INST."
              "INSERT INTO exercise_log (type, id, time) VALUES (?, ?, ?)"
              row)))
 
-         (struct (error "Unexpected struct. struct = %s" struct)))
+         (struct (error "Unexpected struct: struct = %s" struct)))
        (puthash 'out self memory))
 
       (`(ratings ,id)
        (unless (total-recall--string-uuid-p id)
-         (error "id is not a UUID string. id = %s" id))
+         (error "ID is not a UUID string: id = %s" id))
 
        (let (rows ratings)
          (setq rows
@@ -1147,10 +1148,10 @@ Updates MEMORY based on INST."
                      (total-recall--Rating
                       `(,(parse-iso8601-time-string time)
                         ,(if (total-recall--string-uuid-p id) id
-                           (error "id is not a UUID string. id = %s" id))
+                           (error "ID is not a UUID string: id = %s" id))
                         ,(if (member type '("success" "failure" "skip")) (intern type)
-                           (error "Unexpected type. id = %s, type = %s" type id)))))
-                    (_ (error "Unexpected row. row = %s" row))))
+                           (error "Unexpected type: id = %s, type = %s" type id)))))
+                    (_ (error "Unexpected row: row = %s" row))))
                 rows))
 
          (puthash 'out ratings memory)))
@@ -1159,7 +1160,7 @@ Updates MEMORY based on INST."
        (sqlite-close sqlite)
        (puthash 'out self memory))
 
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -1214,7 +1215,7 @@ cutoff :≡
 (total-recall--Actor #'total-recall--Planner-init total-recall--Planner)
 
 (defun total-recall--Planner-init (data)
-  "Initializes a planner actor with DATA.
+  "Initialize a planner actor with DATA.
 DATA is a list of (DB CLOCK), where DB is a database actor and
 CLOCK is a clock actor.
 Returns a memory hash table for the planner actor."
@@ -1226,19 +1227,19 @@ Returns a memory hash table for the planner actor."
        (puthash 'db db memory)
        (puthash 'clock clock memory)
        memory)
-      (_ (error "Unexpected data. data = %s" data)))))
+      (_ (error "Unexpected data: data = %s" data)))))
 
 (defun total-recall--Planner-rcv (msg)
-  "Processes incoming MSG for the planner actor.
+  "Process incoming MSG for the planner actor.
 MSG is a list like `(select EXERCISES)` where EXERCISES is a list.
 Returns a list containing the select instruction."
   (pcase msg
     (`(select ,exercises)
      `(,msg))
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Planner-tx (memory inst)
-  "Handles transaction INST for the planner actor using MEMORY.
+  "Handle transaction INST for the planner actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a list like `(select EXERCISES)` or `(is_scheduled EX)`.
 Updates MEMORY with the filtered exercises or scheduling decision."
@@ -1279,7 +1280,7 @@ Updates MEMORY with the filtered exercises or scheduling decision."
          (setq decision (total-recall--timestamp-leq cutoff today))
          (puthash 'out decision memory)))
 
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -1299,7 +1300,7 @@ exercise~ shows the exercise ~exercise~ to the user and return either ~'stop~ or
 (total-recall--Actor #'total-recall--UI-init total-recall--UI)
 
 (defun total-recall--UI-init (data)
-  "Initializes a UI actor with DATA.
+  "Initialize a UI actor with DATA.
 DATA is a list of (NAME WIDTH HEIGHT CLOCK), where NAME is a buffer name,
 WIDTH and HEIGHT are integers, and CLOCK is a clock actor.
 Returns a memory hash table for the UI actor."
@@ -1314,12 +1315,12 @@ Returns a memory hash table for the UI actor."
        (puthash 'frame (make-frame `((width . ,width) (height . ,height))) memory)
        (puthash 'clock clock memory)
        memory)
-      (_ (error ("Unexpected data. data = %s" data))))))
+      (_ (error "Unexpected data: data = %s" data)))))
 
 (defun total-recall--UI-rcv (msg)
-  "Processes incoming MSG for the UI actor.
-MSG is a list like `(show-exercise EXERCISE)`, `(show-report REPORT)`, or `stop`.
-Returns a list containing the corresponding instruction."
+  "Process incoming MSG for the UI actor.
+MSG is a list like `(show-exercise EXERCISE)`, `(show-report REPORT)`,
+or `stop`.  Returns a list containing the corresponding instruction."
   (pcase msg
     (`(show-exercise ,exercise)
      `(,msg))
@@ -1330,10 +1331,10 @@ Returns a list containing the corresponding instruction."
     ('stop
      '(kill))
 
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--UI-tx (memory inst)
-  "Handles transaction INST for the UI actor using MEMORY.
+  "Handle transaction INST for the UI actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a list or symbol for UI operations like `show-exercise` or `stop`.
 Updates MEMORY with the result of the operation."
@@ -1425,7 +1426,7 @@ Updates MEMORY with the result of the operation."
                     (`(,char . ,name)
                      (format "%s (%s)" name (string char)))
                     (_
-                     (error "Unexpected option. option = %s" opt))))
+                     (error "Unexpected option: option = %s" opt))))
                 options))
          (setq str (string-join strs ", "))
          (setq key (read-char-choice str (mapcar #'car options)))
@@ -1449,7 +1450,7 @@ Updates MEMORY with the result of the operation."
         `(rating ,(total-recall--Rating (list (total-recall--now clock) (total-recall--id exercise) 'failure)))
         memory))
 
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -1471,7 +1472,7 @@ name of the buffer ~io#buffer()~.
  total-recall--IO)
 
 (defun total-recall--IO-init (name)
-  "Initializes an IO actor with NAME.
+  "Initialize an IO actor with NAME.
 NAME is a string for the output buffer name.
 Returns a memory hash table for the IO actor."
   (let ((memory (total-recall--Actor-memory
@@ -1482,7 +1483,7 @@ Returns a memory hash table for the IO actor."
     memory))
 
 (defun total-recall--IO-rcv (msg)
-  "Processes incoming MSG for the IO actor.
+  "Process incoming MSG for the IO actor.
 MSG is a list like `(minibuffer STRING)`, `(buffer STRING)`, or `buffer-name`.
 Returns a list containing the corresponding instruction."
   (pcase msg
@@ -1495,10 +1496,10 @@ Returns a list containing the corresponding instruction."
     ('buffer-name
      `(,msg))
 
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--IO-tx (memory inst)
-  "Handles transaction INST for the IO actor using MEMORY.
+  "Handle transaction INST for the IO actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a list or symbol like `(minibuffer STRING)` or `buffer-name`.
 Updates MEMORY with the result of the operation."
@@ -1519,7 +1520,7 @@ Updates MEMORY with the result of the operation."
       ('buffer-name
        (puthash 'out name memory))
 
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -1543,7 +1544,7 @@ the UI to be presented to the user. Data gathered from the data is then saved to
 (total-recall--Actor #'total-recall--TotalRecall-init total-recall--TotalRecall)
 
 (defun total-recall--TotalRecall-init (data)
-  "Initializes a TotalRecall actor with DATA.
+  "Initialize a TotalRecall actor with DATA.
 DATA is ignored in this implementation.
 Returns a memory hash table with initialized sub-actors."
   (let ((memory (total-recall--Actor-memory
@@ -1576,16 +1577,16 @@ Returns a memory hash table with initialized sub-actors."
     memory))
 
 (defun total-recall--TotalRecall-rcv (msg)
-  "Processes incoming MSG for the TotalRecall actor.
+  "Process incoming MSG for the TotalRecall actor.
 MSG is a symbol like `start` or `stop`.
 Returns a list containing the corresponding instruction."
   (pcase msg
     ('start '(start))
     ('stop '(stop))
-    (_ (error "Unexpected msg. msg = %s" msg))))
+    (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--TotalRecall-tx (memory inst)
-  "Handles transaction INST for the TotalRecall actor using MEMORY.
+  "Handle transaction INST for the TotalRecall actor using MEMORY.
 MEMORY is the actor’s memory hash table.
 INST is a symbol or list for operations like `start` or `process-file`.
 Updates MEMORY with the result of the operation."
@@ -1661,7 +1662,7 @@ Updates MEMORY with the result of the operation."
        (total-recall--stop db)
        (puthash 'out self memory))
 
-      (_ (error "Unexpected instruction. inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
 ** test
@@ -1678,7 +1679,7 @@ Updates MEMORY with the result of the operation."
 
 ;;;###autoload
 (defun total-recall ()
-  "Runs the Total Recall spaced repetition application.
+  "Run the Total Recall spaced repetition application.
 Initiates a TotalRecall actor, processes data, and displays the report."
   (interactive)
   (let* ((tr (total-recall--TotalRecall t))
@@ -1686,7 +1687,7 @@ Initiates a TotalRecall actor, processes data, and displays the report."
          (io (total-recall--IO total-recall-io-buffer-name)))
     (total-recall--stop tr)
     (total-recall--buffer io (total-recall--string report))
-    (total-recall--minibuffer io (format "total-recall execution finished. Report written to %s" (total-recall--buffer-name io)))))
+    (total-recall--minibuffer io (format "Total-recall execution finished. Report written to %s" (total-recall--buffer-name io)))))
 #+end_src
 
 ** test
