@@ -67,7 +67,8 @@ This package provides `total-recall' for spaced repetition in Emacs."
 
 (defcustom total-recall-root-dir (expand-file-name "~")
   "Specifies the root directory for Total Recall file searches.
-This is a string representing the directory path where Org Mode files are searched."
+This is a string representing the directory path where Org Mode files
+are searched."
   :type 'string
   :group 'total-recall)
 
@@ -161,12 +162,12 @@ Returns the truncated string with an ellipsis if necessary."
 
 (defun total-recall--not-implemented-error ()
   "Signals an error indicating the function is not implemented.
-Throws an error with the message 'NotImplemented'."
+Throws an error with the message \"NotImplemented\"."
   (error "NotImplemented"))
 
 (defun total-recall--not-implemented-warning ()
   "Displays a warning indicating the function is not implemented.
-Shows a message 'WARNING: NotImplemented' in the echo area."
+Shows a message \"WARNING: NotImplemented\" in the echo area."
   (message "WARNING: NotImplemented"))
 
 (defun total-recall--string-uuid-p (str)
@@ -183,7 +184,8 @@ Returns t if T1 is less than or equal to T2, nil otherwise."
   (or (time-less-p t1 t2)
       (equal t1 t2)))
 
-(setq total-recall--day (* 24 60 60)) ;; number of seconds in a day.
+(defconst total-recall--day (* 24 60 60)
+  "Number of seconds in a day.")
 
 (defun total-recall--find-last-index (lst pred)
   "Find the last index in LST where PRED return non-nil.
@@ -441,7 +443,7 @@ report. ~report#string()~ is string representation of the report.
  #'total-recall--Report-init
  total-recall--Report)
 
-(defun total-recall--Report-init (data)
+(defun total-recall--Report-init (_data)
   "Initialize a report actor with DATA.
 DATA is ignored in this implementation.
 Returns a memory hash table for the report actor."
@@ -456,7 +458,7 @@ Returns a memory hash table for the report actor."
 MSG is a list or symbol, such as `(add LINE)` or `string`.
 Returns a list containing the instruction to execute."
   (pcase msg
-    (`(add ,line)
+    (`(add ,_line)
      `(,msg))
 
     ('string
@@ -573,10 +575,7 @@ Returns a list containing the `files` instruction."
 MEMORY is the actor’s memory hash table.
 INST is the symbol `files` to search for files.
 Updates MEMORY with the list of found file paths."
-  (let ((ripgrep (gethash 'ripgrep memory))
-        (def-id (gethash 'def-id memory))
-        (ex-id (gethash 'ex-id memory))
-        (cmd (gethash 'cmd memory)))
+  (let ((cmd (gethash 'cmd memory)))
     (pcase inst
       ('files
        (let (matches)
@@ -832,7 +831,7 @@ Returns a memory hash table for the parser actor."
 MSG is a list like `(parse FILE)` where FILE is a file path.
 Returns a list containing the parse instruction."
   (pcase msg
-    (`(parse ,file) `(,msg))
+    (`(parse ,_file) `(,msg))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Parser-tx (memory inst)
@@ -840,22 +839,20 @@ Returns a list containing the parse instruction."
 MEMORY is the actor’s memory hash table.
 INST is a list like `(parse FILE)` where FILE is a file path.
 Updates MEMORY with the parsed elements."
-  (let ((def-id (gethash 'def-id memory))
-        (ex-id (gethash 'ex-id memory)))
-    (pcase inst
-      (`(parse ,file)
-       (puthash
-        'out
-        (with-temp-buffer
-          (insert-file-contents file)
-          (org-mode)
-          (org-fold-show-all)
-          (let ((org-element-use-cache nil))
-            (total-recall--node-depth-first
-             (org-element-parse-buffer 'greater-element)
-             (lambda (node) (total-recall--node-to-element file node)))))
-        memory))
-      (_ (error "Unexpected instruction: inst = %s" inst)))))
+  (pcase inst
+    (`(parse ,file)
+     (puthash
+      'out
+      (with-temp-buffer
+        (insert-file-contents file)
+        (org-mode)
+        (org-fold-show-all)
+        (let ((org-element-use-cache nil))
+          (total-recall--node-depth-first
+           (org-element-parse-buffer 'greater-element)
+           (lambda (node) (total-recall--node-to-element file node)))))
+      memory))
+    (_ (error "Unexpected instruction: inst = %s" inst))))
 
 (defun total-recall--node-depth-first (node func)
   "Traverse NODE depth-first and apply FUNC to each node.
@@ -1010,8 +1007,7 @@ Returns a list containing the corresponding instruction."
 MEMORY is the actor’s memory hash table.
 INST is a symbol like `struct`, `date`, or `value`.
 Updates MEMORY with the requested data."
-  (let ((self (gethash 'self memory))
-        (date (gethash 'date memory))
+  (let ((date (gethash 'date memory))
         (id (gethash 'id memory))
         (value (gethash 'value memory)))
     (pcase inst
@@ -1086,10 +1082,10 @@ Returns a memory hash table for the database actor."
 MSG is a list like `(save RATING)`, `(ratings ID)`, or `stop`.
 Returns a list containing the corresponding instruction."
   (pcase msg
-    (`(save ,rating)
+    (`(save ,_rating)
      `(,msg))
 
-    (`(ratings ,id)
+    (`(ratings ,_id)
      `(,msg))
 
     ('stop
@@ -1234,7 +1230,7 @@ Returns a memory hash table for the planner actor."
 MSG is a list like `(select EXERCISES)` where EXERCISES is a list.
 Returns a list containing the select instruction."
   (pcase msg
-    (`(select ,exercises)
+    (`(select ,_exercises)
      `(,msg))
     (_ (error "Unexpected message: msg = %s" msg))))
 
@@ -1253,7 +1249,7 @@ Updates MEMORY with the filtered exercises or scheduling decision."
         memory))
 
       (`(is_scheduled ,ex)
-       (let (today ratings last-failure-idx successes delta_t cutoff decision)
+       (let (today ratings last-failure-idx successes delta_t last-rating cutoff decision)
          (setq today (total-recall--now clock))
          (setq ratings (total-recall--ratings db (total-recall--id ex)))
          (setq successes
@@ -1322,10 +1318,10 @@ Returns a memory hash table for the UI actor."
 MSG is a list like `(show-exercise EXERCISE)`, `(show-report REPORT)`,
 or `stop`.  Returns a list containing the corresponding instruction."
   (pcase msg
-    (`(show-exercise ,exercise)
+    (`(show-exercise ,_exercise)
      `(,msg))
 
-    (`(show-report ,report)
+    (`(show-report ,_report)
      `(,msg))
 
     ('stop
@@ -1487,10 +1483,10 @@ Returns a memory hash table for the IO actor."
 MSG is a list like `(minibuffer STRING)`, `(buffer STRING)`, or `buffer-name`.
 Returns a list containing the corresponding instruction."
   (pcase msg
-    (`(minibuffer ,string)
+    (`(minibuffer ,_string)
      `(,msg))
 
-    (`(buffer ,string)
+    (`(buffer ,_string)
      `(,msg))
 
     ('buffer-name
@@ -1543,7 +1539,7 @@ the UI to be presented to the user. Data gathered from the data is then saved to
 
 (total-recall--Actor #'total-recall--TotalRecall-init total-recall--TotalRecall)
 
-(defun total-recall--TotalRecall-init (data)
+(defun total-recall--TotalRecall-init (_data)
   "Initialize a TotalRecall actor with DATA.
 DATA is ignored in this implementation.
 Returns a memory hash table with initialized sub-actors."
@@ -1606,9 +1602,7 @@ Updates MEMORY with the result of the operation."
 
     (pcase inst
       ('start
-       (let ((nbr-files (puthash 'nbr-files 0 memory))
-             (nbr-exercises (puthash 'nbr-exercises 0 memory))
-             (report (puthash 'report (total-recall--Report t) memory)))
+       (let ((report (puthash 'report (total-recall--Report t) memory)))
 
          (total-recall--add report "TotalRecall started.")
          (total-recall--add report (format "Definitions and exercises under %s will be reviewed." root))
