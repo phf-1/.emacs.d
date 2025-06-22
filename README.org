@@ -82,6 +82,7 @@
 :END:
 
 #+begin_src emacs-lisp
+(pixel-scroll-precision-mode 1)
 (scroll-bar-mode -1)
 (tool-bar-mode -1)
 (menu-bar-mode 1)
@@ -417,11 +418,18 @@ With prefix ARG, undedicate it."
   :demand)
 
 (use-package macrostep-geiser
-  :demand
-  :after (geiser-mode geiser-repl)
+  :defer t
+  :after (geiser macrostep)
   :config
   (add-hook 'geiser-mode-hook #'macrostep-geiser-setup)
   (add-hook 'geiser-repl-mode-hook #'macrostep-geiser-setup))
+#+end_src
+* esup
+
+#+begin_src emacs-lisp
+(use-package esup
+  :defer t
+  :commands (esup))
 #+end_src
 
 * rg
@@ -581,32 +589,19 @@ $0`(yas-escape-text yas-selected-text)`")
 * cape
 
 #+begin_src emacs-lisp
-(use-package cape :demand
-  :disabled t  
-  :bind ("C-c f" . cape-file)
+(use-package cape
+  :defer t
+  :bind (("C-c f" . cape-file)
+         ("C-c h" . cape-history))
   :init
-  ;; Add `completion-at-point-functions', used by `completion-at-point'.
   (defun my/add-shell-completion ()
-    (interactive)
     (add-to-list 'completion-at-point-functions 'cape-history)
     (add-to-list 'completion-at-point-functions 'pcomplete-completions-at-point))
-  (add-hook 'shell-mode-hook #'my/add-shell-completion nil t)
-
-
-  (setq-local completion-at-point-functions
-	      (list (cape-capf-super #'cape-dabbrev #'cape-dict #'cape-keyword)))
-
+  (add-hook 'shell-mode-hook #'my/add-shell-completion)
   :config
-  ;; Make capfs composable
-  (advice-add #'eglot-completion-at-point :around #'cape-wrap-nonexclusive)
   (advice-add #'comint-completion-at-point :around #'cape-wrap-nonexclusive)
-
-  ;; Silence then pcomplete capf, no errors or messages!
-  (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-silent)
-
-  ;; Ensure that pcomplete does not write to the buffer
-  ;; and behaves as a pure `completion-at-point-function'.
-  (advice-add 'pcomplete-completions-at-point :around #'cape-wrap-purify))
+  (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-silent)
+  (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-purify))
 #+end_src
 
 * dabbrev
@@ -1185,32 +1180,6 @@ and return an error indicator."
   (circe-channel-mode-hook . enable-circe-color-nicks))
 #+end_src
 
-* pomodoro
-:LOGBOOK:
-CLOCK: [2025-03-04 Tue 12:26]--[2025-03-04 Tue 12:27] =>  0:01
-CLOCK: [2025-03-04 Tue 12:24]--[2025-03-04 Tue 12:25] =>  0:01
-CLOCK: [2025-03-04 Tue 12:21]--[2025-03-04 Tue 12:22] =>  0:01
-:END:
-
-
-#+begin_src emacs-lisp
-(use-package org-pomodoro
-  :init
-  (setq org-pomodoro-sounds-dir (expand-file-name (file-name-concat user-emacs-directory "sounds")))
-  :custom
-  (org-pomodoro-length 60)
-  (org-pomodoro-short-break-length 5)
-  (org-pomodoro-long-break-length 15)
-  (org-pomodoro-long-break-frequency 3)
-  (org-pomodoro-start-sound-p nil)
-  (org-pomodoro-keep-killed-pomodoro-time t)
-  (org-pomodoro-start-sound (concat org-pomodoro-sounds-dir "/braam-braamamma.wav"))
-  (org-pomodoro-finished-sound (concat org-pomodoro-sounds-dir "/short-sad_little_sonar.wav"))
-  (org-pomodoro-long-break-sound (concat org-pomodoro-sounds-dir "/braam-braamamma.wav"))
-  (org-pomodoro-short-break-sound (concat org-pomodoro-sounds-dir "/braam-braamamma.wav"))
-  (org-pomodoro-play-sounds t))
-#+end_src
-
 * beacon
 
 #+begin_src emacs-lisp
@@ -1258,7 +1227,7 @@ CLOCK: [2025-03-04 Tue 12:21]--[2025-03-04 Tue 12:22] =>  0:01
     (add-to-list 'geiser-guile-load-path (expand-file-name "~/src/guix"))))
 #+end_src
 
-* preview-mode
+* completion-preview
 
 #+begin_src emacs-lisp
 (use-package completion-preview
@@ -1266,22 +1235,25 @@ CLOCK: [2025-03-04 Tue 12:21]--[2025-03-04 Tue 12:22] =>  0:01
   :hook ((prog-mode . completion-preview-mode)
          (text-mode . completion-preview-mode)
          (comint-mode . completion-preview-mode)
-         (org-mode . completion-preview-mode)) ; Add org-mode for better Org compatibility
+         (org-mode . completion-preview-mode))
   :bind (:map completion-preview-active-mode-map
               ("M-n" . completion-preview-next-candidate)
               ("M-p" . completion-preview-prev-candidate)
-              ("TAB" . completion-preview-insert) ; Use TAB to insert preview
-              ("M-i" . completion-preview-insert))
+              ("TAB" . completion-preview-insert))
   :config
-  (setq completion-preview-minimum-symbol-length 2) ; Trigger after 2 characters
-  (setq completion-preview-exact-match-only nil) ; Allow partial matches
+  (setq completion-preview-minimum-symbol-length 2)
+  (setq completion-preview-exact-match-only nil)
   (setq completion-preview-commands
         (append completion-preview-commands
                 '(org-self-insert-command
                   paredit-backward-delete
-                  self-insert-command))) ; Add more commands for preview triggering
-  ;; Ensure compatibility with orderless
-  (setq completion-preview-ignore-case t))
+                  self-insert-command)))
+  (setq completion-preview-ignore-case t)
+  ;; Add context-aware completion
+  (add-hook 'completion-preview-mode-hook
+            (lambda ()
+              (when (derived-mode-p 'prog-mode)
+                (add-to-list 'completion-at-point-functions #'cape-dabbrev t)))))
 #+end_src
 
 * local extension
