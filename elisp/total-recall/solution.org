@@ -116,6 +116,21 @@ This package provides `total-recall' for spaced repetition in Emacs."
        (string-match-p
         "^[0-9a-fA-F]\\{8\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{12\\}$"
         str)))
+
+(defun total-recall--timestamp-leq (t1 t2)
+  (or (time-less-p t1 t2)
+      (equal t1 t2)))
+
+(setq total-recall--day (* 24 60 60)) ;; number of seconds in a day.
+
+(defun total-recall--find-last-index (lst pred)
+  (let ((index -1)
+        (last-index nil))
+    (dolist (item lst)
+      (setq index (1+ index))
+      (when (funcall pred item)
+        (setq last-index index)))
+    last-index))
 #+end_src
 
 * Actor
@@ -224,6 +239,8 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 (total-recall--message struct)
 (total-recall--message tick)
 (total-recall--message tick2)
+(total-recall--message date)
+(total-recall--message value)
 #+end_src
 
 ** test
@@ -785,6 +802,8 @@ list ~date, id, value~.
 (defun total-recall--Rating-rcv (msg)
   (pcase msg
     ('struct '(struct))
+    ('date '(date))
+    ('value '(value))
     (_ (error "Unexpected msg. msg = %s" msg))))
 
 (defun total-recall--Rating-tx (memory inst)
@@ -795,6 +814,10 @@ list ~date, id, value~.
     (pcase inst
       ('struct
        (puthash 'out `(,date ,id ,value) memory))
+      ('date
+       (puthash 'out date memory))
+      ('value
+       (puthash 'out value memory))
       (_ (error "Unexpected instruction. inst = %s" inst)))))
 
 (defun total-recall--Rating-eq (r1 r2)
@@ -845,11 +868,9 @@ associated with the given ~id~. ~db#stop()~ releases the resources associated wi
                       "CREATE TABLE exercise_log (
                        type TEXT NOT NULL,
                        id TEXT NOT NULL,
-                       time TEXT NOT NULL)")
-
-      (puthash 'sqlite sqlite memory)
-
-      memory)))
+                       time TEXT NOT NULL)"))
+    (puthash 'sqlite sqlite memory)
+    memory))
 
 (defun total-recall--DB-rcv (msg)
   (pcase msg
@@ -947,21 +968,35 @@ associated with the given ~id~. ~db#stop()~ releases the resources associated wi
     (should (total-recall--Rating-eq rating (car (total-recall--ratings db id))))))
 #+end_src
 
-* TODO Planner
+* Planner
 ** specification
 
 ~planner :≡ Planner clock db~ is a planner. ~planner#select exercises~ is a list of
 exercises selected from ~exercises~ to be reviewed at the time of the call given data
 represented by the database ~db~.
 
+An exercise ~ex~ from ~exercises~ is selected if its ~cutoff~ date comes before ~today :≡
+clock#now()~ /i.e./ ~cutoff ≤ today~. Given the list of ratings ~ratings :≡ db#ratings
+ex#id()~, we define :
+
+#+begin_example
+cutoff :≡
+  match db#ratings ex#id()
+    [] → today
+    ratings →
+      - match ratings
+          … success_1 … success_n →
+            - Δt :≡ 2^(n-1) days
+            - date(success_n) + Δt
+          _ → today
+#+end_example
+
 ** implementation
 
 #+begin_src emacs-lisp
 ;; Planner
 
-(total-recall--Actor
- #'total-recall--Planner-init
- total-recall--Planner)
+(total-recall--Actor #'total-recall--Planner-init total-recall--Planner)
 
 (defun total-recall--Planner-init (data)
   (let ((memory (total-recall--Actor-memory
@@ -981,11 +1016,42 @@ represented by the database ~db~.
     (_ (error "Unexpected msg. msg = %s" msg))))
 
 (defun total-recall--Planner-tx (memory inst)
-  (let ((db (gethash 'db memory)))
+  (let ((db (gethash 'db memory))
+        (clock (gethash 'clock memory)))
     (pcase inst
       (`(select ,exercises)
-       (total-recall--not-implemented-warning)
-       (puthash 'out exercises memory))
+       (puthash
+        'out
+        (seq-filter (lambda (ex) (total-recall--Planner-tx memory `(is_scheduled ,ex)) (gethash 'out memory)) exercises)
+        memory))
+
+      (`(is_scheduled ,ex)
+       (let (today ratings last-failure-idx successes delta_t cutoff decision)
+         (setq today (total-recall--now clock))
+         (setq ratings (total-recall--ratings db (total-recall--id ex)))
+         (setq successes
+               (pcase ratings
+                 ('nil '())
+                 (_
+                  (setq last-failure-idx
+                        (total-recall--find-last-index
+                         ratings
+                         (lambda (rating) (eq (total-recall--value rating) 'failure))))
+
+                  (seq-filter (lambda (rating) (eq (total-recall--value rating) 'success))
+                              (pcase last-failure-idx
+                                ('nil ratings)
+                                ((pred (eq (- (length ratings) 1)) '()))
+                                (_ (nthcdr (+ last-failure-idx 1) ratings)))))))
+         (setq cutoff
+               (pcase successes
+                 ('nil today)
+                 (_
+                  (setq delta_t (* (expt 2 (- (length successes) 1)) total-recall--day))
+                  (setq last-rating (car (last successes)))
+                  (time-add (total-recall--date last-rating) delta_t))))
+         (setq decision (total-recall--timestamp-leq cutoff today))
+         (puthash 'out decision memory)))
 
       (_ (error "Unexpected instruction. inst = %s" inst)))))
 #+end_src
@@ -1292,7 +1358,7 @@ the UI to be presented to the user. Data gathered from the data is then saved to
 
       (`(process-file ,file)
        (total-recall--add report (format "file = %s" file))
-       (puthash 'exercises (total-recall--parse parser file) memory)
+       (puthash 'exercises (total-recall--select planner (total-recall--parse parser file)) memory)
        (total-recall--add report (format "%s exercises have been found." (length (gethash 'exercises memory))))
        (total-recall--TotalRecall-tx memory 'process-exercises)
        (puthash 'nbr-files (+ nbr-files 1) memory))
