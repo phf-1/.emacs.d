@@ -220,6 +220,8 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 (total-recall--message answer)
 (total-recall--message buffer)
 (total-recall--message buffer-name)
+(total-recall--message date)
+(total-recall--message file)
 (total-recall--message files)
 (total-recall--message id)
 (total-recall--message minibuffer)
@@ -239,7 +241,6 @@ See: [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]
 (total-recall--message struct)
 (total-recall--message tick)
 (total-recall--message tick2)
-(total-recall--message date)
 (total-recall--message value)
 #+end_src
 
@@ -469,6 +470,7 @@ is a UUID string. ~exercise#question()~, ~exercise#answer()~ are strings. ~exerc
 is a string of the form ~A/B/…/Z~ that locates the exercise relative to its context
 /i.e./ The exercise is about ~Z~ which parent heading is ~…~ up until ~A~. ~exercise#string()~
 is a one line string representation of the exercise for debugging purposes.
+~exercise#file()~ is the absolute path to the file it has been extracted from.
 
 ** implementation
 
@@ -484,7 +486,8 @@ is a one line string representation of the exercise for debugging purposes.
                  #'total-recall--Exercise-rcv
                  #'total-recall--Exercise-tx)))
     (pcase data
-      (`(,id ,path ,question ,answer)
+      (`(,file ,id ,path ,question ,answer)
+       (puthash 'file file memory)
        (puthash 'id id memory)
        (puthash 'path path memory)
        (puthash 'question question memory)
@@ -495,30 +498,37 @@ is a one line string representation of the exercise for debugging purposes.
 
 (defun total-recall--Exercise-rcv (msg)
   (pcase msg
+    ('file
+     '(file))
+
     ('id
-     `(id))
+     '(id))
 
     ('path
-     `(path))
+     '(path))
 
     ('question
-     `(question))
+     '(question))
 
     ('answer
-     `(answer))
+     '(answer))
 
     ('string
-     `(string))
+     '(string))
 
     (_ (error "Unexpected msg. msg = %s" msg))))
 
 (defun total-recall--Exercise-tx (memory inst)
-  (let ((id (gethash 'id memory))
+  (let ((file (gethash 'file memory))
+        (id (gethash 'id memory))
         (path (gethash 'path memory))
         (question (gethash 'question memory))
         (answer (gethash 'answer memory)))
 
     (pcase inst
+      ('file
+       (puthash 'out file memory))
+
       ('id
        (puthash 'out id memory))
 
@@ -548,23 +558,23 @@ form ~A/B/…/Z~ that locates the definition relative to its context /i.e./ The 
 is about ~Z~ which parent heading is ~…~ up until ~A~. ~definition~ may be viewed as an
 exercise where the answer is the content and the question asks what is the definition
 associated to the path. ~definition#string()~ is a one line string representation of
-the exercise for debugging purposes.
+the exercise for debugging purposes. ~definition#file()~ is the absolute file from
+which this definition has been extracted from.
 
 ** implementation
 
 #+begin_src emacs-lisp
 ;; Definition
 
-(total-recall--Actor
- #'total-recall--Definition-init
- total-recall--Definition)
+(total-recall--Actor #'total-recall--Definition-init total-recall--Definition)
 
 (defun total-recall--Definition-init (data)
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--Definition-rcv
                  #'total-recall--Definition-tx)))
     (pcase data
-      (`(,id ,path ,content)
+      (`(,file ,id ,path ,content)
+       (puthash 'file file memory)
        (puthash 'id id memory)
        (puthash 'path path memory)
        (puthash 'content content memory)
@@ -574,6 +584,9 @@ the exercise for debugging purposes.
 
 (defun total-recall--Definition-rcv (msg)
   (pcase msg
+    ('file
+     `(file))
+
     ('id
      `(id))
 
@@ -595,11 +608,15 @@ the exercise for debugging purposes.
     (_ (error "Unexpected msg. msg = %s" msg))))
 
 (defun total-recall--Definition-tx (memory inst)
-  (let ((id (gethash 'id memory))
+  (let ((file (gethash 'file memory))
+        (id (gethash 'id memory))
         (path (gethash 'path memory))
         (content (gethash 'content memory)))
 
     (pcase inst
+      ('file
+       (puthash 'out file memory))
+
       ('id
        (puthash 'out id memory))
 
@@ -669,7 +686,7 @@ strings that identify headings that are considered to be definitions or exercise
           (let ((org-element-use-cache nil))
             (total-recall--node-depth-first
              (org-element-parse-buffer 'greater-element)
-             #'total-recall--node-to-element)))
+             (lambda (node) (total-recall--node-to-element file node)))))
         memory))
       (_ (error "Unexpected instruction. inst = %s" inst)))))
 
@@ -684,14 +701,14 @@ strings that identify headings that are considered to be definitions or exercise
       (:err head)
       (_ (append head (list last))))))
 
-(defun total-recall--node-to-element (node)
+(defun total-recall--node-to-element (file node)
   "Convert NODE to an element, trying exercise first, then definition if exercise fails."
-  (let ((exercise-result (total-recall--node-to-exercise node)))
+  (let ((exercise-result (total-recall--node-to-exercise file node)))
     (if (eq exercise-result :err)
-        (total-recall--node-to-definition node)
+        (total-recall--node-to-definition file node)
       exercise-result)))
 
-(defun total-recall--node-to-exercise (node)
+(defun total-recall--node-to-exercise (file node)
   "Return an exercise built from NODE, or `:err' if not possible.
 If NODE is expected to be an exercise based on its type but its
 structure is invalid, raise an error."
@@ -718,17 +735,18 @@ structure is invalid, raise an error."
 
           (total-recall--Exercise
            (list
+            file
             id
             (total-recall--node-subject node)
             question
             answer)))
       :err)))
 
-(defun total-recall--node-to-definition (node)
+(defun total-recall--node-to-definition (file node)
   "Return an definition built from NODE, or `:err' if not possible.
 If NODE is expected to be an definition based on its type but its
 structure is invalid, raise an error."
-  (let (should-be-definition id content)
+  (let (should-be-definition id subject content)
 
     (setq should-be-definition
           (and (eq (org-element-type node) 'headline)
@@ -737,12 +755,14 @@ structure is invalid, raise an error."
     (if should-be-definition
         (progn
           (setq id (org-element-property :ID node))
-          (unless (stringp id) (error "Definition has no ID property"))
+          (setq subject (total-recall--node-subject node))
+          (unless (stringp id) (error "Definition has no ID property. file = %s" file))
           (setq content (total-recall--node-to-string node))
           (total-recall--Definition
            (list
+            file
             id
-            (total-recall--node-subject node)
+            subjet
             content
             )))
       :err)))
@@ -1109,7 +1129,15 @@ exercise~ shows the exercise ~exercise~ to the user and return either ~'stop~ or
       (`(show-exercise ,exercise)
        (total-recall--UI-tx memory 'show-frame)
        (total-recall--UI-tx memory 'clear)
-       (total-recall--UI-tx memory `(show-content ,(total-recall--path exercise)))
+       (let (meta)
+         (setq meta (format "┌────
+│ file: %s
+│ link: %s
+└────
+"
+                            (total-recall--file exercise)
+                            (format "[[ref:%s]]" (total-recall--id exercise))))
+         (total-recall--UI-tx memory `(show-content ,meta)))
        (total-recall--UI-tx memory `(show-content ,(total-recall--question exercise)))
        (total-recall--UI-tx memory '(ask ((?1 . "Stop") (?2 . "Skip") (?3 . "Reveal"))))
        (pcase (gethash 'out memory)
