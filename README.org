@@ -438,13 +438,19 @@ With prefix ARG, undedicate it."
 1. If Emacs offers options to choose from, then display a vertical completion UI.
 
 #+begin_src emacs-lisp
-(use-package vertico :demand
+(use-package vertico
+  :demand
   :config
   (vertico-mode)
   (setq vertico-scroll-margin 0)
   (setq vertico-count 20)
   (setq vertico-resize t)
-  (setq vertico-cycle t))
+  (setq vertico-cycle t)
+  ;; Optional: Enable vertico-multiform for better completion UI
+  (vertico-multiform-mode)
+  (setq vertico-multiform-categories
+        '((file grid)
+          (consult-grep buffer))))
 #+end_src
 
 * xref
@@ -460,12 +466,13 @@ With prefix ARG, undedicate it."
 2. For instance, compare ~consult-imenu~ and ~imenu~.
 
 #+begin_src emacs-lisp
-(use-package consult :demand
+(use-package consult
+  :demand
   :bind
   (("C-s" . consult-line)
    ("C-r" . consult-ripgrep)
    ("C-c f" . consult-find)
-   ("M-." . xref-find-definitions) ;see configuration below.
+   ("M-." . xref-find-definitions)
    ("M-i" . consult-imenu)
    ("C-x b" . consult-buffer)
    ("C--" . consult-mark)
@@ -477,7 +484,7 @@ With prefix ARG, undedicate it."
   :config
   (advice-add #'register-preview :override #'consult-register-window)
   (setq xref-show-xrefs-function #'consult-xref
-	xref-show-definitions-function #'consult-xref))
+        xref-show-definitions-function #'consult-xref))
 #+end_src
 
 * orderless
@@ -532,6 +539,7 @@ $0`(yas-escape-text yas-selected-text)`")
 
 #+begin_src emacs-lisp
 (use-package corfu
+  :disabled t
   :demand
   :bind (:map corfu-map
 	      ("M-SPC"      . corfu-insert-separator)
@@ -560,6 +568,7 @@ $0`(yas-escape-text yas-selected-text)`")
 
 #+begin_src emacs-lisp
 (use-package corfu-candidate-overlay :demand
+  :disabled t
   :after corfu
   :bind (("C-<tab>" . completion-at-point)
 	 ("C-!" . corfu-candidate-overlay-complete-at-point))
@@ -573,6 +582,7 @@ $0`(yas-escape-text yas-selected-text)`")
 
 #+begin_src emacs-lisp
 (use-package cape :demand
+  :disabled t  
   :bind ("C-c f" . cape-file)
   :init
   ;; Add `completion-at-point-functions', used by `completion-at-point'.
@@ -602,9 +612,11 @@ $0`(yas-escape-text yas-selected-text)`")
 * dabbrev
 
 #+begin_src emacs-lisp
-(use-package dabbrev :demand
+(use-package dabbrev
+  :disabled t
+  :demand
   :bind (("M-/" . dabbrev-completion)
-	 ("C-M-/" . dabbrev-expand))
+         ("C-M-/" . dabbrev-expand))
   :config
   (add-to-list 'dabbrev-ignored-buffer-regexps "\\` ")
   (add-to-list 'dabbrev-ignored-buffer-modes 'doc-view-mode)
@@ -1250,20 +1262,26 @@ CLOCK: [2025-03-04 Tue 12:21]--[2025-03-04 Tue 12:22] =>  0:01
 
 #+begin_src emacs-lisp
 (use-package completion-preview
+  :demand
   :hook ((prog-mode . completion-preview-mode)
-	 (text-mode . completion-preview-mode)
-	 (comint-mode . completion-preview-mode))
-  :config
-  ;; Show preview after two symbol characters
-  (setq completion-preview-minimum-symbol-length 2)
-  ;; Add non-standard commands
-  (push 'org-self-insert-command completion-preview-commands)
-  (push 'paredit-backward-delete completion-preview-commands)
-  ;; Bindings for when preview is shown
+         (text-mode . completion-preview-mode)
+         (comint-mode . completion-preview-mode)
+         (org-mode . completion-preview-mode)) ; Add org-mode for better Org compatibility
   :bind (:map completion-preview-active-mode-map
-	      ("M-n" . completion-preview-next-candidate)
-	      ("M-p" . completion-preview-prev-candidate)
-	      ("M-i" . completion-preview-insert)))
+              ("M-n" . completion-preview-next-candidate)
+              ("M-p" . completion-preview-prev-candidate)
+              ("TAB" . completion-preview-insert) ; Use TAB to insert preview
+              ("M-i" . completion-preview-insert))
+  :config
+  (setq completion-preview-minimum-symbol-length 2) ; Trigger after 2 characters
+  (setq completion-preview-exact-match-only nil) ; Allow partial matches
+  (setq completion-preview-commands
+        (append completion-preview-commands
+                '(org-self-insert-command
+                  paredit-backward-delete
+                  self-insert-command))) ; Add more commands for preview triggering
+  ;; Ensure compatibility with orderless
+  (setq completion-preview-ignore-case t))
 #+end_src
 
 * local extension
