@@ -65,13 +65,18 @@ This package provides `total-recall' for spaced repetition in Emacs."
   :group 'convenience
   :prefix "total-recall-")
 
-(defcustom total-recall-root (expand-file-name "~")
+(defcustom total-recall-root-dir (expand-file-name "~")
   ""
   :type 'string
   :group 'total-recall)
 
-(defcustom total-recall-db-path (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
+(defcustom total-recall-database (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
   ""
+  :type 'string
+  :group 'total-recall)
+
+(defcustom total-recall-ripgrep-cmd "rg"
+  "Name or path of the Ripgrep executable."
   :type 'string
   :group 'total-recall)
 
@@ -88,6 +93,41 @@ This package provides `total-recall' for spaced repetition in Emacs."
 (defcustom total-recall-ex-type "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
   ""
   :type 'string
+  :group 'total-recall)
+
+(defcustom total-recall-window-width 160
+  "Width of the Total Recall UI in characters."
+  :type 'integer
+  :group 'total-recall)
+
+(defcustom total-recall-window-height 90
+  "Height of the Total Recall UI in characters."
+  :type 'integer
+  :group 'total-recall)
+
+(defcustom total-recall-key-skip ?k
+  "Key to skip an exercise in Total Recall UI."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-quit ?q
+  "Key to quit the Total Recall session."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-success ?s
+  "Key to mark an exercise as successful in Total Recall UI."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-failure ?f
+  "Key to mark an exercise as failed in Total Recall UI."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-reveal ?r
+  "Key to reveal the answer in Total Recall UI."
+  :type 'character
   :group 'total-recall)
 #+end_src
 
@@ -412,7 +452,7 @@ A regular file contains an exercise if it contains the string:
        (unless (file-directory-p (puthash 'root root memory))
          (error "root is not a directory. root = %s" root))
 
-       (let ((ripgrep "rg"))
+       (let ((ripgrep total-recall-ripgrep-cmd))
          (unless (stringp (puthash 'ripgrep (executable-find ripgrep) memory))
            (error "ripgrep not found in PATH. ripgrep = %s" ripgrep)))
 
@@ -1133,24 +1173,31 @@ exercise~ shows the exercise ~exercise~ to the user and return either ~'stop~ or
          (setq meta (format "┌────
 │ file: %s
 │ link: %s
+│ path: %s
 └────
 "
                             (total-recall--file exercise)
-                            (format "[[ref:%s]]" (total-recall--id exercise))))
+                            (format "[[ref:%s]]" (total-recall--id exercise))
+                            (total-recall--path exercise)))
          (total-recall--UI-tx memory `(show-content ,meta)))
        (total-recall--UI-tx memory `(show-content ,(total-recall--question exercise)))
-       (total-recall--UI-tx memory '(ask ((?1 . "Stop") (?2 . "Skip") (?3 . "Reveal"))))
+       (total-recall--UI-tx memory `(ask ((,total-recall-key-quit . "Quit")
+                                          (,total-recall-key-skip . "Skip")
+                                          (,total-recall-key-reveal . "Reveal"))))
        (pcase (gethash 'out memory)
-         (?1 (total-recall--UI-tx memory 'stop))
-         (?2 (total-recall--UI-tx memory `(skip ,exercise)))
-         (?3
+         ((pred (eq total-recall-key-quit)) (total-recall--UI-tx memory 'stop))
+         ((pred (eq total-recall-key-skip)) (total-recall--UI-tx memory `(skip ,exercise)))
+         ((pred (eq total-recall-key-reveal))
           (total-recall--UI-tx memory `(show-content ,(total-recall--answer exercise)))
-          (total-recall--UI-tx memory '(ask ((?1 . "Success") (?2 . "Failure") (?3 . "Skip") (?4 . "Stop"))))
+          (total-recall--UI-tx memory `(ask ((,total-recall-key-success . "Success")
+                                             (,total-recall-key-failure . "Failure")
+                                             (,total-recall-key-skip . "Skip")
+                                             (,total-recall-key-quit . "Quit"))))
           (pcase (gethash 'out memory)
-            (?1 (total-recall--UI-tx memory `(success ,exercise)))
-            (?2 (total-recall--UI-tx memory `(failure ,exercise)))
-            (?3 (total-recall--UI-tx memory `(skip ,exercise)))
-            (?4 (total-recall--UI-tx memory 'stop))))))
+            ((pred (eq total-recall-key-success)) (total-recall--UI-tx memory `(success ,exercise)))
+            ((pred (eq total-recall-key-failure)) (total-recall--UI-tx memory `(failure ,exercise)))
+            ((pred (eq total-recall-key-skip)) (total-recall--UI-tx memory `(skip ,exercise)))
+            ((pred (eq total-recall-key-quit)) (total-recall--UI-tx memory 'stop))))))
 
       ('show-frame
        (select-frame-set-input-focus frame)
@@ -1314,10 +1361,10 @@ the UI to be presented to the user. Data gathered from the data is then saved to
                  #'total-recall--TotalRecall-tx)))
     (puthash 'clock (total-recall--Clock t) memory)
 
-    (puthash 'db-path total-recall-db-path memory)
+    (puthash 'db-path total-recall-database memory)
     (puthash 'db (total-recall--DB (gethash 'db-path memory)) memory)
 
-    (puthash 'root total-recall-root memory)
+    (puthash 'root total-recall-root-dir memory)
     (puthash 'def-type total-recall-def-type memory)
     (puthash 'ex-type total-recall-ex-type memory)
     (puthash 'searcher (total-recall--Searcher (list (gethash 'root memory) (gethash 'def-type memory) (gethash 'ex-type memory))) memory)
@@ -1326,7 +1373,7 @@ the UI to be presented to the user. Data gathered from the data is then saved to
 
     (puthash 'planner (total-recall--Planner (list (gethash 'db memory) (gethash 'clock memory))) memory)
 
-    (puthash 'ui (total-recall--UI (list "*TotalRecall UI*" 300 300 (gethash 'clock memory))) memory)
+    (puthash 'ui (total-recall--UI (list "*TotalRecall UI*" total-recall-window-width total-recall-window-height (gethash 'clock memory))) memory)
 
     (puthash 'nbr-files 0 memory)
 
