@@ -5,7 +5,7 @@
 # --
 `(let ((level (org-current-level)))
    (if level
-       (concat (make-string (1+ level) ?*) " Name")
+       (concat (make-string level ?*) " Name")
        "* Name"))`
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
