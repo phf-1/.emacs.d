@@ -2,12 +2,12 @@
 
 #+PROPERTY: header-args:emacs-lisp :noweb yes :mkdirp yes :tangle total-recall.el
 
-* Specification
+* Objective
 :PROPERTIES:
 :ID:       2b6a2d42-bfd0-4658-b25a-b1b7000d1b01
 :END:
 
-#+name: specification
+#+name: objective
 #+begin_src org
 `total-recall.el` is a spaced repetition system for Emacs that helps users review and
 retain knowledge stored in Org Mode files. It searches for definitions and exercises
@@ -137,7 +137,7 @@ retention.
 ;;
 ;;; Commentary:
 ;;
-;; <<specification>>
+;; <<objective>>
 ;;
 ;;; Code:
 #+end_src
@@ -342,7 +342,7 @@ atom or list) named ~Instruction~, ~memory~ answers at least to these calls:
 Given ~init : Any → Memory~, and a symbol ~Name~, then ~Actor(init Name)~ defines ~Name :
 Any → Name~. ~actor :≡ Name data~ is an actor which memory is ~memory :≡ init data~.
 
-- actor(msg) :≡
+- actor msg :≡
   1. memory#stack memory#rcv()(msg)
   2. match memory#stack()
      - cons(inst rest) →
@@ -1300,7 +1300,7 @@ cutoff :≡
     [] → today
     ratings →
       - match ratings
-          … success_1 … success_n →
+          el+ success_1 … success_n →
             - Δt :≡ 2^(n-1) days
             - date(success_n) + Δt
           _ → today
