@@ -1413,7 +1413,7 @@ Returns a memory hash table for the UI actor."
        (puthash 'height height memory)
        (puthash 'frame (make-frame `((width . ,width) (height . ,height))) memory)
        (puthash 'clock clock memory)
-       (puthash 'reviewed-nbr 0 memory)       
+       (puthash 'reviewed-nbr 0 memory)
        memory)
       (_ (error "Unexpected data: data = %s" data)))))
 
@@ -1450,16 +1450,16 @@ Updates MEMORY with the result of the operation."
        (total-recall--UI-tx memory 'clear)
        (let (meta)
          (setq meta (format "┌────
-│ reviewed: %s exercises
+│ path: %s
 │ file: %s
 │ link: %s
-│ path: %s
+│ reviewed: %s exercises
 └────
 "
-                            reviewed-nbr
+                            (total-recall--path exercise)
                             (total-recall--file exercise)
                             (format "[[ref:%s]]" (total-recall--id exercise))
-                            (total-recall--path exercise)))
+                            reviewed-nbr))
          (total-recall--UI-tx memory `(show-content ,meta)))
        (total-recall--UI-tx memory `(show-content ,(total-recall--question exercise)))
        (total-recall--UI-tx memory `(ask ((,total-recall-key-quit . "Quit")
@@ -1533,7 +1533,7 @@ Updates MEMORY with the result of the operation."
                      (error "Unexpected option: option = %s" opt))))
                 options))
          (setq str (string-join strs ", "))
-         (setq key (read-char-choice str (mapcar #'car options)))         
+         (setq key (read-char-choice str (mapcar #'car options)))
          (puthash 'out key memory)))
 
       (`(skip ,exercise)
