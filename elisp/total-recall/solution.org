@@ -1413,6 +1413,7 @@ Returns a memory hash table for the UI actor."
        (puthash 'height height memory)
        (puthash 'frame (make-frame `((width . ,width) (height . ,height))) memory)
        (puthash 'clock clock memory)
+       (puthash 'reviewed-nbr 0 memory)       
        memory)
       (_ (error "Unexpected data: data = %s" data)))))
 
@@ -1440,7 +1441,8 @@ Updates MEMORY with the result of the operation."
   (let ((self (gethash 'self memory))
         (clock (gethash 'clock memory))
         (frame (gethash 'frame memory))
-        (buffer (gethash 'buffer memory)))
+        (buffer (gethash 'buffer memory))
+        (reviewed-nbr (gethash 'reviewed-nbr memory)))
 
     (pcase inst
       (`(show-exercise ,exercise)
@@ -1448,11 +1450,13 @@ Updates MEMORY with the result of the operation."
        (total-recall--UI-tx memory 'clear)
        (let (meta)
          (setq meta (format "┌────
+│ reviewed: %s exercises
 │ file: %s
 │ link: %s
 │ path: %s
 └────
 "
+                            reviewed-nbr
                             (total-recall--file exercise)
                             (format "[[ref:%s]]" (total-recall--id exercise))
                             (total-recall--path exercise)))
@@ -1474,7 +1478,8 @@ Updates MEMORY with the result of the operation."
             ((pred (equal total-recall-key-success)) (total-recall--UI-tx memory `(success ,exercise)))
             ((pred (equal total-recall-key-failure)) (total-recall--UI-tx memory `(failure ,exercise)))
             ((pred (equal total-recall-key-skip)) (total-recall--UI-tx memory `(skip ,exercise)))
-            ((pred (equal total-recall-key-quit)) (total-recall--UI-tx memory 'stop))))))
+            ((pred (equal total-recall-key-quit)) (total-recall--UI-tx memory 'stop)))))
+       (puthash 'reviewed-nbr (+ reviewed-nbr 1) memory))
 
       ('show-frame
        (select-frame-set-input-focus frame)
@@ -1528,7 +1533,7 @@ Updates MEMORY with the result of the operation."
                      (error "Unexpected option: option = %s" opt))))
                 options))
          (setq str (string-join strs ", "))
-         (setq key (read-char-choice str (mapcar #'car options)))
+         (setq key (read-char-choice str (mapcar #'car options)))         
          (puthash 'out key memory)))
 
       (`(skip ,exercise)

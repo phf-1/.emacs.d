@@ -344,8 +344,8 @@ With prefix ARG, undedicate it."
 #+begin_src emacs-lisp
 (use-package tab-bar :demand
   :bind
-  (("C-+" . tab-bar-switch-to-next-tab)
-   ("C--" . tab-bar-switch-to-prev-tab))
+  (("M-+" . tab-bar-switch-to-next-tab)
+   ("M--" . tab-bar-switch-to-prev-tab))
   :config
   (tab-bar-mode))
 #+end_src
@@ -1194,7 +1194,9 @@ and return an error indicator."
 #+begin_src emacs-lisp
 (add-to-list 'load-path (file-name-concat user--packages "total-recall/_build"))
 (use-package total-recall
-  :demand)
+  :demand
+  :custom
+  (total-recall-database (file-name-concat (expand-file-name user-emacs-directory) "total-recall.sqlite3")))
 #+end_src
 
 * reformatter

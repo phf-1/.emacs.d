@@ -1,0 +1,33 @@
+# key: problem-first
+# name: state-the-problem-first
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+# :TYPE: 45060c5b-2c11-4d98-bbfb-a7b75d3e4dfb
+# :ID: `(org-id-new)`
+
+* Introduction
+
+Context that gives meaning to the objective. Plan of the document: objective,
+candidate, verification, discussion, and conclusion.
+   
+* Objective 
+
+A formal description of the objective /i.e./ with a verification
+algorithm that allows to decide if the objective is satisfied or not by a given
+candidate.
+   
+* Candidate
+
+The candidate that should satisfy the objective and how it has been built.
+    
+* Verification
+
+A proof that the candidate satisfies the objective.
+   
+* Discussion
+
+A discussion of all the above.
+   
+* Conclusion
+
+A summary of what has been done and future perspectives.
