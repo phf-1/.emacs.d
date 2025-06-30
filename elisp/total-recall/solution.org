@@ -449,6 +449,11 @@ The function sends a message to an actor with optional arguments."
 (total-recall--message tick)
 (total-recall--message tick2)
 (total-recall--message value)
+(total-recall--message self-references)
+(total-recall--message impredicative-p)
+(total-recall--message list-of-definition)
+(total-recall--message list-of-ambiguities)
+(total-recall--message ambiguous-p)
 #+end_src
 
 ** test
@@ -1220,6 +1225,101 @@ Updates MEMORY based on INST."
     (should (total-recall--Rating-eq rating (car (total-recall--ratings db id))))))
 #+end_src
 
+* Network
+** specification
+
+Let ~def1,def2,def3 : Definition~. If ~def2~ contains a reference to ~def1~, then we write
+~def2 → def1 : Reference({ def1 def2 })~. Let ~defs : { Definition }~, then we may build
+~refs(defs) : { Reference(defs) }~, the set of references over ~defs~. We call
+~graph(defs) : Graph(defs) :≡ <defs, refs(defs)>~. If ~def3 → def2~ and ~def2 → def1~, then
+we write ~def3 →+ def1 : Path(graph(defs)) :≡ <def3 def2 def1>~ meaning that there is a
+path from ~def3~ to ~def1~. If ~def →+ def~, then we say that ~def~ is self referential. Let
+~g :≡ graph(defs)~, then ~self-references(g)~ is the set of self referential definitions.
+If ~self-references(g) ≠ ∅~, then we say that ~g~ is impredicative. If ~g~ is not
+impredicative, then ~g#list-of-definition()~ is the list of definitions using
+topological order since it is a directed graph.
+
+- ~g :≡ Graph(defs)~
+  - ~g#self-references() : List(List(Definition))~
+  - ~g#impredicative-p() : Boolean :≡ g#self-references() ≠ '()~
+  - ~g#list-of-definition() : List(Definition)~
+  - ~g#list-of-ambiguities() : List(list(Definition))~ l is an ambiguity, d1,d2 ∈ l, d1#id() = d2#id()
+  - ~g#ambiguous-p() : Boolean :≡ ~g#list-of-ambiguities() ≠ '()~
+
+** implementation
+
+#+begin_src emacs-lisp
+;; Network
+
+(total-recall--Actor #'total-recall--Network-init total-recall--Network)
+
+(defun total-recall--Network-init (defs)
+  ""
+  (let ((memory (total-recall--Actor-memory #'total-recall--Network-rcv #'total-recall--Network-tx)))
+    (pcase defs
+      (_
+       (puthash :defs defs memory)
+       memory)
+      (_ (error "Unexpected data: data = %s" data)))))
+
+(defun total-recall--Network-rcv (msg)
+  ""
+  (pcase msg
+    (:self-references `(,msg))
+    (:impredicative-p `(,msg))
+    (:list-of-definition `(,msg))
+    (:list-of-ambiguities `(,msg))
+    (:ambiguous-p `(,msg))
+    (_ (error "Unexpected message: msg = %s" msg))))
+
+(defun total-recall--Network-tx (memory inst)
+  ""
+  (let ((self (gethash :self memory))
+        (defs (gethash :defs memory)))
+
+    (pcase inst
+      (:self-references
+       (puthash :out '() memory))
+
+      (:impredicative-p
+       (total-recall--Network-tx memory :self-references)
+       (puthash :out (not (eq (gethash :out memory) '())) memory))
+
+      (:list-of-definition
+       (puthash :out defs memory))
+
+      (:list-of-ambiguities
+       (puthash :out '() memory))
+
+      (:ambiguous-p
+       (total-recall--Network-tx memory :list-of-ambiguities)
+       (puthash :out (not (eq (gethash :out memory) '())) memory))
+
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
+#+end_src
+
+** test
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle "total-recall-test.el"
+:END:
+
+#+begin_src emacs-lisp
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Network ()
+  (let* ((def1 (total-recall--Definition (list "/tmp/test-file.org" "1" "subject1" "content")))
+         (def2 (total-recall--Definition (list "/tmp/test-file.org" "2" "subject2" "content")))
+         (def3 (total-recall--Definition (list "/tmp/test-file.org" "3" "subject3" "content")))
+         (defs (list def1 def2 def3))
+         (net (total-recall--Network defs)))
+    (should (eq (total-recall--self-references net) '()))
+    (should (not (total-recall--impredicative-p net)))
+    (should (eq (total-recall--list-of-definition net) defs))
+    (should (eq (total-recall--list-of-ambiguities net) '()))
+    (should (not (total-recall--ambiguous-p net)))))
+#+end_src
+
 * Planner
 ** specification
 
@@ -1551,6 +1651,7 @@ Updates MEMORY with the result of the operation."
 
       (`(:buffer ,string)
        (with-current-buffer buffer
+         (erase-buffer)
          (insert (string-join (list string "\n"))))
        (puthash :out self memory))
 
