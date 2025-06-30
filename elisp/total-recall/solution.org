@@ -373,14 +373,14 @@ NAME is a symbol naming the actor function, which processes messages."
   `(defun ,name (data)
      (let* ((memory (funcall ,init data))
             (self (lambda (msg)
-                    (let* ((rcv (gethash 'rcv memory))
-                           (stack (puthash 'stack (funcall rcv msg) memory)))
+                    (let* ((rcv (gethash :rcv memory))
+                           (stack (puthash :stack (funcall rcv msg) memory)))
                       (while (not (null stack))
-                        (puthash 'stack (cdr stack) memory)
-                        (funcall (gethash 'tx memory) memory (car stack))
-                        (setq stack (gethash 'stack memory)))
-                      (gethash 'out memory)))))
-       (puthash 'self self memory)
+                        (puthash :stack (cdr stack) memory)
+                        (funcall (gethash :tx memory) memory (car stack))
+                        (setq stack (gethash :stack memory)))
+                      (gethash :out memory)))))
+       (puthash :self self memory)
        self)))
 
 (defun total-recall--send (actor msg)
@@ -395,11 +395,11 @@ RCV is a function that processes incoming messages.
 TX is a function that handles transactions.
 Returns the initialized memory hash table."
   (let ((memory (make-hash-table :test 'eq)))
-    (puthash 'rcv rcv memory)
-    (puthash 'tx tx memory)
-    (puthash 'stack '() memory)
-    (puthash 'self t memory)
-    (puthash 'out nil memory)
+    (puthash :rcv rcv memory)
+    (puthash :tx tx memory)
+    (puthash :stack '() memory)
+    (puthash :self t memory)
+    (puthash :out nil memory)
     memory))
 #+end_src
 
@@ -420,8 +420,8 @@ The function sends a message to an actor with optional arguments."
   `(defun ,(intern (concat "total-recall--" (symbol-name name))) (actor &rest args)
      (total-recall--send actor
                          (pcase args
-                           ('() ',name)
-                           (_ (cons ',name args))))))
+                           ('() ,(intern (concat ":" (symbol-name name))))
+                           (_ (cons ,(intern (concat ":" (symbol-name name))) args))))))
 
 (total-recall--message add)
 (total-recall--message answer)
@@ -469,18 +469,14 @@ Given a natural number named ~time~, ~clock :≡ Clock time~ is a clock. It mean
 #+begin_src emacs-lisp
 ;; Clock
 
-(total-recall--Actor
- #'total-recall--Clock-init
- total-recall--Clock)
+(total-recall--Actor #'total-recall--Clock-init total-recall--Clock)
 
 (defun total-recall--Clock-init (time)
   "Initialize a clock actor with TIME.
 TIME is a natural number representing the initial clock time.
 Returns a memory hash table for the clock actor."
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--Clock-rcv
-                 #'total-recall--Clock-tx)))
-    (puthash 'time time memory)
+  (let ((memory (total-recall--Actor-memory #'total-recall--Clock-rcv #'total-recall--Clock-tx)))
+    (puthash :time time memory)
     memory))
 
 (defun total-recall--Clock-rcv (msg)
@@ -488,10 +484,10 @@ Returns a memory hash table for the clock actor."
 MSG is a symbol or list representing a clock command.
 Returns a list of instructions to be executed."
   (pcase msg
-    ('read '(read))
-    ('tick '(tick))
-    ('tick2 '(tick tick))
-    ('now '(now))
+    (:read '(:read))
+    (:tick '(:tick))
+    (:tick2 '(:tick :tick))
+    (:now '(:now))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Clock-tx (memory inst)
@@ -499,18 +495,18 @@ Returns a list of instructions to be executed."
 MEMORY is the actor’s memory hash table.
 INST is a symbol representing a clock instruction.
 Updates MEMORY based on INST."
-  (let ((time (gethash 'time memory)))
+  (let ((time (gethash :time memory)))
 
     (pcase inst
-      ('read
-       (puthash 'out time memory))
+      (:read
+       (puthash :out time memory))
 
-      ('now
-       (puthash 'out (time-convert (current-time) 'list) memory))
+      (:now
+       (puthash :out (time-convert (current-time) 'list) memory))
 
-      ('tick
-       (puthash 'time (+ time 1) memory)
-       (puthash 'out (gethash 'self memory) memory))
+      (:tick
+       (puthash :time (+ time 1) memory)
+       (puthash :out (gethash :self memory) memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
@@ -548,10 +544,8 @@ report. ~report#string()~ is string representation of the report.
   "Initialize a report actor with DATA.
 DATA is ignored in this implementation.
 Returns a memory hash table for the report actor."
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--Report-rcv
-                 #'total-recall--Report-tx)))
-    (puthash 'lines '() memory)
+  (let ((memory (total-recall--Actor-memory #'total-recall--Report-rcv #'total-recall--Report-tx)))
+    (puthash :lines '() memory)
     memory))
 
 (defun total-recall--Report-rcv (msg)
@@ -559,10 +553,10 @@ Returns a memory hash table for the report actor."
 MSG is a list or symbol, such as `(add LINE)` or `string`.
 Returns a list containing the instruction to execute."
   (pcase msg
-    (`(add ,_line)
+    (`(:add ,_line)
      `(,msg))
 
-    ('string
+    (:string
      `(,msg))
 
     (_ (error "Unexpected message: msg = %s" msg))))
@@ -572,15 +566,15 @@ Returns a list containing the instruction to execute."
 MEMORY is the actor’s memory hash table.
 INST is a list or symbol, such as `(add LINE)` or `string`.
 Updates MEMORY based on INST."
-  (let ((self (gethash 'self memory))
-        (lines (gethash 'lines memory)))
+  (let ((self (gethash :self memory))
+        (lines (gethash :lines memory)))
     (pcase inst
-      (`(add ,line)
-       (puthash 'lines (cons line lines) memory)
-       (puthash 'out self memory))
+      (`(:add ,line)
+       (puthash :lines (cons line lines) memory)
+       (puthash :out self memory))
 
-      ('string
-       (puthash 'out (string-join (reverse lines) "\n") memory))
+      (:string
+       (puthash :out (string-join (reverse lines) "\n") memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
@@ -623,40 +617,35 @@ A regular file contains an exercise if it contains the string:
 #+begin_src emacs-lisp
 ;; Searcher
 
-(total-recall--Actor
- #'total-recall--Searcher-init
- total-recall--Searcher)
+(total-recall--Actor #'total-recall--Searcher-init total-recall--Searcher)
 
 (defun total-recall--Searcher-init (data)
   "Initialize a searcher actor with DATA.
 DATA is a list of (ROOT DEF-ID EX-ID), where ROOT is a directory path,
 DEF-ID and EX-ID are strings identifying definitions and exercises.
 Returns a memory hash table for the searcher actor."
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--Searcher-rcv
-                 #'total-recall--Searcher-tx)))
+  (let ((memory (total-recall--Actor-memory #'total-recall--Searcher-rcv #'total-recall--Searcher-tx)))
     (pcase data
       (`(,root ,def-id ,ex-id)
 
-       (unless (file-directory-p (puthash 'root root memory))
+       (unless (file-directory-p (puthash :root root memory))
          (error "Root is not a directory: root = %s" root))
 
        (let ((ripgrep total-recall-ripgrep-cmd))
-         (unless (stringp (puthash 'ripgrep (executable-find ripgrep) memory))
+         (unless (stringp (puthash :ripgrep (executable-find ripgrep) memory))
            (error "Ripgrep not found in PATH: ripgrep = %s" ripgrep)))
 
-       (unless (stringp (puthash 'def-id def-id memory))
+       (unless (stringp (puthash :def-id def-id memory))
          (error "Def-id is not a string: def-id = %s" def-id))
 
-       (unless (stringp (puthash 'ex-id ex-id memory))
+       (unless (stringp (puthash :ex-id ex-id memory))
          (error "Ex-id is not a string: ex-id = %s" ex-id))
 
-       (puthash
-        'cmd
+       (puthash :cmd
         (format "%s -g '*.org' -i --no-heading -n --color=never -m 1 '%s' %s"
-                (gethash 'ripgrep memory)
-                (format "%s|%s" (gethash 'def-id memory) (gethash 'ex-id memory))
-                (gethash 'root memory))
+                (gethash :ripgrep memory)
+                (format "%s|%s" (gethash :def-id memory) (gethash :ex-id memory))
+                (gethash :root memory))
         memory)
 
        memory)
@@ -667,8 +656,8 @@ Returns a memory hash table for the searcher actor."
 MSG is the symbol `files` to request file paths.
 Returns a list containing the `files` instruction."
   (pcase msg
-    ('files
-     '(files))
+    (:files
+     '(:files))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Searcher-tx (memory inst)
@@ -676,9 +665,9 @@ Returns a list containing the `files` instruction."
 MEMORY is the actor’s memory hash table.
 INST is the symbol `files` to search for files.
 Updates MEMORY with the list of found file paths."
-  (let ((cmd (gethash 'cmd memory)))
+  (let ((cmd (gethash :cmd memory)))
     (pcase inst
-      ('files
+      (:files
        (let (matches)
          (with-temp-buffer
            (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
@@ -689,7 +678,7 @@ Updates MEMORY with the list of found file paths."
                     (match (split-string line ":")))
                (push (car match) matches))
              (forward-line 1)))
-         (puthash 'out (delete-dups matches) memory)))
+         (puthash :out (delete-dups matches) memory)))
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
 
@@ -717,16 +706,14 @@ is a one line string representation of the exercise for debugging purposes.
 DATA is a list of (FILE ID PATH QUESTION ANSWER), where FILE is a path,
 ID is a UUID string, PATH, QUESTION, and ANSWER are strings.
 Returns a memory hash table for the exercise actor."
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--Exercise-rcv
-                 #'total-recall--Exercise-tx)))
+  (let ((memory (total-recall--Actor-memory #'total-recall--Exercise-rcv #'total-recall--Exercise-tx)))
     (pcase data
       (`(,file ,id ,path ,question ,answer)
-       (puthash 'file file memory)
-       (puthash 'id id memory)
-       (puthash 'path path memory)
-       (puthash 'question question memory)
-       (puthash 'answer answer memory)
+       (puthash :file file memory)
+       (puthash :id id memory)
+       (puthash :path path memory)
+       (puthash :question question memory)
+       (puthash :answer answer memory)
        memory)
       (_
        (error "Unexpected data: data = %s" data)))))
@@ -736,12 +723,12 @@ Returns a memory hash table for the exercise actor."
 MSG is a symbol like `file`, `id`, `path`, `question`, `answer`, or `string`.
 Returns a list containing the corresponding instruction."
   (pcase msg
-    ('file '(file))
-    ('id '(id))
-    ('path '(path))
-    ('question '(question))
-    ('answer '(answer))
-    ('string '(string))
+    (:file '(:file))
+    (:id '(:id))
+    (:path '(:path))
+    (:question '(:question))
+    (:answer '(:answer))
+    (:string '(:string))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Exercise-tx (memory inst)
@@ -749,25 +736,25 @@ Returns a list containing the corresponding instruction."
 MEMORY is the actor’s memory hash table.
 INST is a symbol like `file`, `id`, `path`, `question`, `answer`, or `string`.
 Updates MEMORY with the requested data."
-  (let ((file (gethash 'file memory))
-        (id (gethash 'id memory))
-        (path (gethash 'path memory))
-        (question (gethash 'question memory))
-        (answer (gethash 'answer memory)))
+  (let ((file (gethash :file memory))
+        (id (gethash :id memory))
+        (path (gethash :path memory))
+        (question (gethash :question memory))
+        (answer (gethash :answer memory)))
 
     (pcase inst
-      ('file (puthash 'out file memory))
+      (:file (puthash :out file memory))
 
-      ('id (puthash 'out id memory))
+      (:id (puthash :out id memory))
 
-      ('path (puthash 'out path memory))
+      (:path (puthash :out path memory))
 
-      ('question (puthash 'out question memory))
+      (:question (puthash :out question memory))
 
-      ('answer (puthash 'out answer memory))
+      (:answer (puthash :out answer memory))
 
-      ('string
-       (puthash 'out (string-join `("Exercise(" ,id ,(format "%s" path) ,(total-recall--truncate-str question) ,(total-recall--truncate-str answer) ")") " ") memory))
+      (:string
+       (puthash :out (string-join `("Exercise(" ,id ,(format "%s" path) ,(total-recall--truncate-str question) ,(total-recall--truncate-str answer) ")") " ") memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
@@ -798,15 +785,13 @@ which this definition has been extracted from.
 DATA is a list of (FILE ID PATH CONTENT), where FILE is a path,
 ID is a UUID string, PATH and CONTENT are strings.
 Returns a memory hash table for the definition actor."
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--Definition-rcv
-                 #'total-recall--Definition-tx)))
+  (let ((memory (total-recall--Actor-memory #'total-recall--Definition-rcv #'total-recall--Definition-tx)))
     (pcase data
       (`(,file ,id ,path ,content)
-       (puthash 'file file memory)
-       (puthash 'id id memory)
-       (puthash 'path path memory)
-       (puthash 'content content memory)
+       (puthash :file file memory)
+       (puthash :id id memory)
+       (puthash :path path memory)
+       (puthash :content content memory)
        memory)
       (_
        (error "Unexpected data: data = %s" data)))))
@@ -817,13 +802,13 @@ MSG is a symbol like `file`, `id`, `path`, `content`, `question`,
 `answer`, or `string`.  Returns a list containing the corresponding
 instruction."
   (pcase msg
-    ('file '(file))
-    ('id '(id))
-    ('path '(path))
-    ('content '(content))
-    ('question '(question))
-    ('answer '(content))
-    ('string '(string))
+    (:file '(:file))
+    (:id '(:id))
+    (:path '(:path))
+    (:content '(:content))
+    (:question '(:question))
+    (:answer '(:content))
+    (:string '(:string))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Definition-tx (memory inst)
@@ -831,29 +816,29 @@ instruction."
 MEMORY is the actor’s memory hash table.
 INST is a symbol like `file`, `id`, `path`, `content`, `question`, or `string`.
 Updates MEMORY with the requested data."
-  (let ((file (gethash 'file memory))
-        (id (gethash 'id memory))
-        (path (gethash 'path memory))
-        (content (gethash 'content memory)))
+  (let ((file (gethash :file memory))
+        (id (gethash :id memory))
+        (path (gethash :path memory))
+        (content (gethash :content memory)))
 
     (pcase inst
-      ('file
-       (puthash 'out file memory))
+      (:file
+       (puthash :out file memory))
 
-      ('id
-       (puthash 'out id memory))
+      (:id
+       (puthash :out id memory))
 
-      ('path
-       (puthash 'out path memory))
+      (:path
+       (puthash :out path memory))
 
-      ('content
-       (puthash 'out content memory))
+      (:content
+       (puthash :out content memory))
 
-      ('question
-       (puthash 'out "* Definition?" memory))
+      (:question
+       (puthash :out "* Definition?" memory))
 
-      ('string
-       (puthash 'out (string-join `("Definition(" ,id ,(format "%s" path) ,(total-recall--truncate-str content) ")") " ") memory))
+      (:string
+       (puthash :out (string-join `("Definition(" ,id ,(format "%s" path) ,(total-recall--truncate-str content) ")") " ") memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
@@ -874,22 +859,18 @@ strings that identify headings that are considered to be definitions or exercise
 #+begin_src emacs-lisp
 ;; Parser
 
-(total-recall--Actor
- #'total-recall--Parser-init
- total-recall--Parser)
+(total-recall--Actor #'total-recall--Parser-init total-recall--Parser)
 
 (defun total-recall--Parser-init (data)
   "Initialize a parser actor with DATA.
 DATA is a list of (DEF-ID EX-ID), where DEF-ID and EX-ID are strings
 identifying definition and exercise headings.
 Returns a memory hash table for the parser actor."
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--Parser-rcv
-                 #'total-recall--Parser-tx)))
+  (let ((memory (total-recall--Actor-memory #'total-recall--Parser-rcv #'total-recall--Parser-tx)))
     (pcase data
       (`(,def-id ,ex-id)
-       (puthash 'def-id def-id memory)
-       (puthash 'ex-id ex-id memory)
+       (puthash :def-id def-id memory)
+       (puthash :ex-id ex-id memory)
        memory)
       (_
        (error "Unexpected data: data = %s" data)))))
@@ -899,7 +880,7 @@ Returns a memory hash table for the parser actor."
 MSG is a list like `(parse FILE)` where FILE is a file path.
 Returns a list containing the parse instruction."
   (pcase msg
-    (`(parse ,_file) `(,msg))
+    (`(:parse ,_file) `(,msg))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Parser-tx (memory inst)
@@ -908,9 +889,8 @@ MEMORY is the actor’s memory hash table.
 INST is a list like `(parse FILE)` where FILE is a file path.
 Updates MEMORY with the parsed elements."
   (pcase inst
-    (`(parse ,file)
-     (puthash
-      'out
+    (`(:parse ,file)
+     (puthash :out
       (with-temp-buffer
         (insert-file-contents file)
         (org-mode)
@@ -1045,14 +1025,12 @@ list ~date, id, value~.
 DATA is a list of (DATE ID VALUE), where DATE is a timestamp,
 ID is a UUID string, and VALUE is a symbol.
 Returns a memory hash table for the rating actor."
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--Rating-rcv
-                 #'total-recall--Rating-tx)))
+  (let ((memory (total-recall--Actor-memory #'total-recall--Rating-rcv #'total-recall--Rating-tx)))
     (pcase data
       (`(,date ,id ,value)
-       (puthash 'date date memory)
-       (puthash 'id id memory)
-       (puthash 'value value memory)))
+       (puthash :date date memory)
+       (puthash :id id memory)
+       (puthash :value value memory)))
 
     memory))
 
@@ -1061,9 +1039,9 @@ Returns a memory hash table for the rating actor."
 MSG is a symbol like `struct`, `date`, or `value`.
 Returns a list containing the corresponding instruction."
   (pcase msg
-    ('struct '(struct))
-    ('date '(date))
-    ('value '(value))
+    (:struct '(:struct))
+    (:date '(:date))
+    (:value '(:value))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Rating-tx (memory inst)
@@ -1071,16 +1049,16 @@ Returns a list containing the corresponding instruction."
 MEMORY is the actor’s memory hash table.
 INST is a symbol like `struct`, `date`, or `value`.
 Updates MEMORY with the requested data."
-  (let ((date (gethash 'date memory))
-        (id (gethash 'id memory))
-        (value (gethash 'value memory)))
+  (let ((date (gethash :date memory))
+        (id (gethash :id memory))
+        (value (gethash :value memory)))
     (pcase inst
-      ('struct
-       (puthash 'out `(,date ,id ,value) memory))
-      ('date
-       (puthash 'out date memory))
-      ('value
-       (puthash 'out value memory))
+      (:struct
+       (puthash :out `(,date ,id ,value) memory))
+      (:date
+       (puthash :out date memory))
+      (:value
+       (puthash :out value memory))
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 
 (defun total-recall--Rating-eq (r1 r2)
@@ -1122,9 +1100,7 @@ associated with the given ~id~. ~db#stop()~ releases the resources associated wi
   "Initialize a database actor with DB-PATH.
 DB-PATH is a string or nil for an in-memory SQLite database.
 Returns a memory hash table for the database actor."
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--DB-rcv
-                 #'total-recall--DB-tx))
+  (let ((memory (total-recall--Actor-memory #'total-recall--DB-rcv #'total-recall--DB-tx))
         (sqlite nil))
 
     (unless (sqlite-available-p)
@@ -1138,7 +1114,7 @@ Returns a memory hash table for the database actor."
                        type TEXT NOT NULL,
                        id TEXT NOT NULL,
                        time TEXT NOT NULL)"))
-    (puthash 'sqlite sqlite memory)
+    (puthash :sqlite sqlite memory)
     memory))
 
 (defun total-recall--DB-rcv (msg)
@@ -1146,13 +1122,13 @@ Returns a memory hash table for the database actor."
 MSG is a list like `(save RATING)`, `(ratings ID)`, or `stop`.
 Returns a list containing the corresponding instruction."
   (pcase msg
-    (`(save ,_rating)
+    (`(:save ,_rating)
      `(,msg))
 
-    (`(ratings ,_id)
+    (`(:ratings ,_id)
      `(,msg))
 
-    ('stop
+    (:stop
      `(,msg))
 
     (_ (error "Unexpected message: msg = %s" msg))))
@@ -1162,10 +1138,10 @@ Returns a list containing the corresponding instruction."
 MEMORY is the actor’s memory hash table.
 INST is a list or symbol like `(save RATING)`, `(ratings ID)`, or `stop`.
 Updates MEMORY based on INST."
-  (let ((self (gethash 'self memory))
-        (sqlite (gethash 'sqlite memory)))
+  (let ((self (gethash :self memory))
+        (sqlite (gethash :sqlite memory)))
     (pcase inst
-      (`(save ,rating)
+      (`(:save ,rating)
        (pcase (total-recall--struct rating)
          (`(,date ,id ,value)
           (let ((row nil))
@@ -1187,9 +1163,9 @@ Updates MEMORY based on INST."
              row)))
 
          (struct (error "Unexpected struct: struct = %s" struct)))
-       (puthash 'out self memory))
+       (puthash :out self memory))
 
-      (`(ratings ,id)
+      (`(:ratings ,id)
        (unless (total-recall--string-uuid-p id)
          (error "ID is not a UUID string: id = %s" id))
 
@@ -1214,11 +1190,11 @@ Updates MEMORY based on INST."
                     (_ (error "Unexpected row: row = %s" row))))
                 rows))
 
-         (puthash 'out ratings memory)))
+         (puthash :out ratings memory)))
 
-      ('stop
+      (:stop
        (sqlite-close sqlite)
-       (puthash 'out self memory))
+       (puthash :out self memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
@@ -1279,13 +1255,11 @@ cutoff :≡
 DATA is a list of (DB CLOCK), where DB is a database actor and
 CLOCK is a clock actor.
 Returns a memory hash table for the planner actor."
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--Planner-rcv
-                 #'total-recall--Planner-tx)))
+  (let ((memory (total-recall--Actor-memory #'total-recall--Planner-rcv #'total-recall--Planner-tx)))
     (pcase data
       (`(,db ,clock)
-       (puthash 'db db memory)
-       (puthash 'clock clock memory)
+       (puthash :db db memory)
+       (puthash :clock clock memory)
        memory)
       (_ (error "Unexpected data: data = %s" data)))))
 
@@ -1294,7 +1268,7 @@ Returns a memory hash table for the planner actor."
 MSG is a list like `(select EXERCISES)` where EXERCISES is a list.
 Returns a list containing the select instruction."
   (pcase msg
-    (`(select ,_exercises)
+    (`(:select ,_exercises)
      `(,msg))
     (_ (error "Unexpected message: msg = %s" msg))))
 
@@ -1303,16 +1277,15 @@ Returns a list containing the select instruction."
 MEMORY is the actor’s memory hash table.
 INST is a list like `(select EXERCISES)` or `(is_scheduled EX)`.
 Updates MEMORY with the filtered exercises or scheduling decision."
-  (let ((db (gethash 'db memory))
-        (clock (gethash 'clock memory)))
+  (let ((db (gethash :db memory))
+        (clock (gethash :clock memory)))
     (pcase inst
-      (`(select ,exercises)
-       (puthash
-        'out
-        (seq-filter (lambda (ex) (total-recall--Planner-tx memory `(is_scheduled ,ex)) (gethash 'out memory)) exercises)
+      (`(:select ,exercises)
+       (puthash :out
+        (seq-filter (lambda (ex) (total-recall--Planner-tx memory `(:is_scheduled ,ex)) (gethash :out memory)) exercises)
         memory))
 
-      (`(is_scheduled ,ex)
+      (`(:is_scheduled ,ex)
        (let (today ratings last-failure-idx successes delta_t last-rating cutoff decision)
          (setq today (total-recall--now clock))
          (setq ratings (total-recall--ratings db (total-recall--id ex)))
@@ -1338,7 +1311,7 @@ Updates MEMORY with the filtered exercises or scheduling decision."
                   (setq last-rating (car (last successes)))
                   (time-add (total-recall--date last-rating) delta_t))))
          (setq decision (total-recall--timestamp-leq cutoff today))
-         (puthash 'out decision memory)))
+         (puthash :out decision memory)))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
@@ -1367,14 +1340,14 @@ Returns a memory hash table for the UI actor."
   (let ((memory (total-recall--Actor-memory #'total-recall--UI-rcv #'total-recall--UI-tx)))
     (pcase data
       (`(,name ,width ,height ,clock)
-       (puthash 'buffer (get-buffer-create name) memory)
-       (with-current-buffer (gethash 'buffer memory) (setq buffer-read-only t))
-       (puthash 'name (buffer-name (gethash 'buffer memory)) memory)
-       (puthash 'width width memory)
-       (puthash 'height height memory)
-       (puthash 'frame (make-frame `((width . ,width) (height . ,height))) memory)
-       (puthash 'clock clock memory)
-       (puthash 'reviewed-nbr 0 memory)
+       (puthash :buffer (get-buffer-create name) memory)
+       (with-current-buffer (gethash :buffer memory) (setq buffer-read-only t))
+       (puthash :name (buffer-name (gethash :buffer memory)) memory)
+       (puthash :width width memory)
+       (puthash :height height memory)
+       (puthash :frame (make-frame `((width . ,width) (height . ,height))) memory)
+       (puthash :clock clock memory)
+       (puthash :reviewed-nbr 0 memory)
        memory)
       (_ (error "Unexpected data: data = %s" data)))))
 
@@ -1383,14 +1356,14 @@ Returns a memory hash table for the UI actor."
 MSG is a list like `(show-exercise EXERCISE)`, `(show-report REPORT)`,
 or `stop`.  Returns a list containing the corresponding instruction."
   (pcase msg
-    (`(show-exercise ,_exercise)
+    (`(:show-exercise ,_exercise)
      `(,msg))
 
-    (`(show-report ,_report)
+    (`(:show-report ,_report)
      `(,msg))
 
-    ('stop
-     '(kill))
+    (:stop
+     '(:kill))
 
     (_ (error "Unexpected message: msg = %s" msg))))
 
@@ -1399,16 +1372,16 @@ or `stop`.  Returns a list containing the corresponding instruction."
 MEMORY is the actor’s memory hash table.
 INST is a list or symbol for UI operations like `show-exercise` or `stop`.
 Updates MEMORY with the result of the operation."
-  (let ((self (gethash 'self memory))
-        (clock (gethash 'clock memory))
-        (frame (gethash 'frame memory))
-        (buffer (gethash 'buffer memory))
-        (reviewed-nbr (gethash 'reviewed-nbr memory)))
+  (let ((self (gethash :self memory))
+        (clock (gethash :clock memory))
+        (frame (gethash :frame memory))
+        (buffer (gethash :buffer memory))
+        (reviewed-nbr (gethash :reviewed-nbr memory)))
 
     (pcase inst
-      (`(show-exercise ,exercise)
-       (total-recall--UI-tx memory 'show-frame)
-       (total-recall--UI-tx memory 'clear)
+      (`(:show-exercise ,exercise)
+       (total-recall--UI-tx memory :show-frame)
+       (total-recall--UI-tx memory :clear)
        (let (meta)
          (setq meta (format "┌────
 │ path: %s
@@ -1423,33 +1396,33 @@ Updates MEMORY with the result of the operation."
                               " / "))
                             (format "[[ref:%s]]" (total-recall--id exercise))
                             reviewed-nbr))
-         (total-recall--UI-tx memory `(show-content ,meta)))
-       (total-recall--UI-tx memory `(show-content ,(total-recall--question exercise)))
-       (total-recall--UI-tx memory `(ask ((,total-recall-key-quit . "Quit")
+         (total-recall--UI-tx memory `(:show-content ,meta)))
+       (total-recall--UI-tx memory `(:show-content ,(total-recall--question exercise)))
+       (total-recall--UI-tx memory `(:ask ((,total-recall-key-quit . "Quit")
                                           (,total-recall-key-skip . "Skip")
                                           (,total-recall-key-reveal . "Reveal"))))
-       (pcase (gethash 'out memory)
-         ((pred (equal total-recall-key-quit)) (total-recall--UI-tx memory 'stop))
-         ((pred (equal total-recall-key-skip)) (total-recall--UI-tx memory `(skip ,exercise)))
+       (pcase (gethash :out memory)
+         ((pred (equal total-recall-key-quit)) (total-recall--UI-tx memory :stop))
+         ((pred (equal total-recall-key-skip)) (total-recall--UI-tx memory `(:skip ,exercise)))
          ((pred (equal total-recall-key-reveal))
-          (total-recall--UI-tx memory `(show-content ,(total-recall--answer exercise)))
-          (total-recall--UI-tx memory `(ask ((,total-recall-key-success . "Success")
+          (total-recall--UI-tx memory `(:show-content ,(total-recall--answer exercise)))
+          (total-recall--UI-tx memory `(:ask ((,total-recall-key-success . "Success")
                                              (,total-recall-key-failure . "Failure")
                                              (,total-recall-key-skip . "Skip")
                                              (,total-recall-key-quit . "Quit"))))
-          (pcase (gethash 'out memory)
-            ((pred (equal total-recall-key-success)) (total-recall--UI-tx memory `(success ,exercise)))
-            ((pred (equal total-recall-key-failure)) (total-recall--UI-tx memory `(failure ,exercise)))
-            ((pred (equal total-recall-key-skip)) (total-recall--UI-tx memory `(skip ,exercise)))
-            ((pred (equal total-recall-key-quit)) (total-recall--UI-tx memory 'stop)))))
-       (puthash 'reviewed-nbr (+ reviewed-nbr 1) memory))
+          (pcase (gethash :out memory)
+            ((pred (equal total-recall-key-success)) (total-recall--UI-tx memory `(:success ,exercise)))
+            ((pred (equal total-recall-key-failure)) (total-recall--UI-tx memory `(:failure ,exercise)))
+            ((pred (equal total-recall-key-skip)) (total-recall--UI-tx memory `(:skip ,exercise)))
+            ((pred (equal total-recall-key-quit)) (total-recall--UI-tx memory :stop)))))
+       (puthash :reviewed-nbr (+ reviewed-nbr 1) memory))
 
-      ('show-frame
+      (:show-frame
        (select-frame-set-input-focus frame)
        (switch-to-buffer buffer)
-       (puthash 'out self memory))
+       (puthash :out self memory))
 
-      ('clear
+      (:clear
        (with-current-buffer buffer
          (setq buffer-read-only nil)
          (erase-buffer)
@@ -1457,34 +1430,34 @@ Updates MEMORY with the result of the operation."
          (insert "* Total Recall *\n\n")
          (goto-char (point-min))
          (setq buffer-read-only t))
-       (puthash 'out self memory))
+       (puthash :out self memory))
 
-      (`(show-report ,report)
-       (total-recall--UI-tx memory 'clear)
-       (total-recall--UI-tx memory 'show-frame)
-       (total-recall--UI-tx memory `(show-content ,(total-recall--string report)))
-       (puthash 'out self memory))
+      (`(:show-report ,report)
+       (total-recall--UI-tx memory :clear)
+       (total-recall--UI-tx memory :show-frame)
+       (total-recall--UI-tx memory `(:show-content ,(total-recall--string report)))
+       (puthash :out self memory))
 
-      (`(show-content ,content)
-       (total-recall--UI-tx memory 'show-frame)
+      (`(:show-content ,content)
+       (total-recall--UI-tx memory :show-frame)
        (with-current-buffer buffer
          (setq buffer-read-only nil)
          (save-excursion
            (goto-char (point-max))
            (insert (string-join (list (string-trim content) "\n\n"))))
          (setq buffer-read-only t))
-       (puthash 'out self memory))
+       (puthash :out self memory))
 
-      ('kill
+      (:kill
        (when (buffer-live-p buffer) (kill-buffer buffer))
        (when (frame-live-p frame) (delete-frame frame))
-       (puthash 'out self memory))
+       (puthash :out self memory))
 
-      ('stop
-       (puthash 'out 'stop memory))
+      (:stop
+       (puthash :out :stop memory))
 
-      (`(ask ,options)
-       (total-recall--UI-tx memory 'show-frame)
+      (`(:ask ,options)
+       (total-recall--UI-tx memory :show-frame)
        (let (strs str key)
          (setq strs
                (mapcar
@@ -1497,24 +1470,21 @@ Updates MEMORY with the result of the operation."
                 options))
          (setq str (string-join strs ", "))
          (setq key (read-char-choice str (mapcar #'car options)))
-         (puthash 'out key memory)))
+         (puthash :out key memory)))
 
-      (`(skip ,exercise)
-       (puthash
-        'out
-        `(rating ,(total-recall--Rating (list (total-recall--now clock) (total-recall--id exercise) 'skip)))
+      (`(:skip ,exercise)
+       (puthash :out
+        `(:rating ,(total-recall--Rating (list (total-recall--now clock) (total-recall--id exercise) 'skip)))
         memory))
 
-      (`(success ,exercise)
-       (puthash
-        'out
-        `(rating ,(total-recall--Rating (list (total-recall--now clock) (total-recall--id exercise) 'success)))
+      (`(:success ,exercise)
+       (puthash :out
+        `(:rating ,(total-recall--Rating (list (total-recall--now clock) (total-recall--id exercise) 'success)))
         memory))
 
-      (`(failure ,exercise)
-       (puthash
-        'out
-        `(rating ,(total-recall--Rating (list (total-recall--now clock) (total-recall--id exercise) 'failure)))
+      (`(:failure ,exercise)
+       (puthash :out
+        `(:rating ,(total-recall--Rating (list (total-recall--now clock) (total-recall--id exercise) 'failure)))
         memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
@@ -1545,8 +1515,8 @@ Returns a memory hash table for the IO actor."
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--IO-rcv
                  #'total-recall--IO-tx)))
-    (puthash 'buffer (get-buffer-create name) memory)
-    (puthash 'name (buffer-name (gethash 'buffer memory)) memory)
+    (puthash :buffer (get-buffer-create name) memory)
+    (puthash :name (buffer-name (gethash :buffer memory)) memory)
     memory))
 
 (defun total-recall--IO-rcv (msg)
@@ -1554,13 +1524,13 @@ Returns a memory hash table for the IO actor."
 MSG is a list like `(minibuffer STRING)`, `(buffer STRING)`, or `buffer-name`.
 Returns a list containing the corresponding instruction."
   (pcase msg
-    (`(minibuffer ,_string)
+    (`(:minibuffer ,_string)
      `(,msg))
 
-    (`(buffer ,_string)
+    (`(:buffer ,_string)
      `(,msg))
 
-    ('buffer-name
+    (:buffer-name
      `(,msg))
 
     (_ (error "Unexpected message: msg = %s" msg))))
@@ -1570,22 +1540,22 @@ Returns a list containing the corresponding instruction."
 MEMORY is the actor’s memory hash table.
 INST is a list or symbol like `(minibuffer STRING)` or `buffer-name`.
 Updates MEMORY with the result of the operation."
-  (let ((self (gethash 'self memory))
-        (buffer (gethash 'buffer memory))
-        (name (gethash 'name memory)))
+  (let ((self (gethash :self memory))
+        (buffer (gethash :buffer memory))
+        (name (gethash :name memory)))
 
     (pcase inst
-      (`(minibuffer ,string)
+      (`(:minibuffer ,string)
        (message "%s" (string-trim string))
-       (puthash 'out self memory))
+       (puthash :out self memory))
 
-      (`(buffer ,string)
+      (`(:buffer ,string)
        (with-current-buffer buffer
          (insert (string-join (list string "\n"))))
-       (puthash 'out self memory))
+       (puthash :out self memory))
 
-      ('buffer-name
-       (puthash 'out name memory))
+      (:buffer-name
+       (puthash :out name memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
@@ -1678,9 +1648,7 @@ Let ~tx : State Msg → Msg × State~ transforms the state of ~tr~.
   "Initialize a TotalRecall actor with DATA.
 DATA is ignored in this implementation.
 Returns a memory hash table with initialized sub-actors."
-  (let ((memory (total-recall--Actor-memory
-                 #'total-recall--TotalRecall-rcv
-                 #'total-recall--TotalRecall-tx)))
+  (let ((memory (total-recall--Actor-memory #'total-recall--TotalRecall-rcv #'total-recall--TotalRecall-tx)))
     (puthash :clock (total-recall--Clock t) memory)
 
     (puthash :db-path total-recall-database memory)
@@ -1714,7 +1682,7 @@ Returns a memory hash table with initialized sub-actors."
 MSG is a symbol like `start` or `stop`.
 Returns a list containing the corresponding instruction."
   (pcase msg
-    ('start '(:start))
+    (:start '(:start))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--TotalRecall-tx (memory inst)
@@ -1722,7 +1690,7 @@ Returns a list containing the corresponding instruction."
 MEMORY is the actor’s memory hash table.
 INST is a symbol or list for operations like `start` or `process-file`.
 Updates MEMORY with the result of the operation."
-  (let ((self (gethash 'self memory))
+  (let ((self (gethash :self memory))
         (goal (gethash :goal memory))
         (root (gethash :root memory))
         (db-path (gethash :db-path memory))
@@ -1753,12 +1721,12 @@ Updates MEMORY with the result of the operation."
          (total-recall--add report (format "%s files have been reviewed." (gethash :nbr-files memory)))
          (total-recall--add report (format "%s exercises have been reviewed." (gethash :nbr-exercises memory)))
          (total-recall--TotalRecall-tx memory :stop)
-         (puthash 'out report memory)))
+         (puthash :out report memory)))
 
       (:process-files
        (pcase `(,goal ,files)
-         (`(:stop ,_) (puthash 'out self memory))
-         ('(:continue ()) (puthash 'out self memory))
+         (`(:stop ,_) (puthash :out self memory))
+         ('(:continue ()) (puthash :out self memory))
          (`(:continue (,file . ,files))
           (total-recall--TotalRecall-tx memory `(:process-file ,file))
           (puthash :nbr-files (+ (gethash :nbr-files memory) 1) memory)
@@ -1767,7 +1735,7 @@ Updates MEMORY with the result of the operation."
 
       (`(:process-file ,file)
        (pcase goal
-         (:stop (puthash 'out self memory))
+         (:stop (puthash :out self memory))
          (:continue
           (total-recall--add report (format "file = %s" file))
           (puthash :exercises (total-recall--select planner (total-recall--parse parser file)) memory)
@@ -1776,8 +1744,8 @@ Updates MEMORY with the result of the operation."
 
       (:process-exercises
        (pcase `(,goal ,exercises)
-         (`(:stop ,_) (puthash 'out self memory))
-         (`(,_ ()) (puthash 'out self memory))
+         (`(:stop ,_) (puthash :out self memory))
+         (`(,_ ()) (puthash :out self memory))
          (`(:continue (,exercise . ,exercises))
           (total-recall--TotalRecall-tx memory `(:process-exercise ,exercise))
           (puthash :nbr-exercises (+ (gethash :nbr-exercises memory) 1) memory)
@@ -1786,22 +1754,22 @@ Updates MEMORY with the result of the operation."
 
       (`(:process-exercise ,exercise)
        (pcase goal
-         (:stop (puthash 'out self memory))
+         (:stop (puthash :out self memory))
          (:continue
           (pcase (total-recall--show-exercise ui exercise)
-            ('stop
+            (:stop
              (puthash :goal :stop memory)
-             (puthash 'out self memory))
-            (`(rating ,rating)
+             (puthash :out self memory))
+            (`(:rating ,rating)
              (total-recall--add report (format "exercise = %s %s" (total-recall--id exercise) (total-recall--path exercise)))
              (total-recall--save db rating)
              (puthash :goal :continue memory)
-             (puthash 'out self memory))))))
+             (puthash :out self memory))))))
 
       (:stop
        (total-recall--stop ui)
        (total-recall--stop db)
-       (puthash 'out self memory))
+       (puthash :out self memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
