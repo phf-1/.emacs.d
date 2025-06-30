@@ -454,6 +454,8 @@ The function sends a message to an actor with optional arguments."
 (total-recall--message list-of-definition)
 (total-recall--message list-of-ambiguities)
 (total-recall--message ambiguous-p)
+(total-recall--message info)
+(total-recall--message debug)
 #+end_src
 
 ** test
@@ -1255,10 +1257,13 @@ topological order since it is a directed graph.
 
 (defun total-recall--Network-init (defs)
   ""
-  (let ((memory (total-recall--Actor-memory #'total-recall--Network-rcv #'total-recall--Network-tx)))
+  (let* ((memory (total-recall--Actor-memory #'total-recall--Network-rcv #'total-recall--Network-tx))
+         (io (total-recall--IO total-recall-io-buffer-name))
+         (logger (total-recall--Logger (list io))))
     (pcase defs
       (_
        (puthash :defs defs memory)
+       (puthash :logger logger memory)
        memory)
       (_ (error "Unexpected data: data = %s" data)))))
 
@@ -1275,8 +1280,9 @@ topological order since it is a directed graph.
 (defun total-recall--Network-tx (memory inst)
   ""
   (let ((self (gethash :self memory))
+        (logger (gethash :logger memory))
         (defs (gethash :defs memory)))
-
+    (total-recall--debug logger inst)
     (pcase inst
       (:self-references
        (puthash :out '() memory))
@@ -1657,6 +1663,60 @@ Updates MEMORY with the result of the operation."
 
       (:buffer-name
        (puthash :out name memory))
+
+      (_ (error "Unexpected instruction: inst = %s" inst)))))
+#+end_src
+
+** test
+
+* Logger
+** specification
+
+~logger :≡ Logger()~. ~msg : Line~, ~logger#info(msg)~,  ~logger#debug(msg)~.
+
+** implementation
+
+#+begin_src emacs-lisp
+;; Logger
+
+(total-recall--Actor #'total-recall--Logger-init total-recall--Logger)
+
+(defun total-recall--Logger-init (data)
+  ""
+  (let ((memory (total-recall--Actor-memory #'total-recall--Logger-rcv #'total-recall--Logger-tx)))
+    (pcase data
+      (`(,io)
+       (puthash :io io memory)
+       memory)
+      (_ (error "Unexpected data. data = %s" data)))))
+
+(defun total-recall--Logger-rcv (msg)
+  ""
+  (pcase msg
+    (`(:info ,obj) `(,msg))
+    (`(:debug ,obj) `(,msg))
+    (_ (error "Unexpected message: msg = %s" msg))))
+
+(defun total-recall--Logger-tx (memory inst)
+  ""
+  (let ((self (gethash :self memory))
+        (io (gethash :io memory)))
+    (pcase inst
+      (`(:info ,obj)
+       (total-recall--Logger-tx memory (list :print "info" obj))
+       (puthash :out self memory))
+
+      (`(:debug ,obj)
+       (total-recall--Logger-tx memory (list :print "debug" obj))
+       (puthash :out self memory))
+
+      (`(:line ,obj)
+       (puthash :out (string-trim (string-join (string-split (format "%s" obj) "\n") " ")) memory))
+
+      (`(:print ,prefix ,obj)
+       (total-recall--Logger-tx memory (list :line obj))
+       (total-recall--minibuffer io (string-join (list prefix (gethash :out memory)) ":"))
+       (puthash :out self memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
