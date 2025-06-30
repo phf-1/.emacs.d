@@ -1253,6 +1253,8 @@ topological order since it is a directed graph.
 #+begin_src emacs-lisp
 ;; Network
 
+(require 'json)
+
 (total-recall--Actor #'total-recall--Network-init total-recall--Network)
 
 (defun total-recall--Network-init (defs)
@@ -1260,10 +1262,14 @@ topological order since it is a directed graph.
   (let* ((memory (total-recall--Actor-memory #'total-recall--Network-rcv #'total-recall--Network-tx))
          (io (total-recall--IO total-recall-io-buffer-name))
          (logger (total-recall--Logger (list io))))
+    (total-recall--debug logger (list "begin" "init"))
     (pcase defs
       (_
        (puthash :defs defs memory)
        (puthash :logger logger memory)
+       (total-recall--debug logger "refs :≡ Set of references over defs.")
+       (total-recall--debug logger "net : UNIX process :≡ PythonNetwork#init(refs)")
+       (total-recall--debug logger (list "end" "init"))
        memory)
       (_ (error "Unexpected data: data = %s" data)))))
 
@@ -1282,9 +1288,11 @@ topological order since it is a directed graph.
   (let ((self (gethash :self memory))
         (logger (gethash :logger memory))
         (defs (gethash :defs memory)))
-    (total-recall--debug logger inst)
+    (total-recall--debug logger (list "begin rcv" inst))
     (pcase inst
       (:self-references
+       (total-recall--debug logger "loops : List(List(Id)) :≡ net#loops()")
+       (total-recall--debug logger "loops ▸ map(map(get-def-by-id)) : List(List(Definition))")
        (puthash :out '() memory))
 
       (:impredicative-p
@@ -1292,6 +1300,8 @@ topological order since it is a directed graph.
        (puthash :out (not (eq (gethash :out memory) '())) memory))
 
       (:list-of-definition
+       (total-recall--debug logger "ids : List(Id) :≡ net#sort()")
+       (total-recall--debug logger "ids ▸ map(get-def-by-id) : List(Definition)")
        (puthash :out defs memory))
 
       (:list-of-ambiguities
@@ -1301,7 +1311,101 @@ topological order since it is a directed graph.
        (total-recall--Network-tx memory :list-of-ambiguities)
        (puthash :out (not (eq (gethash :out memory) '())) memory))
 
-      (_ (error "Unexpected instruction: inst = %s" inst)))))
+      (_ (error "Unexpected instruction: inst = %s" inst)))
+    (total-recall--debug logger (list "end" inst))))
+#+end_src
+
+*** python-server.py
+:PROPERTIES:
+:header-args:python+: :tangle "python-server.py" :shebang "#!/usr/bin/env python3"
+:END:
+
+**** specification
+
+1. ~Hello() : String :≡ '{"type": "Hello"}'~.
+2. ~World() : String :≡ '{"type": "World"}'~.
+3. ~Ack() : String :≡ '{"type": "Ack"}'~.
+4. ~Stop() : String :≡ '{"type": "Stop"}'~.
+5. ~p : NetworkProcess :≡ ./python-server.py~.
+6. echo Hello() | p = World()
+7. echo Stop() | p = Ack()
+
+**** implementation
+
+#+begin_src python
+import sys
+import json
+
+def write(obj, file=sys.stdout):
+    print(json.dumps(obj), file=file)
+    file.flush()
+
+def Error(msg):
+    return { "type": "Error", "msg": str(msg) }
+
+def Hello():
+    return { "type": "Hello" }
+
+def Stop():
+    return { "type": "Stop" }
+
+def Ack():
+    return { "type": "Ack" }
+
+def World():
+    return { "type": "World" }
+
+def reply(msg):
+    """Process a JSON message from stdin."""
+
+    try:
+        json_data = json.loads(msg)
+    except json.JSONDecodeError:
+        return Error(f"JSON decoder failed on msg. msg = {msg}")
+
+    try:
+        match json_data["type"]:
+            case "Hello":
+                parsed = Hello()
+
+            case "Stop":
+                parsed = Stop()
+
+            case _:
+                raise AssertionError(f"Unexpected JSON object. json = {json_data}")
+    except Exception as e:
+        return Error(f"Failed to interpret JSON data. {e}")
+
+    try:
+        match parsed["type"]:
+            case "Hello":
+                return World()
+
+            case "Stop":
+                return Stop()
+
+            case _:
+                raise AssertionError(f"Unexpected message. message = {parsed}")
+    except Exception as e:
+        return Error(f"Failed to compute a reply to message. {e}")
+
+def main():
+    for line in sys.stdin:
+        try:
+            rep = reply(line.strip())
+        except Exception as e:
+            rep = Error(f"An error occured while processing msg. msg = {line}. error = {e}")
+            write(rep)
+            sys.exit(1)
+
+        if rep["type"] == "Stop":
+            write(Ack())
+            sys.exit(0)
+        else:
+            write(rep)
+
+if __name__ == "__main__":
+    main()
 #+end_src
 
 ** test
@@ -1715,7 +1819,7 @@ Updates MEMORY with the result of the operation."
 
       (`(:print ,prefix ,obj)
        (total-recall--Logger-tx memory (list :line obj))
-       (total-recall--minibuffer io (string-join (list prefix (gethash :out memory)) ":"))
+       (total-recall--minibuffer io (string-join (list prefix (gethash :out memory)) " | "))
        (puthash :out self memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))

@@ -40,11 +40,13 @@ env: ${PACKAGES_SCM} | ${BUILD}
 .PHONY: el
 TOTAL_RECALL_EL := ${BUILD}/total-recall.el
 TOTAL_RECALL_TEST_EL := ${BUILD}/total-recall-test.el
+PYTHON_SERVER_PY := ${BUILD}/python-server.py
 el: ${TOTAL_RECALL_EL}
 ${TOTAL_RECALL_EL}: solution.org | ${BUILD}
 	emacs -Q --batch --file "$<" --eval '(org-babel-tangle)'
 	mv total-recall.el "$@"
 	mv total-recall-test.el "${TOTAL_RECALL_TEST_EL}"
+	mv python-server.py "${PYTHON_SERVER_PY}"
 	echo "$@"
 	echo "${TOTAL_RECALL_TEST_EL}"
 
