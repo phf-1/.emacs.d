@@ -542,9 +542,7 @@ report. ~report#string()~ is string representation of the report.
 #+begin_src emacs-lisp
 ;; Report
 
-(total-recall--Actor
- #'total-recall--Report-init
- total-recall--Report)
+(total-recall--Actor #'total-recall--Report-init total-recall--Report)
 
 (defun total-recall--Report-init (_data)
   "Initialize a report actor with DATA.
@@ -1601,9 +1599,73 @@ Updates MEMORY with the result of the operation."
 files under ~root~ containing elements like exercises and/or definitions. For each
 file, the headings are interpreted as a tree and the elements are ordered in a depth
 first manner. The list of elements is mapped to a list of exercises which is then
-prunned using data in ~db-path~ and a planner object. The prunned list is then sent to
-the UI to be presented to the user. Data gathered from the data is then saved to
-~db-path~. Finally, a report of execution is returned to the caller.
+prunned using data in ~db-path~ and a planner object. While the user is willing to
+continue reviewing exercises, the first exercise is poped from the prunned list and
+shown to the user. Then user can either rate the exercise and continue reviewing
+until no more exercises remain or stop reviewing. Data gathered from the user is then
+saved to ~db-path~. Finally, a report of execution is returned to the caller.
+
+Let ~tx : State Msg → Msg × State~ transforms the state of ~tr~.
+- tx state :start :≡
+  1. report is a fresh report.
+  2. state#report(report)
+  3. files is a list of files to review.
+  4. state#files(files)
+  5. state#nbr-files(0)
+  6. state#nbr-exercises(0)
+  7. state#goal(:continue)
+  8. <_, state'> :≡ tx state :process-files
+  9. conclude the report
+  10. <_, state'> :≡ tx state' :stop
+  11. <report, state'>
+
+- tx state :process-files :≡
+  - match <goal, files>
+    - <:stop, _> → <self, state>
+    - <_, '()> → <self, state>
+    - <:continue, cons(file rest)> →
+      1. tx state :process-file(file)
+      2. state#nbr-files(nbr-files + 1)
+      3. state#files(rest)
+      4. tx state :process-files
+
+- tx state :process-file(file) :≡
+  - match goal
+    - :stop → <self, state>
+    - :continue →
+      1. update report
+      2. state#exercises(λ(file))
+      3. update report
+      4. tx state :process-exercises
+
+- tx state :process-exercises :≡
+  - match <goal, exercises>
+    - <:stop, _> → <self, state>
+    - <_, '()> → <self, state>
+    - <:continue, cons(exercise rest)> →
+      1. tx state :process-exercise(exercise)
+      2. state#nbr-exercises(nbr-exercises + 1)
+      3. state#exercises(rest)
+      4. tx state :process-exercises
+
+- tx state :process-exercise(exercise) :≡
+  - match goal
+    - :stop → <self, state>
+    - :continue →
+      - match ui#show-exercise(exercise)
+        - :stop →
+          1. state#goal(:stop)
+          2. <self, state>
+        - :rating(rating) →
+          1. update report
+          2. db#save(rating)
+          3. state#goal(:continue)
+          4. <self, state>
+
+- tx state :stop :≡
+  - db#stop()
+  - ui#stop()
+  - <self, state>
 
 ** implementation
 
@@ -1619,29 +1681,31 @@ Returns a memory hash table with initialized sub-actors."
   (let ((memory (total-recall--Actor-memory
                  #'total-recall--TotalRecall-rcv
                  #'total-recall--TotalRecall-tx)))
-    (puthash 'clock (total-recall--Clock t) memory)
+    (puthash :clock (total-recall--Clock t) memory)
 
-    (puthash 'db-path total-recall-database memory)
-    (puthash 'db (total-recall--DB (gethash 'db-path memory)) memory)
+    (puthash :db-path total-recall-database memory)
+    (puthash :db (total-recall--DB (gethash :db-path memory)) memory)
 
-    (puthash 'root total-recall-root-dir memory)
-    (puthash 'def-type total-recall-def-type memory)
-    (puthash 'ex-type total-recall-ex-type memory)
-    (puthash 'searcher (total-recall--Searcher (list (gethash 'root memory) (gethash 'def-type memory) (gethash 'ex-type memory))) memory)
+    (puthash :root total-recall-root-dir memory)
+    (puthash :def-type total-recall-def-type memory)
+    (puthash :ex-type total-recall-ex-type memory)
+    (puthash :searcher (total-recall--Searcher (list (gethash :root memory) (gethash :def-type memory) (gethash :ex-type memory))) memory)
 
-    (puthash 'parser (total-recall--Parser (list (gethash 'def-type memory) (gethash 'ex-type memory))) memory)
+    (puthash :parser (total-recall--Parser (list (gethash :def-type memory) (gethash :ex-type memory))) memory)
 
-    (puthash 'planner (total-recall--Planner (list (gethash 'db memory) (gethash 'clock memory))) memory)
+    (puthash :planner (total-recall--Planner (list (gethash :db memory) (gethash :clock memory))) memory)
 
-    (puthash 'ui (total-recall--UI (list "*TotalRecall UI*" total-recall-window-width total-recall-window-height (gethash 'clock memory))) memory)
+    (puthash :ui (total-recall--UI (list "*TotalRecall UI*" total-recall-window-width total-recall-window-height (gethash :clock memory))) memory)
 
-    (puthash 'nbr-files 0 memory)
+    (puthash :nbr-files 0 memory)
 
-    (puthash 'nbr-exercises 0 memory)
+    (puthash :nbr-exercises 0 memory)
 
-    (puthash 'files '() memory)
+    (puthash :files '() memory)
 
-    (puthash 'exercises '() memory)
+    (puthash :exercises '() memory)
+
+    (puthash :goal :continue memory)
 
     memory))
 
@@ -1650,8 +1714,7 @@ Returns a memory hash table with initialized sub-actors."
 MSG is a symbol like `start` or `stop`.
 Returns a list containing the corresponding instruction."
   (pcase msg
-    ('start '(start))
-    ('stop '(stop))
+    ('start '(:start))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--TotalRecall-tx (memory inst)
@@ -1660,71 +1723,82 @@ MEMORY is the actor’s memory hash table.
 INST is a symbol or list for operations like `start` or `process-file`.
 Updates MEMORY with the result of the operation."
   (let ((self (gethash 'self memory))
-        (root (gethash 'root memory))
-        (db-path (gethash 'db-path memory))
-        (searcher (gethash 'searcher memory))
-        (parser (gethash 'parser memory))
-        (db (gethash 'db memory))
-        (planner (gethash 'planner memory))
-        (ui (gethash 'ui memory))
-        (nbr-files (gethash 'nbr-files memory))
-        (nbr-exercises (gethash 'nbr-exercises memory))
-        (report (gethash 'report memory))
-        (files (gethash 'files memory))
-        (exercises (gethash 'exercises memory)))
+        (goal (gethash :goal memory))
+        (root (gethash :root memory))
+        (db-path (gethash :db-path memory))
+        (searcher (gethash :searcher memory))
+        (parser (gethash :parser memory))
+        (db (gethash :db memory))
+        (planner (gethash :planner memory))
+        (ui (gethash  :ui memory))
+        (nbr-files (gethash :nbr-files memory))
+        (nbr-exercises (gethash :nbr-exercises memory))
+        (report (gethash :report memory))
+        (files (gethash :files memory))
+        (exercises (gethash :exercises memory)))
 
     (pcase inst
-      ('start
-       (let ((report (puthash 'report (total-recall--Report t) memory)))
-
+      (:start
+       (let ((report (puthash :report (total-recall--Report t) memory))
+             (nbr-files (puthash :nbr-files 0 memory))
+             (nbr-exercises (puthash :nbr-exercises 0 memory))
+             (goal (puthash :goal :continue memory)))
          (total-recall--add report "TotalRecall started.")
          (total-recall--add report (format "Definitions and exercises under %s will be reviewed." root))
          (total-recall--add report (format "Review results will be saved in %s." db-path))
-         (puthash 'files (total-recall--files searcher) memory)
-         (total-recall--add report (format "%s files have been found." (length (gethash 'files memory))))
-         (total-recall--TotalRecall-tx memory 'process-files)
-         (total-recall--add report (format "%s files have been reviewed." (gethash 'nbr-files memory)))
-         (total-recall--add report (format "%s exercises have been reviewed." (gethash 'nbr-exercises memory)))
+         (puthash :files (total-recall--files searcher) memory)
+         (total-recall--add report (format "%s files have been found." (length (gethash :files memory))))
+         (total-recall--TotalRecall-tx memory :process-files)
+         (total-recall--add report "# End of TotalRecall execution. Report:")
+         (total-recall--add report (format "%s files have been reviewed." (gethash :nbr-files memory)))
+         (total-recall--add report (format "%s exercises have been reviewed." (gethash :nbr-exercises memory)))
+         (total-recall--TotalRecall-tx memory :stop)
          (puthash 'out report memory)))
 
-      ('process-files
-       (pcase files
-         ('()
-          (puthash 'out self memory))
-         (`(,file . ,files)
-          (puthash 'files files memory)
-          (total-recall--TotalRecall-tx memory `(process-file ,file))
-          (total-recall--TotalRecall-tx memory 'process-files))))
+      (:process-files
+       (pcase `(,goal ,files)
+         (`(:stop ,_) (puthash 'out self memory))
+         ('(:continue ()) (puthash 'out self memory))
+         (`(:continue (,file . ,files))
+          (total-recall--TotalRecall-tx memory `(:process-file ,file))
+          (puthash :nbr-files (+ (gethash :nbr-files memory) 1) memory)
+          (puthash :files files memory)
+          (total-recall--TotalRecall-tx memory :process-files))))
 
-      (`(process-file ,file)
-       (total-recall--add report (format "file = %s" file))
-       (puthash 'exercises (total-recall--select planner (total-recall--parse parser file)) memory)
-       (total-recall--add report (format "%s exercises have been planned to be reviewed." (length (gethash 'exercises memory))))
-       (total-recall--TotalRecall-tx memory 'process-exercises)
-       (puthash 'nbr-files (+ nbr-files 1) memory))
+      (`(:process-file ,file)
+       (pcase goal
+         (:stop (puthash 'out self memory))
+         (:continue
+          (total-recall--add report (format "file = %s" file))
+          (puthash :exercises (total-recall--select planner (total-recall--parse parser file)) memory)
+          (total-recall--add report (format "%s exercises have been planned to be reviewed." (length (gethash :exercises memory))))
+          (total-recall--TotalRecall-tx memory :process-exercises))))
 
-      ('process-exercises
-       (pcase exercises
-         ('()
-          (puthash 'out self memory))
-         (`(,exercise . ,exercises)
-          (puthash 'exercises exercises memory)
-          (total-recall--TotalRecall-tx memory `(process-exercise ,exercise))
-          (total-recall--TotalRecall-tx memory 'process-exercises))))
+      (:process-exercises
+       (pcase `(,goal ,exercises)
+         (`(:stop ,_) (puthash 'out self memory))
+         (`(,_ ()) (puthash 'out self memory))
+         (`(:continue (,exercise . ,exercises))
+          (total-recall--TotalRecall-tx memory `(:process-exercise ,exercise))
+          (puthash :nbr-exercises (+ (gethash :nbr-exercises memory) 1) memory)
+          (puthash :exercises exercises memory)
+          (total-recall--TotalRecall-tx memory :process-exercises))))
 
-      (`(process-exercise ,exercise)
-       (total-recall--add report (format "exercise = %s %s" (total-recall--id exercise) (total-recall--path exercise)))
-       (pcase (total-recall--show-exercise ui exercise)
-         ('stop
-          (puthash 'files '() memory)
-          (puthash 'exercises '() memory)
-          (puthash 'out self memory))
-         (`(rating ,rating)
-          (total-recall--save db rating)
-          (puthash 'nbr-exercises (+ nbr-exercises 1) memory)
-          (puthash 'out self memory))))
+      (`(:process-exercise ,exercise)
+       (pcase goal
+         (:stop (puthash 'out self memory))
+         (:continue
+          (pcase (total-recall--show-exercise ui exercise)
+            ('stop
+             (puthash :goal :stop memory)
+             (puthash 'out self memory))
+            (`(rating ,rating)
+             (total-recall--add report (format "exercise = %s %s" (total-recall--id exercise) (total-recall--path exercise)))
+             (total-recall--save db rating)
+             (puthash :goal :continue memory)
+             (puthash 'out self memory))))))
 
-      ('stop
+      (:stop
        (total-recall--stop ui)
        (total-recall--stop db)
        (puthash 'out self memory))
@@ -1752,7 +1826,6 @@ Initiates a TotalRecall actor, processes data, and displays the report."
   (let* ((tr (total-recall--TotalRecall t))
          (report (total-recall--start tr))
          (io (total-recall--IO total-recall-io-buffer-name)))
-    (total-recall--stop tr)
     (total-recall--buffer io (total-recall--string report))
     (total-recall--minibuffer io (format "Total-recall execution finished. Report written to %s" (total-recall--buffer-name io)))))
 #+end_src
