@@ -712,9 +712,7 @@ is a one line string representation of the exercise for debugging purposes.
 #+begin_src emacs-lisp
 ;; Exercise
 
-(total-recall--Actor
- #'total-recall--Exercise-init
- total-recall--Exercise)
+(total-recall--Actor #'total-recall--Exercise-init total-recall--Exercise)
 
 (defun total-recall--Exercise-init (data)
   "Initialize an exercise actor with DATA.
@@ -740,24 +738,12 @@ Returns a memory hash table for the exercise actor."
 MSG is a symbol like `file`, `id`, `path`, `question`, `answer`, or `string`.
 Returns a list containing the corresponding instruction."
   (pcase msg
-    ('file
-     '(file))
-
-    ('id
-     '(id))
-
-    ('path
-     '(path))
-
-    ('question
-     '(question))
-
-    ('answer
-     '(answer))
-
-    ('string
-     '(string))
-
+    ('file '(file))
+    ('id '(id))
+    ('path '(path))
+    ('question '(question))
+    ('answer '(answer))
+    ('string '(string))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Exercise-tx (memory inst)
@@ -772,23 +758,18 @@ Updates MEMORY with the requested data."
         (answer (gethash 'answer memory)))
 
     (pcase inst
-      ('file
-       (puthash 'out file memory))
+      ('file (puthash 'out file memory))
 
-      ('id
-       (puthash 'out id memory))
+      ('id (puthash 'out id memory))
 
-      ('path
-       (puthash 'out path memory))
+      ('path (puthash 'out path memory))
 
-      ('question
-       (puthash 'out question memory))
+      ('question (puthash 'out question memory))
 
-      ('answer
-       (puthash 'out answer memory))
+      ('answer (puthash 'out answer memory))
 
       ('string
-       (puthash 'out (string-join `("Exercise(" ,id ,path ,(total-recall--truncate-str question) ,(total-recall--truncate-str answer) ")") " ") memory))
+       (puthash 'out (string-join `("Exercise(" ,id ,(format "%s" path) ,(total-recall--truncate-str question) ,(total-recall--truncate-str answer) ")") " ") memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
@@ -838,27 +819,13 @@ MSG is a symbol like `file`, `id`, `path`, `content`, `question`,
 `answer`, or `string`.  Returns a list containing the corresponding
 instruction."
   (pcase msg
-    ('file
-     `(file))
-
-    ('id
-     `(id))
-
-    ('path
-     `(path))
-
-    ('content
-     `(content))
-
-    ('question
-     `(question))
-
-    ('answer
-     `(content))
-
-    ('string
-     '(string))
-
+    ('file '(file))
+    ('id '(id))
+    ('path '(path))
+    ('content '(content))
+    ('question '(question))
+    ('answer '(content))
+    ('string '(string))
     (_ (error "Unexpected message: msg = %s" msg))))
 
 (defun total-recall--Definition-tx (memory inst)
@@ -888,7 +855,7 @@ Updates MEMORY with the requested data."
        (puthash 'out "* Definition?" memory))
 
       ('string
-       (puthash 'out (string-join `("Definition(" ,id ,path ,(total-recall--truncate-str content) ")") " ") memory))
+       (puthash 'out (string-join `("Definition(" ,id ,(format "%s" path) ,(total-recall--truncate-str content) ")") " ") memory))
 
       (_ (error "Unexpected instruction: inst = %s" inst)))))
 #+end_src
@@ -1049,17 +1016,13 @@ Returns the trimmed string representation."
      (org-element-property :end node)))))
 
 (defun total-recall--node-subject (node)
-  "Extract the subject of NODE as a path-like string.
+  "Extract the subject of NODE as a list of strings.
 NODE is an Org headline element.
-Returns a string like A/B/C, where C is NODE’s title and A, B are ancestors."
-  (string-join
-   (reverse
-    (total-recall--org-element-lineage-map
-     (lambda (parent) (org-element-property :raw-value parent))
-     node
-     '(headline)
-     t))
-   " / "))
+Returns a list of strings like (list A B C), where C is NODE’s title and A, B are ancestors."
+  (reverse
+   (total-recall--org-element-lineage-map
+    (lambda (parent) (org-element-property :raw-value parent))
+    node '(headline) t)))
 #+end_src
 
 ** test
@@ -1451,13 +1414,15 @@ Updates MEMORY with the result of the operation."
        (let (meta)
          (setq meta (format "┌────
 │ path: %s
-│ file: %s
 │ link: %s
 │ reviewed: %s exercises
 └────
 "
-                            (total-recall--path exercise)
-                            (total-recall--file exercise)
+                            (string-trim
+                             (string-join
+                              (append (string-split (total-recall--file exercise) "/")
+                                      (total-recall--path exercise))
+                              " / "))
                             (format "[[ref:%s]]" (total-recall--id exercise))
                             reviewed-nbr))
          (total-recall--UI-tx memory `(show-content ,meta)))
@@ -1734,7 +1699,7 @@ Updates MEMORY with the result of the operation."
       (`(process-file ,file)
        (total-recall--add report (format "file = %s" file))
        (puthash 'exercises (total-recall--select planner (total-recall--parse parser file)) memory)
-       (total-recall--add report (format "%s exercises have been found." (length (gethash 'exercises memory))))
+       (total-recall--add report (format "%s exercises have been planned to be reviewed." (length (gethash 'exercises memory))))
        (total-recall--TotalRecall-tx memory 'process-exercises)
        (puthash 'nbr-files (+ nbr-files 1) memory))
 
