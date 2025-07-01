@@ -1357,6 +1357,29 @@ import logging
 import kuzu
 from typing import Self
 from dataclasses import dataclass, field
+import networkx as nx
+#+end_src
+
+***** Utils
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
+
+#+begin_src python
+def flatten(input_tree):
+    output_list = []
+    stack = list(input_tree)
+    stack.reverse()
+    while stack:
+        item = stack.pop()
+        match item:
+            case list() as lst:
+                lst.reverse()
+                stack.extend(lst)
+            case _:
+                output_list.append(item)
+
+    return output_list
 #+end_src
 
 ***** Message
@@ -1504,7 +1527,13 @@ class Logger:
 
 ***** DB
 ****** specification
-****** implementation
+
+- db : DB :≡ DB()
+- db#add : List(String) List(String × String) → DB
+- db#sort() : List(String)
+- db#loops() : List(List(String))
+
+****** TODO implementation
 :PROPERTIES:
 :header-args:python+: :tangle "network_server.py"
 :END:
@@ -1529,9 +1558,22 @@ class DB:
 
     def sort(self) -> list[str]:
         con = self._con
-        result = self._con.execute("MATCH (n:Node) RETURN n.id ORDER BY n.id")
-        df = result.get_as_df()
-        return df['n.id'].tolist()
+        res = self._con.execute("""
+        MATCH (n:Node)
+        OPTIONAL MATCH (n) -[r:References]-> (m:Node)
+        RETURN n, r;
+        """)
+        graph = res.get_as_networkx(directed=True)
+        relabel_mapping = {node: node.replace('Node_', '') for node in graph.nodes()}
+        nx.relabel_nodes(graph, relabel_mapping, copy=False)
+        components = sorted(nx.weakly_connected_components(graph), key=len, reverse=False)
+        subgraphs = map(lambda component: graph.subgraph(component), components)
+        ids = flatten(map(lambda graph: list(reversed(list(nx.topological_sort(graph)))), subgraphs))
+        return ids
+
+    def loops(self) -> list[list[str]]:
+        raise NotImplementedError()
+        return []
 #+end_src
 
 ****** test
@@ -1546,8 +1588,8 @@ from .network_server import DB
 class TestDB:
     def test_db(self):
         db = DB()
-        db.add(nodes=["a","b","c"],refs=[["a","b"]])
-        assert db.sort() == ["a", "b", "c"]
+        db.add(nodes=["a","b","c", "d"],refs=[["a","b"], ["a","c"], ["b","c"]])
+        assert db.sort() == ["d", "c", "b", "a"]
 #+end_src
 
 ***** Interpreter

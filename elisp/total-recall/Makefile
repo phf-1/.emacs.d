@@ -61,6 +61,7 @@ ${TOTAL_RECALL_EL}: solution.org | ${BUILD}
 	  fi
 	  source .venv/bin/activate
 	  uv pip install kuzu
+	  uv pip install networkx
 	  uv pip install numpy
 	  uv pip install pandas
 	  uv pip install pytest
