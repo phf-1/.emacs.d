@@ -1315,9 +1315,9 @@ topological order since it is a directed graph.
     (total-recall--debug logger (list "end" inst))))
 #+end_src
 
-*** python-server.py
+*** network-server
 :PROPERTIES:
-:header-args:python+: :tangle "python-server.py" :shebang "#!/usr/bin/env python3"
+:header-args:python+: :tangle "network-server" :shebang "#!/usr/bin/env python3"
 :END:
 
 **** specification
@@ -1326,86 +1326,147 @@ topological order since it is a directed graph.
 2. ~World() : String :≡ '{"type": "World"}'~.
 3. ~Ack() : String :≡ '{"type": "Ack"}'~.
 4. ~Stop() : String :≡ '{"type": "Stop"}'~.
-5. ~p : NetworkProcess :≡ ./python-server.py~.
+5. ~p : NetworkProcess :≡ ./network-server~.
 6. echo Hello() | p = World()
 7. echo Stop() | p = Ack()
 
 **** implementation
 
+- echo string | p :≡
+  - rcv(string) : None :≡
+    1. msg    : Message :≡ transducer#msg string
+    2. reply  : Dict    :≡ interpreter#rcv msg
+    3. output : String  :≡ transducer#str reply
+    4. None   : None    :≡ io#stdout output
+
 #+begin_src python
 import sys
 import json
+import signal
 
-def write(obj, file=sys.stdout):
-    print(json.dumps(obj), file=file)
-    file.flush()
 
-def Error(msg):
-    return { "type": "Error", "msg": str(msg) }
+class Message:
+    def __init__(self):
+        self._type = "Message"
 
-def Hello():
-    return { "type": "Hello" }
+    def dict(self):
+        return { "type": self._type }
 
-def Stop():
-    return { "type": "Stop" }
+    def __str__(self):
+        return f'{self.dict()} : Message'
 
-def Ack():
-    return { "type": "Ack" }
+class Hello(Message):
+    def __init__(self, msg=""):
+        super().__init__()
+        self._type = "Hello"
 
-def World():
-    return { "type": "World" }
+class World(Message):
+    def __init__(self, msg=""):
+        super().__init__()
+        self._type = "World"
 
-def reply(msg):
-    """Process a JSON message from stdin."""
+class Ack(Message):
+    def __init__(self, msg=""):
+        super().__init__()
+        self._type = "Ack"
 
-    try:
-        json_data = json.loads(msg)
-    except json.JSONDecodeError:
-        return Error(f"JSON decoder failed on msg. msg = {msg}")
+class Stop(Message):
+    def __init__(self, msg=""):
+        super().__init__()
+        self._type = "Stop"
 
-    try:
-        match json_data["type"]:
+class Error(Message):
+    def __init__(self, msg=""):
+        super().__init__()
+        self._type = "Error"
+        self._msg = msg
+
+    def dict(self):
+        d = super().dict()
+        d["msg"] = self._msg
+        return d
+
+    def msg(self):
+        return self._msg
+
+
+class Transducer:
+    def msg(self, string: str) -> dict:
+        match json.loads(string)["type"]:
             case "Hello":
-                parsed = Hello()
-
-            case "Stop":
-                parsed = Stop()
-
-            case _:
-                raise AssertionError(f"Unexpected JSON object. json = {json_data}")
-    except Exception as e:
-        return Error(f"Failed to interpret JSON data. {e}")
-
-    try:
-        match parsed["type"]:
-            case "Hello":
-                return World()
+                return Hello()
 
             case "Stop":
                 return Stop()
 
             case _:
-                raise AssertionError(f"Unexpected message. message = {parsed}")
-    except Exception as e:
-        return Error(f"Failed to compute a reply to message. {e}")
+                raise AssertionError(f"Unexpected JSON object. json = {json_data}")
 
-def main():
-    for line in sys.stdin:
-        try:
-            rep = reply(line.strip())
-        except Exception as e:
-            rep = Error(f"An error occured while processing msg. msg = {line}. error = {e}")
-            write(rep)
-            sys.exit(1)
+    def str(self, msg: Message) -> str:
+        return json.dumps(msg.dict())
 
-        if rep["type"] == "Stop":
-            write(Ack())
-            sys.exit(0)
-        else:
-            write(rep)
+
+class IO:
+    def stdin(self):
+        return sys.stdin
+
+    def stdout(self, string):
+        line = string.strip() + '\n'
+        sys.stdout.buffer.write(bytes(line, 'utf-8', 'strict'))
+        sys.stdout.flush()
+
+    def close(self):
+        sys.stdin.close()
+        sys.stdout.close()
+
+
+class Interpreter:
+    def __init__(self, io: IO) -> None:
+        self._io = io
+
+    def rcv(self, msg: Message) -> dict | None:
+        match msg:
+            case Hello():
+                return World()
+
+            case Stop():
+                self._io.close()
+                sys.exit(0)
+
+            case Error():
+                return msg
+
+            case _:
+                raise AssertionError(f"Unexpected msg. {msg}")
+
 
 if __name__ == "__main__":
-    main()
+    io = IO()
+    transducer = Transducer()
+    interpreter = Interpreter(io)
+    def handle_sighup(signum, frame):
+        interpreter.rcv(Stop())
+    signal.signal(signal.SIGHUP, handle_sighup)
+
+    for string in io.stdin():
+        try:
+            msg = transducer.msg(string)
+        except Exception as e:
+            msg = Error(f'Error err occurred trying to transduce string. err = {e}. string = {string}')
+
+        try:
+            reply = interpreter.rcv(msg)
+        except Exception as e:
+            reply = Error(f'Error err occurred trying to interprete msg. err = {e}. msg = {msg}')
+
+        try:
+            output = transducer.str(reply)
+        except Exception as e:
+            output = Error(f'Error err occurred trying to transduce reply. err = {e}. reply = {reply}')
+
+        io.stdout(output)
+
+    interpreter.rcv(Stop())
 #+end_src
 
 ** test
