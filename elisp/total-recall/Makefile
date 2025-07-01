@@ -41,14 +41,30 @@ env: ${PACKAGES_SCM} | ${BUILD}
 TOTAL_RECALL_EL := ${BUILD}/total-recall.el
 TOTAL_RECALL_TEST_EL := ${BUILD}/total-recall-test.el
 NETWORK_SERVER := ${BUILD}/network-server
+NETWORK_SERVER_PY := ${BUILD}/network_server.py
+INIT_PY := ${BUILD}/__init__.py
+NETWORK_SERVER_TEST_PY := ${BUILD}/network_server_test.py
 NETWORK_SERVER_TEST := ${BUILD}/network-server-test
 el: ${TOTAL_RECALL_EL}
 ${TOTAL_RECALL_EL}: solution.org | ${BUILD}
 	emacs -Q --batch --file "$<" --eval '(org-babel-tangle)'
 	mv total-recall.el "$@"
 	mv total-recall-test.el "${TOTAL_RECALL_TEST_EL}"
+	mv network_server.py "${NETWORK_SERVER_PY}"
+	mv __init__.py "${INIT_PY}"
+	mv network_server_test.py "${NETWORK_SERVER_TEST_PY}"
 	mv network-server "${NETWORK_SERVER}"
 	mv network-server-test "${NETWORK_SERVER_TEST}"
+	pushd "${BUILD}"
+	  if [[ ! -d .venv ]]; then
+	    uv venv
+	  fi
+	  source .venv/bin/activate
+	  uv pip install kuzu
+	  uv pip install numpy
+	  uv pip install pandas
+	  uv pip install pytest
+	popd
 	echo "$@"
 	echo "${TOTAL_RECALL_TEST_EL}"
 
@@ -90,6 +106,16 @@ ${TEST}: ${TOTAL_RECALL_EL}
 	--eval '(load-file "${TOTAL_RECALL_EL}")' \
 	--eval '(load-file "${TOTAL_RECALL_TEST_EL}")' \
 	--eval '(ert-run-tests-batch-and-exit t)' 2>&1 | tee "$@"
+	echo "$@"
+
+.PHONY: test-network
+TEST_NETWORK := ${BUILD}/test-network-report.txt
+test-network: ${TEST_NETWORK}
+${TEST_NETWORK}: ${TOTAL_RECALL_EL}
+	pushd ${BUILD}
+	source .venv/bin/activate
+	pytest ./network_server_test.py
+	LOG_LEVEL=INFO ./network-server-test | tee "$@"
 	echo "$@"
 
 .PHONY: manual-test

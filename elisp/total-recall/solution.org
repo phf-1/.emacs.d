@@ -1327,9 +1327,6 @@ topological order since it is a directed graph.
 7. echo Stop() | p = Ack()
 
 **** implementation
-:PROPERTIES:
-:header-args:python+: :tangle "network-server" :shebang "#!/usr/bin/env python3"
-:END:
 
 - echo string | p :≡
   - rcv(string) : None :≡
@@ -1338,7 +1335,18 @@ topological order since it is a directed graph.
     3. output : String  :≡ transducer#str reply
     4. None   : None    :≡ io#stdout output
 
+***** __init__.py
+:PROPERTIES:
+:header-args:python+: :tangle "__init__.py"
+:END:
+
+#+begin_src python
+#+end_src
+
 ***** imports
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
 
 #+begin_src python
 import os
@@ -1346,99 +1354,87 @@ import sys
 import json
 import signal
 import logging
+import kuzu
+from typing import Self
+from dataclasses import dataclass, field
 #+end_src
 
 ***** Message
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
 
 #+begin_src python
+@dataclass
 class Message:
-    def __init__(self):
-        self._type = "Message"
+    type: str = "Message"
 
     def dict(self):
-        return { "type": self._type }
+        return {"type": self.type}
 
-    def __str__(self):
-        return f'{self.dict()}'
-
+@dataclass
 class Hello(Message):
-    def __init__(self, msg=""):
-        super().__init__()
-        self._type = "Hello"
+    type: str = "Hello"
 
+@dataclass
 class World(Message):
-    def __init__(self, msg=""):
-        super().__init__()
-        self._type = "World"
+    type: str = "World"
 
+@dataclass
 class Ack(Message):
-    def __init__(self, msg=""):
-        super().__init__()
-        self._type = "Ack"
+    type: str = "Ack"
 
+@dataclass
 class Stop(Message):
-    def __init__(self, msg=""):
-        super().__init__()
-        self._type = "Stop"
+    type: str = "Stop"
 
+@dataclass
 class Error(Message):
-    def __init__(self, msg=""):
-        super().__init__()
-        self._type = "Error"
-        self._msg = msg
+    type: str = "Error"
+    msg: str = ""
 
     def dict(self):
         d = super().dict()
-        d["msg"] = self._msg
+        d["msg"] = self.msg
         return d
 
-    def msg(self):
-        return self._msg
-
+@dataclass
 class Graph(Message):
-    def __init__(self, refs=[]):
-        super().__init__()
-        self._type = "Graph"
-        self._refs = refs
+    type: str = "Graph"
+    nodes: list[str] = field(default_factory=list)
+    refs: list[list[str]] = field(default_factory=list)
 
     def dict(self):
         d = super().dict()
-        d["refs"] = self._refs
+        d["refs"] = self.refs
+        d["nodes"] = self.nodes
         return d
 
-    def refs(self):
-        return self._refs
-
+@dataclass
 class Loops(Message):
-    def __init__(self, loops=[]):
-        super().__init__()
-        self._type = "Loops"
-        self._loops = loops
+    type: str = "Loops"
+    loops: list[list[str]] = field(default_factory=list)
 
     def dict(self):
         d = super().dict()
-        d["loops"] = self._loops
+        d["loops"] = self.loops
         return d
 
-    def loops(self):
-        return self._loops
-
+@dataclass
 class Sort(Message):
-    def __init__(self, ids=[]):
-        super().__init__()
-        self._type = "Sort"
-        self._ids = ids
+    type: str = "Sort"
+    nodes: list[str] = field(default_factory=list)
 
     def dict(self):
         d = super().dict()
-        d["ids"] = self._ids
+        d["nodes"] = self.nodes
         return d
-
-    def ids(self):
-        return self._ids
 #+end_src
 
 ***** Transducer
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
 
 #+begin_src python
 class Transducer:
@@ -1452,7 +1448,7 @@ class Transducer:
                 return Stop()
 
             case "Graph":
-                return Graph(refs=data["refs"])
+                return Graph(nodes=data["nodes"], refs=data["refs"])
 
             case "Loops":
                 return Loops()
@@ -1468,6 +1464,9 @@ class Transducer:
 #+end_src
 
 ***** IO
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
 
 #+begin_src python
 class IO:
@@ -1481,10 +1480,13 @@ class IO:
 
     def close(self):
         sys.stdin.close()
-        sys.stdout.close()     
+        sys.stdout.close()
 #+end_src
 
 ***** Logger
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
 
 #+begin_src python
 class Logger:
@@ -1500,15 +1502,69 @@ class Logger:
         self._logger.debug(msg)
 #+end_src
 
+***** DB
+****** specification
+****** implementation
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
+
+#+begin_src python
+class DB:
+    def __init__(self,_data={}) -> None:
+        self._db = db = kuzu.Database(":memory:")
+        self._con = con = kuzu.Connection(db)
+        con.execute("CREATE NODE TABLE Node(id STRING, PRIMARY KEY(id))")
+        con.execute("CREATE REL TABLE References(FROM Node TO Node)")
+
+    def add(self, nodes: list[str] = [], refs: list[list] = []) -> Self:
+        con = self._con
+        if nodes:
+            nodes_list = ", ".join(f"'{node}'" for node in nodes)
+            con.execute(f"UNWIND [{nodes_list}] AS node CREATE (n:Node {{id: node}})")
+        if refs:
+            refs_list = ", ".join(f"['{ref[0]}', '{ref[1]}']" for ref in refs)
+            con.execute(f"UNWIND [{refs_list}] AS rel MATCH (a:Node {{id: rel[1]}}), (b:Node {{id: rel[2]}}) CREATE (a)-[:References]->(b)")
+        return self
+
+    def sort(self) -> list[str]:
+        con = self._con
+        result = self._con.execute("MATCH (n:Node) RETURN n.id ORDER BY n.id")
+        df = result.get_as_df()
+        return df['n.id'].tolist()
+#+end_src
+
+****** test
+:PROPERTIES:
+:header-args:python+: :tangle "network_server_test.py"
+:END:
+
+#+begin_src python
+import pytest
+from .network_server import DB
+
+class TestDB:
+    def test_db(self):
+        db = DB()
+        db.add(nodes=["a","b","c"],refs=[["a","b"]])
+        assert db.sort() == ["a", "b", "c"]
+#+end_src
+
 ***** Interpreter
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
 
 #+begin_src python
 class Interpreter:
     def __init__(self, io: IO, logger: Logger) -> None:
         self._io = io
         self._logger = logger
+        self._db = DB()
 
     def rcv(self, msg: Message) -> dict | None:
+        logger = self._logger
+        logger.debug(f'interpreter.rcv(msg) where msg = {msg}')
         match msg:
             case Hello():
                 return World()
@@ -1520,29 +1576,36 @@ class Interpreter:
             case Error():
                 return msg
 
-            case Graph(refs=refs):
+            case Graph(nodes=nodes,refs=refs):
+                self._db.add(nodes=nodes,refs=refs)
                 return Ack()
 
             case Loops():
                 return Loops(loops=[])
 
             case Sort():
-                return Sort(ids=[])
+                return Sort(nodes=self._db.sort())
 
             case _:
-                raise AssertionError(f"Unexpected msg. {msg}")
+                raise AssertionError(f"Unexpected msg. msg = {msg}.")
 #+end_src
 
-***** main
+***** ■
+:PROPERTIES:
+:header-args:python+: :tangle "network-server" :shebang "#!/usr/bin/env python3"
+:END:
 
 #+begin_src python
-if __name__ == "__main__":
+import os
+from network_server import Logger, IO, Transducer, Interpreter, Error, Stop
+
+def main():
     logger = Logger(log_level=os.environ["LOG_LEVEL"])
     io = IO()
     transducer = Transducer()
     interpreter = Interpreter(io, logger)
 
-    for string in io.stdin():        
+    for string in io.stdin():
         logger.debug(f'string = {string}')
 
         try:
@@ -1569,6 +1632,9 @@ if __name__ == "__main__":
         io.stdout(output)
 
     interpreter.rcv(Stop())
+
+if __name__ == "__main__":
+    main()
 #+end_src
 
 **** test
@@ -1590,12 +1656,12 @@ exec 4< ${SERVER_OUTPUT}
 function cleanup () {
     rm -f ${SERVER_RCV} ${SERVER_OUTPUT}
     exec 3>&-;
-    exec 4<&-;    
+    exec 4<&-;
 }
 trap 'cleanup' EXIT INT TERM
 messages=(
     '{ "type": "Hello" }'
-    '{ "type": "Graph", "refs": [["a","b"]] }'
+    '{ "type": "Graph", "nodes": ["a","b","c"], "refs": [["a","b"]] }'
     '{ "type": "Sort" }'
     '{ "type": "Loops" }'
 )
