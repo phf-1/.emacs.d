@@ -1316,10 +1316,6 @@ topological order since it is a directed graph.
 #+end_src
 
 *** network-server
-:PROPERTIES:
-:header-args:python+: :tangle "network-server" :shebang "#!/usr/bin/env python3"
-:END:
-
 **** specification
 
 1. ~Hello() : String :≡ '{"type": "Hello"}'~.
@@ -1331,6 +1327,9 @@ topological order since it is a directed graph.
 7. echo Stop() | p = Ack()
 
 **** implementation
+:PROPERTIES:
+:header-args:python+: :tangle "network-server" :shebang "#!/usr/bin/env python3"
+:END:
 
 - echo string | p :≡
   - rcv(string) : None :≡
@@ -1339,12 +1338,19 @@ topological order since it is a directed graph.
     3. output : String  :≡ transducer#str reply
     4. None   : None    :≡ io#stdout output
 
+***** imports
+
 #+begin_src python
+import os
 import sys
 import json
 import signal
+import logging
+#+end_src
 
+***** Message
 
+#+begin_src python
 class Message:
     def __init__(self):
         self._type = "Message"
@@ -1353,7 +1359,7 @@ class Message:
         return { "type": self._type }
 
     def __str__(self):
-        return f'{self.dict()} : Message'
+        return f'{self.dict()}'
 
 class Hello(Message):
     def __init__(self, msg=""):
@@ -1389,23 +1395,81 @@ class Error(Message):
     def msg(self):
         return self._msg
 
+class Graph(Message):
+    def __init__(self, refs=[]):
+        super().__init__()
+        self._type = "Graph"
+        self._refs = refs
 
+    def dict(self):
+        d = super().dict()
+        d["refs"] = self._refs
+        return d
+
+    def refs(self):
+        return self._refs
+
+class Loops(Message):
+    def __init__(self, loops=[]):
+        super().__init__()
+        self._type = "Loops"
+        self._loops = loops
+
+    def dict(self):
+        d = super().dict()
+        d["loops"] = self._loops
+        return d
+
+    def loops(self):
+        return self._loops
+
+class Sort(Message):
+    def __init__(self, ids=[]):
+        super().__init__()
+        self._type = "Sort"
+        self._ids = ids
+
+    def dict(self):
+        d = super().dict()
+        d["ids"] = self._ids
+        return d
+
+    def ids(self):
+        return self._ids
+#+end_src
+
+***** Transducer
+
+#+begin_src python
 class Transducer:
     def msg(self, string: str) -> dict:
-        match json.loads(string)["type"]:
+        data = json.loads(string)
+        match data["type"]:
             case "Hello":
                 return Hello()
 
             case "Stop":
                 return Stop()
 
+            case "Graph":
+                return Graph(refs=data["refs"])
+
+            case "Loops":
+                return Loops()
+
+            case "Sort":
+                return Sort()
+
             case _:
-                raise AssertionError(f"Unexpected JSON object. json = {json_data}")
+                raise AssertionError(f"Unexpected JSON object. json = {data}")
 
     def str(self, msg: Message) -> str:
         return json.dumps(msg.dict())
+#+end_src
 
+***** IO
 
+#+begin_src python
 class IO:
     def stdin(self):
         return sys.stdin
@@ -1417,12 +1481,32 @@ class IO:
 
     def close(self):
         sys.stdin.close()
-        sys.stdout.close()
+        sys.stdout.close()     
+#+end_src
 
+***** Logger
 
+#+begin_src python
+class Logger:
+    def __init__(self,log_level="INFO") -> None:
+        formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(formatter)
+        self._logger = logging.getLogger('network_server')
+        self._logger.setLevel(getattr(logging, log_level))
+        self._logger.addHandler(handler)
+
+    def debug(self, msg: str) -> None:
+        self._logger.debug(msg)
+#+end_src
+
+***** Interpreter
+
+#+begin_src python
 class Interpreter:
-    def __init__(self, io: IO) -> None:
+    def __init__(self, io: IO, logger: Logger) -> None:
         self._io = io
+        self._logger = logger
 
     def rcv(self, msg: Message) -> dict | None:
         match msg:
@@ -1436,37 +1520,99 @@ class Interpreter:
             case Error():
                 return msg
 
+            case Graph(refs=refs):
+                return Ack()
+
+            case Loops():
+                return Loops(loops=[])
+
+            case Sort():
+                return Sort(ids=[])
+
             case _:
                 raise AssertionError(f"Unexpected msg. {msg}")
+#+end_src
 
+***** main
 
+#+begin_src python
 if __name__ == "__main__":
+    logger = Logger(log_level=os.environ["LOG_LEVEL"])
     io = IO()
     transducer = Transducer()
-    interpreter = Interpreter(io)
-    def handle_sighup(signum, frame):
-        interpreter.rcv(Stop())
-    signal.signal(signal.SIGHUP, handle_sighup)
+    interpreter = Interpreter(io, logger)
 
-    for string in io.stdin():
+    for string in io.stdin():        
+        logger.debug(f'string = {string}')
+
         try:
             msg = transducer.msg(string)
         except Exception as e:
             msg = Error(f'Error err occurred trying to transduce string. err = {e}. string = {string}')
+
+        logger.debug(f'msg = {msg}')
 
         try:
             reply = interpreter.rcv(msg)
         except Exception as e:
             reply = Error(f'Error err occurred trying to interprete msg. err = {e}. msg = {msg}')
 
+        logger.debug(f'reply = {reply}')
+
         try:
             output = transducer.str(reply)
         except Exception as e:
             output = Error(f'Error err occurred trying to transduce reply. err = {e}. reply = {reply}')
 
+        logger.debug(f'output = {output}')
+
         io.stdout(output)
 
     interpreter.rcv(Stop())
+#+end_src
+
+**** test
+:PROPERTIES:
+:header-args:bash+: :tangle "network-server-test" :shebang "#!/usr/bin/env bash"
+:END:
+
+#+begin_src bash
+set -euo pipefail
+IFS=$'\n\t'
+SERVER_RCV=/tmp/network-server-rcv.fifo
+SERVER_OUTPUT=/tmp/network-server-output.fifo
+rm -f ${SERVER_RCV} ${SERVER_OUTPUT}
+mkfifo ${SERVER_RCV} ${SERVER_OUTPUT}
+./network-server < ${SERVER_RCV} > ${SERVER_OUTPUT} &
+SERVER_PID=$!
+exec 3> ${SERVER_RCV}
+exec 4< ${SERVER_OUTPUT}
+function cleanup () {
+    rm -f ${SERVER_RCV} ${SERVER_OUTPUT}
+    exec 3>&-;
+    exec 4<&-;    
+}
+trap 'cleanup' EXIT INT TERM
+messages=(
+    '{ "type": "Hello" }'
+    '{ "type": "Graph", "refs": [["a","b"]] }'
+    '{ "type": "Sort" }'
+    '{ "type": "Loops" }'
+)
+for msg in "${messages[@]}"; do
+    if ! kill -0 ${SERVER_PID} 2>/dev/null; then
+        echo "Error: Server is dead (PID: ${SERVER_PID})" >&2
+        exit 1
+    fi
+    echo "$msg" >&3
+    if ! read -t 2 -r reply <&4; then
+        echo "Error: Timeout waiting for reply to '$msg'" >&2
+        kill -HUP ${SERVER_PID} 2>/dev/null
+        exit 1
+    fi
+    echo "send $msg = $reply"
+done
+echo '{ "type": "Stop" }' >&3
 #+end_src
 
 ** test
