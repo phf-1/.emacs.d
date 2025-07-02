@@ -1315,16 +1315,94 @@ topological order since it is a directed graph.
     (total-recall--debug logger (list "end" inst))))
 #+end_src
 
+**** TODO network-server is supervised
+
+1. p : Process :≡ proc-start exec-path args name
+   - exec-path : AbsolutePath
+   - args : List(Any)
+   - name : String
+
+2. reply : String :≡ proc-send p string timeout
+   - timeout : Second
+
+3. proc-stop p : process-live-p p = false and associated process and buffer have been
+   deleted.
+
+#+begin_src emacs-lisp :tangle no
+(defun proc-start (path &optional args name)
+  (let* ((name (or name (file-name-base path)))
+         (process (apply #'start-process
+                         (concat name "-process")
+                         (concat "*" name "-buffer*")
+                         path
+                         args)))
+    (set-process-query-on-exit-flag process nil)
+    process))
+
+(defun proc-stop (proc)
+  (when (and proc (process-live-p proc))
+    (kill-process proc)
+    (let ((buffer (process-buffer proc)))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
+
+(defun proc-send (proc data &optional timeout)
+  (if (not (process-live-p proc))
+      (error "Process is not alive")
+    (let ((output "")
+          (timeout (or timeout 1)))
+      (set-process-filter proc
+                          (lambda (process line)
+                            (setq output (concat output line))))
+      (process-send-string proc (concat data "\n"))
+      (accept-process-output proc timeout)
+      output)))
+
+;; Example usage
+(let ((hello (proc-start (expand-file-name "./hello")))
+      (reply ""))
+
+  (condition-case exception
+      (progn
+        (setq reply (proc-send hello "xxx"))
+        (message "%s" reply)
+        (setq reply (proc-send hello "yyy"))
+        (message "%s" reply))
+    (error
+     (proc-stop hello)
+     (error "hello process crashed: %s" (error-message-string exception))))
+
+  (proc-stop hello))
+#+end_src
+
+#+begin_src bash :tangle no
+#!/usr/bin/env bash
+
+set -euo pipefail
+IFS=$'\n\t'
+
+while IFS= read -r line; do
+    echo "$line"
+done
+#+end_src
 *** network-server
 **** specification
 
-1. ~Hello() : String :≡ '{"type": "Hello"}'~.
-2. ~World() : String :≡ '{"type": "World"}'~.
-3. ~Ack() : String :≡ '{"type": "Ack"}'~.
-4. ~Stop() : String :≡ '{"type": "Stop"}'~.
-5. ~p : NetworkProcess :≡ ./network-server~.
-6. echo Hello() | p = World()
-7. echo Stop() | p = Ack()
+1. p : NetworkProcess :≡ ./network-server
+
+2. p#rcv '{ "type": "Hello" }' = '{"type": "World"}'
+
+3. p#rcv '{ "type": "Stop" }' : p is stopped.
+
+4. p#rcv '{ "type": "Graph", "nodes": nodes, "refs": refs }' = '{"type": "Ack"}'
+   - nodes : List(String)
+   - refs : List(String × String)
+
+5. p#rcv '{ "type": "Loops" }' = '{"type": "Loops", "loops": loops }'
+   - loops : List(List(String))
+
+6. p#rcv '{ "type": "Sort" }' = '{"type": "Sort", "nodes": nodes }'
+   - nodes : List(String)
 
 **** implementation
 
@@ -1660,7 +1738,7 @@ def main():
         try:
             reply = interpreter.rcv(msg)
         except Exception as e:
-            reply = Error(f'Error err occurred trying to interprete msg. err = {e}. msg = {msg}')
+            reply = Error(f'Error err occurred trying to interpret msg. err = {e}. msg = {msg}')
 
         logger.debug(f'reply = {reply}')
 
@@ -2145,15 +2223,22 @@ Updates MEMORY with the result of the operation."
 * TotalRecall
 ** specification
 
-~tr :≡ TotalRecall root db-path~ is an actor such that ~tr#start()~ searches for Org Mode
-files under ~root~ containing elements like exercises and/or definitions. For each
-file, the headings are interpreted as a tree and the elements are ordered in a depth
-first manner. The list of elements is mapped to a list of exercises which is then
-prunned using data in ~db-path~ and a planner object. While the user is willing to
-continue reviewing exercises, the first exercise is poped from the prunned list and
-shown to the user. Then user can either rate the exercise and continue reviewing
-until no more exercises remain or stop reviewing. Data gathered from the user is then
-saved to ~db-path~. Finally, a report of execution is returned to the caller.
+~tr : TotalRecall :≡ TotalRecall root db-path~ is an actor such that ~tr#start()~
+searches for Org Mode files under ~root~ containing elements like exercises and/or
+definitions. For each file, the headings are interpreted as a tree and the elements
+are ordered in a depth first manner. The list of elements is mapped to a list of
+exercises which is then prunned using data in ~db-path~ and a planner object. While the
+user is willing to continue reviewing exercises, the first exercise is poped from the
+prunned list and shown to the user. Then user can either rate the exercise and
+continue reviewing until no more exercises remain or stop reviewing. Data gathered
+from the user is then saved to ~db-path~. Finally, a report of execution is returned to
+the caller.
+
+** implementation
+
+*** TODO Planner has been replaced by Network
+
+*** ■
 
 Let ~tx : State Msg → Msg × State~ transforms the state of ~tr~.
 - tx state :start :≡
@@ -2216,8 +2301,6 @@ Let ~tx : State Msg → Msg × State~ transforms the state of ~tr~.
   - db#stop()
   - ui#stop()
   - <self, state>
-
-** implementation
 
 #+begin_src emacs-lisp
 ;; TotalRecall
