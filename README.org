@@ -345,7 +345,8 @@ With prefix ARG, undedicate it."
 (use-package tab-bar :demand
   :bind
   (("M-+" . tab-bar-switch-to-next-tab)
-   ("M--" . tab-bar-switch-to-prev-tab))
+   ("M--" . tab-bar-switch-to-prev-tab)
+   ("C-t" . tab-new))
   :config
   (tab-bar-mode))
 #+end_src
