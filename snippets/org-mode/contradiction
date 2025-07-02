@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: contradiction
+# key: |_
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+⊥
