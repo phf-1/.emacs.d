@@ -1521,7 +1521,6 @@ Returns a state hash table for the planner actor."
 (total-recall--Actor #'total-recall--Planner-init total-recall--Planner)
 #+end_src
 
-
 * total-recall
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
@@ -1808,41 +1807,37 @@ check is used to filter messages it accepts to process.
 :ID: 1783fedc-7c77-4e5e-a73d-f4c93c4d5eb8
 :END:
 
-~tr : TotalRecall :≡ TotalRecall#mk root db-path~ is an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] such that after
-~tr#start()~, the user has reviewed all the [[ref:b6e43048-cf5d-4540-aab4-6b282e78fbb2][selected]] [[ref:b90e4015-0a31-477c-a3e4-a4b2c87a6fb9][elements]] that exists under
-[[ref:5709bbc0-e7e6-4eba-90c9-1840b010f3b2][total-recall-root-dir]] in a [[ref:696661be-ee3a-4f4d-9bf8-9b79e9edd9a7][logical order]] using a [[ref:7c752724-7e3d-4529-bf1b-06482ca53b3e][UI]]. ~tr#start()~ returns an
-execution [[ref:05a4ce8c-583a-43d2-9dde-af32164d1a97][report]]. Collected [[ref:4187a5b0-15c1-49fc-9962-7dd5802e4f25][ratings]] are recorded in a [[ref:aee4f045-f225-4e4c-a145-0cb2baad2186][DB]] in [[ref:7a2f9b87-a2f8-4fd1-991c-deab4100614c][total-recall-database]].
+Let ~tr : TotalRecall :≡ TotalRecall#mk root db-path~ be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] and assume that over
+the next 30 days, you conduct one review session per day. If you let ~tr~ build your
+sessions — i.e. ~tr#start()~ — it will minimize the total review time while maximizing
+the mean probability of success over each review [[ref:b90e4015-0a31-477c-a3e4-a4b2c87a6fb9][element]].
 
+~tr#init()~ is a state that contains a [[ref:7c752724-7e3d-4529-bf1b-06482ca53b3e][ui]], a [[ref:aee4f045-f225-4e4c-a145-0cb2baad2186][db]], a [[ref:05a4ce8c-583a-43d2-9dde-af32164d1a97][report]], and ~els~, the list of
+elements to be presented to the user. To build ~els~, a [[ref:f1bbb813-e964-4687-994c-bda31c6ba27b][searcher]] is used to find all
+[[ref:b0c11bed-8c87-4c9b-b699-5d1c2230d0ad][OrgKnowledgeFiles]] under [[ref:5709bbc0-e7e6-4eba-90c9-1840b010f3b2][total-recall-root-dir]]. For each file, a set of [[ref:7b449631-bbec-4cf2-ae86-247871af14fe][nodes]] and
+[[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][edges]] is built from its elements and added to a [[ref:6b1ab7c6-087a-4f2a-a317-cede19042a73][DAG]]. The DAG is used to derive a
+logical [[ref:696661be-ee3a-4f4d-9bf8-9b79e9edd9a7][order]] over the elements. The ordered list of elements is then pruned by a
+[[ref:b6e43048-cf5d-4540-aab4-6b282e78fbb2][selector]].
 
-After initialization, ~tr~ has built a ui, a db, a report and the list of elements to
-be presented to the user named ~els~. To build ~els~, a [[ref:f1bbb813-e964-4687-994c-bda31c6ba27b][searcher]] is used to find all
-[[ref:b0c11bed-8c87-4c9b-b699-5d1c2230d0ad][OrgKnowledgeFiles]]. For each file, a set of elements and [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][edges]] are built and added to
-a [[ref:6b1ab7c6-087a-4f2a-a317-cede19042a73][DAG]]. The DAG is used to derive an [[ref:696661be-ee3a-4f4d-9bf8-9b79e9edd9a7][order]] over the elements. The order is used to
-build an ordered list of all elements which is then prunned using a [[ref:b6e43048-cf5d-4540-aab4-6b282e78fbb2][selector]] before
-being returned.
+~tr#start()~ presents each element of ~els~ to the user using the ui and records its
+rating in the db until there are no more elements to review or the user decides to end
+the review session.
 
-
-~tr#start()~ feeds ~els~ to the ui. If the UI sends a rating, then the rating is recorded
-by the DB and the next exercice is presented to the user if any, else it stops. If
-the UI sends a stop message, then it stops.
+~tr#start()~ minimizes the review time per session because only elements with a low
+probability of success are presented for review. The elements are presented in an order
+that minimizes "context switches" from one element to another, thus minimizing the
+"mental energy" needed to complete the session.
 
 
 #+begin_src emacs-lisp
 ;; TotalRecall
 
 (defun total-recall--TotalRecall-membrane (msg)
-  "Process incoming MSG for the TotalRecall actor.
-MSG is a symbol like `start` or `stop`.
-Returns a list containing the corresponding instruction."
   (pcase msg
     (:start t)
     (_ nil)))
 
 (defun total-recall--TotalRecall-tx (state msg)
-  "Handle transaction INST for the TotalRecall actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a symbol or list for operations like `start` or `process-file`.
-Updates MEMORY with the result of the operation."
   (let ((self (gethash :self state))
         (goal (gethash :goal state))
         (root (gethash :root state))
@@ -1927,9 +1922,6 @@ Updates MEMORY with the result of the operation."
       (_ (error "Unexpected instruction: msg = %s" msg)))))
 
 (defun total-recall--TotalRecall-init (_data)
-  "Initialize a TotalRecall actor with DATA.
-DATA is ignored in this implementation.
-Returns a state hash table with initialized sub-actors."
   (let ((state (total-recall--Actor-state #'total-recall--TotalRecall-membrane #'total-recall--TotalRecall-tx)))
     (puthash :clock (total-recall--Clock t) state)
 
@@ -1963,33 +1955,6 @@ Returns a state hash table with initialized sub-actors."
     state))
 
 (total-recall--Actor #'total-recall--TotalRecall-init total-recall--TotalRecall)
-#+end_src
-
-*** total-recall-root-dir
-:PROPERTIES:
-:ID:       5709bbc0-e7e6-4eba-90c9-1840b010f3b2
-:END:
-
-#+begin_src emacs-lisp
-(defcustom total-recall-root-dir (expand-file-name "~")
-  "Specifies the root directory for Total Recall file searches.
-This is a string representing the directory path where Org Mode files
-are searched."
-  :type 'string
-  :group 'total-recall)
-#+end_src
-
-*** total-recall-database
-:PROPERTIES:
-:ID:       7a2f9b87-a2f8-4fd1-991c-deab4100614c
-:END:
-
-#+begin_src emacs-lisp
-(defcustom total-recall-database (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
-  "Specifies the path to the Total Recall SQLite database.
-This is a string representing the file path for storing review data."
-  :type 'string
-  :group 'total-recall)
 #+end_src
 
 *** TODO Selector
@@ -2056,6 +2021,20 @@ Returns a state hash table for the selector actor."
     (should (= (total-recall--read selector) 0))
     (should (= (total-recall--read (total-recall--tick selector)) 1))
     (should (= (total-recall--read (total-recall--tick2 selector)) 3))))
+#+end_src
+
+*** total-recall-root-dir
+:PROPERTIES:
+:ID:       5709bbc0-e7e6-4eba-90c9-1840b010f3b2
+:END:
+
+#+begin_src emacs-lisp
+(defcustom total-recall-root-dir (expand-file-name "~")
+  "Specifies the root directory for Total Recall file searches.
+This is a string representing the directory path where Org Mode files
+are searched."
+  :type 'string
+  :group 'total-recall)
 #+end_src
 
 *** TODO Order
@@ -2368,6 +2347,19 @@ Returns a state hash table for the rating actor."
   (should (eq t t)))
 #+end_src
 
+*** total-recall-database
+:PROPERTIES:
+:ID:       7a2f9b87-a2f8-4fd1-991c-deab4100614c
+:END:
+
+#+begin_src emacs-lisp
+(defcustom total-recall-database (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
+  "Specifies the path to the Total Recall SQLite database.
+This is a string representing the file path for storing review data."
+  :type 'string
+  :group 'total-recall)
+#+end_src
+
 *** DB
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
@@ -2579,9 +2571,36 @@ Returns a state hash table for the searcher actor."
 :ID: b0c11bed-8c87-4c9b-b699-5d1c2230d0ad
 :END:
 
-A OrgKnowledgeFile is a path to a text file formatted using Org markup such that all
-the headings contains by its matching [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] are either [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinitions]]
-or [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercises]].
+A OrgKnowledgeFile is a path to a OrgFile such that:
+- Its content contains a string ~# :ID: <uuid>~ such that ~<uuid>~ is equal to the [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
+  ~org-knowledge-file-type-id~.
+- All headings of its associated associated [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] are either [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinitions]] or
+  [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercises]].
+
+
+Given a path ~path~, ~org-knowledge-file-p(path) = true~ iff ~path~ is an
+OrgKnowledgeFile.
+
+
+#+begin_src emacs-lisp
+(defcustom total-recall-org-knowledge-file-type-id "066ef595-0505-48b5-930a-74a4242e9d0d"
+  :type 'string
+  :group 'total-recall)
+#+end_src
+
+
+#+begin_src emacs-lisp
+(defun total-recall--org-knowledge-file-p (path)
+  ;; TODO
+  )
+#+end_src
+
+*** Node
+:PROPERTIES:
+:ID:       7b449631-bbec-4cf2-ae86-247871af14fe
+:END:
+
+Node :≡ [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
 
 *** Edge
 :PROPERTIES:
@@ -2589,13 +2608,6 @@ or [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercises]].
 :END:
 
 Edge :≡ [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Node]] × Node
-
-**** Node
-:PROPERTIES:
-:ID:       7b449631-bbec-4cf2-ae86-247871af14fe
-:END:
-
-Node :≡ [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
 
 *** DAG
 :PROPERTIES:

@@ -181,8 +181,8 @@
 
   (interactive (progn (barf-if-buffer-read-only) '(t)))
   (let ((fill-column (point-max))
-	;; This would override `fill-column' if it's an integer.
-	(emacs-lisp-docstring-fill-column t))
+        ;; This would override `fill-column' if it's an integer.
+        (emacs-lisp-docstring-fill-column t))
     (fill-paragraph nil region)))
 
 (defun dedicate-window (&optional arg)
@@ -191,9 +191,9 @@ With prefix ARG, undedicate it."
   (interactive "P")
   (set-window-dedicated-p (get-buffer-window (current-buffer)) (not arg))
   (message (if arg
-	       "Window '%s' is normal"
-	     "Window '%s' is dedicated")
-	   (current-buffer)))
+               "Window '%s' is normal"
+             "Window '%s' is dedicated")
+           (current-buffer)))
 (provide 'user-utils)
 #+end_src
 
@@ -265,8 +265,8 @@ With prefix ARG, undedicate it."
   (setq x-underline-at-descent-line t)
   (setq modus-themes-intense-markup t)
   (setq modus-themes-italic-constructs t
-	modus-themes-bold-constructs nil
-	modus-themes-region '(bg-only no-extend))
+        modus-themes-bold-constructs nil
+        modus-themes-region '(bg-only no-extend))
   (load-theme 'modus-vivendi-tinted :no-confirm))
 #+end_src
 
@@ -517,7 +517,7 @@ With prefix ARG, undedicate it."
 #+begin_src emacs-lisp
 (use-package marginalia :demand
   :bind (:map minibuffer-local-map
-	 ("M-A" . marginalia-cycle))
+         ("M-A" . marginalia-cycle))
 
   :config
   (marginalia-mode))
@@ -533,7 +533,7 @@ With prefix ARG, undedicate it."
   (setq yas--default-user-snippets-dir nil)
   (add-to-list 'yas-snippet-dirs (f-join user-emacs-directory "snippets"))
   (setq yas-new-snippet-default
-	"# -*- mode: snippet -*-
+        "# -*- mode: snippet -*-
 # name: $1
 # key: ${2:${1:$(yas--key-from-desc yas-text)}}
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
@@ -551,12 +551,12 @@ $0`(yas-escape-text yas-selected-text)`")
   :disabled t
   :demand
   :bind (:map corfu-map
-	      ("M-SPC"      . corfu-insert-separator)
-	      ("TAB"        . corfu-next)
-	      ([tab]        . corfu-next)
-	      ("S-TAB"      . corfu-previous)
-	      ([backtab]    . corfu-previous)
-	      ("RET"        . corfu-insert))
+              ("M-SPC"      . corfu-insert-separator)
+              ("TAB"        . corfu-next)
+              ([tab]        . corfu-next)
+              ("S-TAB"      . corfu-previous)
+              ([backtab]    . corfu-previous)
+              ("RET"        . corfu-insert))
   :custom
   (corfu-cycle t)
   (corfu-auto nil)
@@ -580,7 +580,7 @@ $0`(yas-escape-text yas-selected-text)`")
   :disabled t
   :after corfu
   :bind (("C-<tab>" . completion-at-point)
-	 ("C-!" . corfu-candidate-overlay-complete-at-point))
+         ("C-!" . corfu-candidate-overlay-complete-at-point))
   :config
   ;; enable corfu-candidate-overlay mode globally
   ;; this relies on having corfu-auto set to nil
@@ -678,7 +678,7 @@ $0`(yas-escape-text yas-selected-text)`")
 #+begin_src emacs-lisp
 (use-package js
   :mode (("\\.js\\'" . js-ts-mode)
-	 ("\\.json\\'" . js-ts-mode)))
+         ("\\.json\\'" . js-ts-mode)))
 #+end_src
 
 * Python
@@ -686,9 +686,9 @@ $0`(yas-escape-text yas-selected-text)`")
 #+begin_src emacs-lisp
 (use-package python
   :hook (python-mode . (lambda ()
-			 (setq python-indent-offset 4)
-			 (setq indent-tabs-mode nil)
-			 (setq python-indent-guess-indent-offset nil))))
+                         (setq python-indent-offset 4)
+                         (setq indent-tabs-mode nil)
+                         (setq python-indent-guess-indent-offset nil))))
 #+end_src
 
 * web-mode
@@ -711,13 +711,13 @@ $0`(yas-escape-text yas-selected-text)`")
   :init
   (add-to-list 'major-mode-remap-alist '(sh-mode . bash-ts-mode))
   (let* ((bash-ls-cmd "bash-language-server")
-	 (exit-status (call-process bash-ls-cmd nil nil nil "--version")))
+         (exit-status (call-process bash-ls-cmd nil nil nil "--version")))
     (unless (= exit-status 0)
       (message "WARNING: %s not found; bash language server functionality might
 be limited." bash-ls-cmd)))
   :config
   (setq sh-basic-offset 2
-	sh-indentation 2)
+        sh-indentation 2)
   :hook
   (bash-ts-mode . eglot-ensure))
 #+end_src
@@ -736,7 +736,7 @@ be limited." bash-ls-cmd)))
 
 (use-package elixir-mode
   :mode (("\\.ex\\'" . elixir-mode)
-	 ("\\.exs\\'" . elixir-mode))
+         ("\\.exs\\'" . elixir-mode))
   :init
   (add-to-list 'major-mode-remap-alist '(elixir-mode . elixir-ts-mode)))
 
@@ -796,9 +796,9 @@ be limited." bash-ls-cmd)))
   (modus-themes-with-colors
      (custom-set-faces
       `(locs-and-refs-location-face
-	((t (:foreground ,magenta-faint :underline t))))
+        ((t (:foreground ,magenta-faint :underline t))))
       `(locs-and-refs-reference-face
-	((t (:foreground ,red-faint :underline t))))))
+        ((t (:foreground ,red-faint :underline t))))))
   (locs-and-refs-mode))
 #+end_src
 
@@ -826,8 +826,8 @@ be limited." bash-ls-cmd)))
     (goto-char (point-min))
     (while (re-search-forward "^.*:PROPERTIES:$" nil t)
       (let ((start (line-beginning-position)))
-	(when (re-search-forward "^.*:END:\n" nil t)
-	  (delete-region start (point)))))
+        (when (re-search-forward "^.*:END:\n" nil t)
+          (delete-region start (point)))))
     (when (buffer-modified-p)
       (save-buffer))))
 (add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
@@ -850,34 +850,34 @@ that the appropriate major-mode is set.  SPEC has the form:
       ((`(,start ,file ,link ,source ,info ,body ,comment) spec)
        (comments (cdr (assq :comments info)))
        (link? (or (string= comments "both") (string= comments "link")
-		  (string= comments "yes") (string= comments "noweb")))
+                  (string= comments "yes") (string= comments "noweb")))
        (link-data `(("start-line" . ,(number-to-string start))
-		    ("file" . ,file)
-		    ("link" . ,link)
-		    ("source-name" . ,source)))
+                    ("file" . ,file)
+                    ("link" . ,link)
+                    ("source-name" . ,source)))
        (insert-comment (lambda (text)
-			 (when (and comments
-				    (not (string= comments "no"))
-				    (org-string-nw-p text))
-			   (if org-babel-tangle-uncomment-comments
-			       ;; Plain comments: no processing.
-			       (insert text)
-			     ;; Ensure comments are made to be comments.  Also ignore
-			     ;; invisible characters when commenting.
-			     (comment-region
-			      (point)
-			      (progn (insert (org-no-properties text))
-				     (point))))))))
+                         (when (and comments
+                                    (not (string= comments "no"))
+                                    (org-string-nw-p text))
+                           (if org-babel-tangle-uncomment-comments
+                               ;; Plain comments: no processing.
+                               (insert text)
+                             ;; Ensure comments are made to be comments.  Also ignore
+                             ;; invisible characters when commenting.
+                             (comment-region
+                              (point)
+                              (progn (insert (org-no-properties text))
+                                     (point))))))))
     (when comment (funcall insert-comment comment))
     (when link?
       (funcall insert-comment
-	       (org-fill-template
-		org-babel-tangle-comment-format-beg link-data)))
+               (org-fill-template
+                org-babel-tangle-comment-format-beg link-data)))
     (insert body "\n")
     (when link?
       (funcall insert-comment
-	       (org-fill-template
-		org-babel-tangle-comment-format-end link-data)))))
+               (org-fill-template
+                org-babel-tangle-comment-format-end link-data)))))
 #+end_src
 
 ** Try to format all JS code blocks
@@ -888,8 +888,8 @@ that the appropriate major-mode is set.  SPEC has the form:
     - nil ⇒ ■
     - pair[start end] ⇒
       - format-code extract-code(start end) ≡
-	- error[msg] ⇒ message(msg)
-	- formatted-code ⇒ replace-code(start end formatted-code)
+        - error[msg] ⇒ message(msg)
+        - formatted-code ⇒ replace-code(start end formatted-code)
       - point :≡ end
       - λ()
 
@@ -903,24 +903,24 @@ Iteratively processes all blocks marked with the 'js' tag."
     (goto-char (point-min))
     (while (not (eobp))
       (pcase (user--next-code-block "js")
-	('nil
-	 (message "All JS code blocks have been formatted using %s" (user--format-code-cmd))
-	 (end-of-buffer))
-	(`(:error ,msg)
-	 (user-error msg))
-	(`(,start ,end)
-	 (pcase (user--format-code (user--extract-code start end)
-				   (get-buffer-create "*Formatting errors*"))
-	   (`(:error ,msg)
-	    (message "Code block starting at %s has not been formatted.\n%s" start msg)
+        ('nil
+         (message "All JS code blocks have been formatted using %s" (user--format-code-cmd))
+         (end-of-buffer))
+        (`(:error ,msg)
+         (user-error msg))
+        (`(,start ,end)
+         (pcase (user--format-code (user--extract-code start end)
+                                   (get-buffer-create "*Formatting errors*"))
+           (`(:error ,msg)
+            (message "Code block starting at %s has not been formatted.\n%s" start msg)
 
-	    (goto-char end))
-	   (formatted-code
-	    (user--replace-code start end formatted-code)
-	    (goto-char start)
-	    (pcase (user--next-code-block "js")
-	      (`(,start ,end)
-	       (goto-char end))))))))))
+            (goto-char end))
+           (formatted-code
+            (user--replace-code start end formatted-code)
+            (goto-char start)
+            (pcase (user--next-code-block "js")
+              (`(,start ,end)
+               (goto-char end))))))))))
 
 (defun user--next-code-block (tag)
   "Find the next code block tagged with TAG in the current buffer.
@@ -929,20 +929,20 @@ the region of the block, or an error if an unmatched block is found."
   (save-excursion
     (let ((case-fold-search t) begin-re end-re start)
       (setq begin-re
-	    (rx-to-string `(seq bol (0+ " ") "#+begin_src" (1+ " ") (literal ,tag) (not word))))
+            (rx-to-string `(seq bol (0+ " ") "#+begin_src" (1+ " ") (literal ,tag) (not word))))
       (pcase (search-forward-regexp begin-re nil t)
-	('nil nil)
-	(_
-	 (backward-char)
-	 (forward-line 1)
-	 (setq start (point))
-	 (setq end-re (rx-to-string '(seq bol (0+ " ") "#+end_src" (0+ " "))))
-	 (pcase (search-forward-regexp end-re nil t)
-	   ('nil
-	    (list :error (format "start of code block at %s has no matching end")))
-	   (_
-	    (beginning-of-line)
-	    (list start (point)))))))))
+        ('nil nil)
+        (_
+         (backward-char)
+         (forward-line 1)
+         (setq start (point))
+         (setq end-re (rx-to-string '(seq bol (0+ " ") "#+end_src" (0+ " "))))
+         (pcase (search-forward-regexp end-re nil t)
+           ('nil
+            (list :error (format "start of code block at %s has no matching end")))
+           (_
+            (beginning-of-line)
+            (list start (point)))))))))
 
 (defun user--extract-code (start end)
   "Extract the code between START and END in the current buffer.
@@ -965,33 +965,33 @@ and return an error indicator."
       ""
     (let (return-code)
       (with-temp-buffer
-	(insert code)
-	(setq return-code
-	      (shell-command-on-region
-	       (point-min)
-	       (point-max)
-	       (user--format-code-cmd)
-	       (current-buffer) t
-	       error-buffer))
-	(pcase return-code
-	  (0
-	   (buffer-substring-no-properties (point-min) (point-max)))
-	  (_
-	   (list :error (format "Formatting error. See buffer %s" (buffer-name error-buffer)))))))))
+        (insert code)
+        (setq return-code
+              (shell-command-on-region
+               (point-min)
+               (point-max)
+               (user--format-code-cmd)
+               (current-buffer) t
+               error-buffer))
+        (pcase return-code
+          (0
+           (buffer-substring-no-properties (point-min) (point-max)))
+          (_
+           (list :error (format "Formatting error. See buffer %s" (buffer-name error-buffer)))))))))
 
 (setq user--format-code-cmd-cache nil)
 (defun user--format-code-cmd ()
   (if (null user--format-code-cmd-cache)
       (setq user--format-code-cmd-cache
-	    (pcase (executable-find "biome")
-	      ((and (pred stringp) path)
-	       (format "%s format --indent-style space --indent-width 4 --stdin-file-path tmp.js" path))
-	      (_
-	       (pcase (executable-find "prettier")
-		 ((and (pred stringp) path)
-		  (format "%s --stdin-filepath tmp.js" path))
-		 (_
-		  (user-error "neither biome nor prettier in the PATH"))))))
+            (pcase (executable-find "biome")
+              ((and (pred stringp) path)
+               (format "%s format --indent-style space --indent-width 4 --stdin-file-path tmp.js" path))
+              (_
+               (pcase (executable-find "prettier")
+                 ((and (pred stringp) path)
+                  (format "%s --stdin-filepath tmp.js" path))
+                 (_
+                  (user-error "neither biome nor prettier in the PATH"))))))
     user--format-code-cmd-cache))
 #+end_src
 
@@ -1064,8 +1064,8 @@ and return an error indicator."
     (org-map-entries
      (lambda ()
        (let ((ID (org-entry-get (point) "ID")))
-	 (when (null ID)
-	   (org-entry-put (point) "ID" (org-id-new)))))))
+         (when (null ID)
+           (org-entry-put (point) "ID" (org-id-new)))))))
 
   (defun org-copy-outline-path-to-kill-ring ()
     "Copy the current outline path formatted for Org mode to the kill ring."
@@ -1098,35 +1098,35 @@ and return an error indicator."
 
   :config
   (setq org-agenda-skip-scheduled-if-done nil
-	org-agenda-span 'day
-	org-agenda-show-future-repeats 'next
-	org-columns-default-format-for-agenda "%SCHEDULED %CATEGORY %TODO %ITEM %Effort(Effort){:} %CLOCKSUM(Clocked)"
-	org-deadline-warning-days 1
-	org-agenda-sorting-strategy '(time-up todo-state-down priority-down)
-	org-agenda-prefix-format
-	'((agenda . " %-12t %-18:c %s")
-	  (todo . " %i %-12:c")
-	  (tags . " %i %-12:c")
-	  (search . " %i %-12:c"))
-	org-agenda-time-grid
-	'((daily today require-timed)
-	  (600 2400)
-	  " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
+        org-agenda-span 'day
+        org-agenda-show-future-repeats 'next
+        org-columns-default-format-for-agenda "%SCHEDULED %CATEGORY %TODO %ITEM %Effort(Effort){:} %CLOCKSUM(Clocked)"
+        org-deadline-warning-days 1
+        org-agenda-sorting-strategy '(time-up todo-state-down priority-down)
+        org-agenda-prefix-format
+        '((agenda . " %-12t %-18:c %s")
+          (todo . " %i %-12:c")
+          (tags . " %i %-12:c")
+          (search . " %i %-12:c"))
+        org-agenda-time-grid
+        '((daily today require-timed)
+          (600 2400)
+          " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
 
   (defun user--set-org-agenda-files (&rest _rest)
     "Dynamically set org-agenda-files based on TODO keywords in .org files."
     (let* ((keywords (with-temp-buffer
-		       (org-mode)
-		       (concat "(" (mapconcat #'identity org-todo-keywords-1 "|") ")")))
-	   (command (format "rg -u -m 1 -l -g '*.%s' '^\\*+ +%s' ~" "%s" keywords))
-	   (files (s-split "\n" (s-trim (shell-command-to-string (format command "org"))))))
+                       (org-mode)
+                       (concat "(" (mapconcat #'identity org-todo-keywords-1 "|") ")")))
+           (command (format "rg -u -m 1 -l -g '*.%s' '^\\*+ +%s' ~" "%s" keywords))
+           (files (s-split "\n" (s-trim (shell-command-to-string (format command "org"))))))
       (setq org-agenda-files (seq-filter #'user--set-org-agenda-files-filters files))
       (message (string-join org-agenda-files "\n"))))
 
   (defun user--set-org-agenda-files-filters (file)
     (not (or (string-match-p ".*worg.*" file)
-	     (string-match-p ".*/dl-python-extracteur/tests/.*" file)
-	     (string-match-p ".*/dl-python-docparser/tests/.*" file))))
+             (string-match-p ".*/dl-python-extracteur/tests/.*" file)
+             (string-match-p ".*/dl-python-docparser/tests/.*" file))))
 
   (advice-add #'org-agenda :before #'user--set-org-agenda-files))
 #+end_src
@@ -1193,7 +1193,7 @@ and return an error indicator."
 * total-recall
 
 #+begin_src emacs-lisp
-(add-to-list 'load-path (file-name-concat user--packages "total-recall/_build"))
+(add-to-list 'load-path (file-name-concat user--packages "total-recall/_dist"))
 (use-package total-recall
   :demand
   :custom
@@ -1202,8 +1202,8 @@ and return an error indicator."
 
 * reformatter
 
-1. python-mode ⇒ (format-python-buffer) exeuted just before killing the buffer 
-2. (format-python-buffer-before-buffer-kill) ⇒ 
+1. python-mode ⇒ (format-python-buffer) exeuted just before killing the buffer
+2. (format-python-buffer-before-buffer-kill) ⇒
 
 #+begin_src emacs-lisp
 (use-package reformatter
@@ -1216,7 +1216,7 @@ and return an error indicator."
 
   (defun reformatter-python-code-block ()
     (message "TODO"))
-  
+
   (add-hook 'python-mode-hook #'reformatter-python-code-block))
 #+end_src
 
@@ -1264,12 +1264,12 @@ and return an error indicator."
 #+begin_src emacs-lisp
 (defun extend-init-locally ()
   (let* ((env-var "EMACS_INIT_EXTENSION")
-	 (local-conf (getenv env-var)))
+         (local-conf (getenv env-var)))
     (if (and local-conf (file-exists-p local-conf))
-	(load-file local-conf)
+        (load-file local-conf)
       (message "INFO: no local extension to default init.el has been found.
 Set %s to a local elisp file to run it after init.el"
-	       env-var))))
+               env-var))))
 (extend-init-locally)
 #+end_src
 
