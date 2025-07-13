@@ -1526,9 +1526,112 @@ Returns a state hash table for the planner actor."
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
 
-After ~total-recall()~, the user has reviewed as many [[ref:b90e4015-0a31-477c-a3e4-a4b2c87a6fb9][Elements]] as are available under a
-directory of his choosing. The presented Elements have been selected for the session
-using an algorithm that minimizes reviews per Element while maximizing retention
+** informal
+
+The objective of ~total-recall~ is to schedule reviewing content so that you always
+study the most impactful content first /i.e./ the one that has that maximizes the
+impact on your overall predicted recall score.
+
+** formal
+
+Define φ : Set(Exercise) Time → List(Exercise) such that:
+1. ∀(ex ∈ φ(exs t)),review(ex t) = :success → predicted_score(exs t) = 1.
+2. ∀k, the exercises in φ[0:k] are chosen from exs to maximize the impact on predicted_score(exs t).
+
+*** Exercise
+
+An Exercise ex is an object from which a question, an answer and an id may be deduced
+from. In other words: ex#question(),ex#answer() : OrgContent and ex#id() : UUID.
+ex#string() represents the content of the exercise as an Org formatted string.
+
+**** OrgContent
+
+An OrgContent is a Org formatted string.
+
+**** UUID
+
+A UUIDv4 formatted string.
+
+
+*** Reference
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 885d0860-25fa-4697-b9f4-7f150a047872
+:END:
+
+Let ex1, ex2 : Exercise, a reference(ex1 ex2) is introduced by adding a ref Org link
+in ex1#string() to ex2#id(), or making ex2 a direct sub-heading of ex1#string().
+
+*** < : Exercise Exercise → Prop
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: a28fd20f-ce68-4fc3-bc94-16d8d9cfb517
+:END:
+
+# What it means
+Let g :≡ ReferenceGraph#mk(exs), and ex1,ex2 ∈ exs, <(g ex1 ex2) means that there is
+a path(ex2 ex1) in g.
+
+# How to proove it
+<(g ex1 ex2) :≡ 🞎
+
+**** ReferenceGraph
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: df9bdab5-6395-4b0b-89a4-bedd5c57c829
+:END:
+
+# What it is
+ReferenceGraph#mk : Set(Exercise) → ReferenceGraph :≡ λexs.
+1. refs : Set(Reference) the set of references deduced from exs with starts and ends
+   in exs.
+2. g :≡ digraph(exs refs)
+3. g is a DAG
+4. g
+
+*** < : ReachableComponent ReachableComponent → Prop
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 10429f86-c3a5-49a0-9d6e-3ad9d5a29da8
+:END:
+
+# What it means
+Let c1 and c2 be ReachableComponents of a digraph(v e) ≡: g, then <(g c1 c2) means that
+there is a path(n2 n1) such that n2,n1 ∈ v.
+
+# How to prove it
+# …
+
+*** review
+
+review : Exercise Time → Result models a user trying to solve
+an exercise. review(ex t) = :success means that the user judged that his answer was
+satisfying /i.e./ close enough from ex#answer() according to him.
+
+*** Result :≡ :success | :failure | :skip
+*** predicted_score
+
+predicted_score : Set(Exercise) Time → interval(0 1) is an estimation of score.
+predicted_score :≡ λexs,t.Σ(ex ∈ exs),predicted_score(ex t) / card(exs)
+
+**** score
+
+score : Set(Exercise) Time → interval(0 1) :≡ λexs,t.
+1. number_of_success :≡ card({ x | ∀(ex ∈ exs),x : review(ex t) = :success })
+2. number_of_success / card(exs)
+
+** candidate
+
+
+3. Let ~tr : TotalRecall :≡ TotalRecall#mk root db-path~ be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]].
+4. Assume that over the next few days you use ~M-x total-recall~ build your reviewing
+   sessions,
+5. then ~total-recall~ will minimize the number of reviews while maximizing your
+   retention score over the set of elements found in the file system.
+
+After ~total-recall()~, the user has reviewed as many [[ref:b90e4015-0a31-477c-a3e4-a4b2c87a6fb9][Exercise]] as are available under a
+directory of his choosing. The presented Exercise have been selected for the session
+using an algorithm that minimizes reviews per Exercise while maximizing retention
 rate.
 
 ~total-recall()~ starts a [[ref:1783fedc-7c77-4e5e-a73d-f4c93c4d5eb8][TotalRecall]] that builds an execution
@@ -1550,7 +1653,13 @@ Initiates a TotalRecall actor, processes data, and displays the report."
     (total-recall--minibuffer io (format "Total-recall execution finished. Report written to %s" (total-recall--buffer-name io)))))
 #+end_src
 
-** Element
+**** predicted_score
+
+predicted_score : Exercise Time → interval(0 1)
+predicted_score(ex t) is an estimation of the probability that review(ex t) = :success
+
+
+*** Element
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: b90e4015-0a31-477c-a3e4-a4b2c87a6fb9
@@ -1558,7 +1667,7 @@ Initiates a TotalRecall actor, processes data, and displays the report."
 
 An Element is either an [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercise]], [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinition]] or a [[ref:65946d4e-80da-4e2a-9db5-5b86db1f5989][Reference]].
 
-*** Reference
+**** Reference
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 65946d4e-80da-4e2a-9db5-5b86db1f5989
@@ -1575,7 +1684,7 @@ string that starts with ~"ref:"~ followed by a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a
   nil)
 #+end_src
 
-**** AST
+***** AST
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 6eae3f77-b4fd-4956-bb2b-de2b459b4fb3
@@ -1584,7 +1693,7 @@ string that starts with ~"ref:"~ followed by a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a
 An AST is a synonym for an "element or object" as described in the documentation of
 [[help:org-element-parse-buffer][org-element-parse-buffer]]. It is a list ~[…]~.
 
-**** UUID
+***** UUID
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 9ed6dfab-89aa-4bfb-8bff-d7a357546f2f
@@ -1602,7 +1711,7 @@ true~ iff ~s~ is a UUID.
         str)))
 #+end_src
 
-*** OrgExercise
+**** OrgExercise
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       a474c4de-9bd2-4c2b-8189-c91eb0ab9014
@@ -1618,7 +1727,7 @@ headings. Given a HeadingAST h, ~exercise-p(h) = true~ iff ~h~ is an OrgExercise
   nil)
 #+end_src
 
-**** HeadingAST
+***** HeadingAST
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: c5fbf85e-e846-4a44-b590-23aaebe2c40e
@@ -1633,7 +1742,7 @@ heading. Given an AST ~ast~, ~heading-p(ast) = true~ iff ~ast~ is a HeadingAST.
   (eq (car ast) 'headline))
 #+end_src
 
-*** OrgDefinition
+**** OrgDefinition
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       83056aa9-1b7a-4678-a29e-7389db7f885f
@@ -1651,7 +1760,7 @@ HeadingAST h, ~definition-p(h) = true~ iff h is an OrgDefinition.
   nil)
 #+end_src
 
-** IO
+*** IO
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 2076d556-ee35-4db7-bd58-887bc5a1c254
@@ -1702,7 +1811,7 @@ Returns a state hash table for the IO actor."
 (total-recall--Actor #'total-recall--IO-init total-recall--IO)
 #+end_src
 
-*** Actor
+**** Actor
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       d1295024-a8aa-4dd7-a2a1-1ef4d64781db
@@ -1757,7 +1866,7 @@ Actor#mk : (Any → State) → Any → Message → Any :≡
        actor)))
 #+end_src
 
-**** Message
+***** Message
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 17cf4de2-18d2-4e90-876e-a537a6ce0616
@@ -1765,7 +1874,7 @@ Actor#mk : (Any → State) → Any → Message → Any :≡
 
 A Message is either a [[ref:32932469-5c3a-4dfd-a116-04ea003acdcf][Keyword]] or a list that starts with a Keyword.
 
-***** Keyword
+****** Keyword
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 32932469-5c3a-4dfd-a116-04ea003acdcf
@@ -1773,7 +1882,7 @@ A Message is either a [[ref:32932469-5c3a-4dfd-a116-04ea003acdcf][Keyword]] or a
 
 [[info:elisp#Constant Variables][elisp#Constant Variables]]
 
-**** State
+***** State
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 81e52518-3370-4a36-a17b-853ce95af579
@@ -1793,7 +1902,7 @@ A State is a [[ref:20fa16f1-2e93-47bd-994e-c371b7ed90b4][Hashtable]] with at lea
 For some predicate pred, check(msg) ≡ msg if pred(msg) = true or raise an exception.
 check is used to filter messages it accepts to process.
 
-***** Hashtable
+****** Hashtable
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 20fa16f1-2e93-47bd-994e-c371b7ed90b4
@@ -1801,16 +1910,13 @@ check is used to filter messages it accepts to process.
 
 [[help:make-hash-table]]
 
-** DOING TotalRecall
+*** DOING TotalRecall
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 1783fedc-7c77-4e5e-a73d-f4c93c4d5eb8
 :END:
 
-Let ~tr : TotalRecall :≡ TotalRecall#mk root db-path~ be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] and assume that over
-the next 30 days, you conduct one review session per day. If you let ~tr~ build your
-sessions — i.e. ~tr#start()~ — it will minimize the total review time while maximizing
-the mean probability of success over each review [[ref:b90e4015-0a31-477c-a3e4-a4b2c87a6fb9][element]].
+
 
 ~tr#init()~ is a state that contains a [[ref:7c752724-7e3d-4529-bf1b-06482ca53b3e][ui]], a [[ref:aee4f045-f225-4e4c-a145-0cb2baad2186][db]], a [[ref:05a4ce8c-583a-43d2-9dde-af32164d1a97][report]], and ~els~, the list of
 elements to be presented to the user. To build ~els~, a [[ref:f1bbb813-e964-4687-994c-bda31c6ba27b][searcher]] is used to find all
@@ -1957,7 +2063,7 @@ that minimizes "context switches" from one element to another, thus minimizing t
 (total-recall--Actor #'total-recall--TotalRecall-init total-recall--TotalRecall)
 #+end_src
 
-*** TODO Selector
+**** TODO Selector
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       b6e43048-cf5d-4540-aab4-6b282e78fbb2
@@ -2023,7 +2129,7 @@ Returns a state hash table for the selector actor."
     (should (= (total-recall--read (total-recall--tick2 selector)) 3))))
 #+end_src
 
-*** total-recall-root-dir
+**** total-recall-root-dir
 :PROPERTIES:
 :ID:       5709bbc0-e7e6-4eba-90c9-1840b010f3b2
 :END:
@@ -2037,12 +2143,12 @@ are searched."
   :group 'total-recall)
 #+end_src
 
-*** TODO Order
+**** TODO Order
 :PROPERTIES:
 :ID:       696661be-ee3a-4f4d-9bf8-9b79e9edd9a7
 :END:
 
-*** UI
+**** UI
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       7c752724-7e3d-4529-bf1b-06482ca53b3e
@@ -2219,7 +2325,7 @@ Returns a state hash table for the UI actor."
 (total-recall--Actor #'total-recall--UI-init total-recall--UI)
 #+end_src
 
-*** Report
+**** Report
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       05a4ce8c-583a-43d2-9dde-af32164d1a97
@@ -2279,7 +2385,7 @@ Returns a state hash table for the report actor."
     (should (string= (total-recall--string report) "line1\nline2"))))
 #+end_src
 
-*** Rating
+**** Rating
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       4187a5b0-15c1-49fc-9962-7dd5802e4f25
@@ -2347,7 +2453,7 @@ Returns a state hash table for the rating actor."
   (should (eq t t)))
 #+end_src
 
-*** total-recall-database
+**** total-recall-database
 :PROPERTIES:
 :ID:       7a2f9b87-a2f8-4fd1-991c-deab4100614c
 :END:
@@ -2360,7 +2466,7 @@ This is a string representing the file path for storing review data."
   :group 'total-recall)
 #+end_src
 
-*** DB
+**** DB
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       aee4f045-f225-4e4c-a145-0cb2baad2186
@@ -2487,7 +2593,7 @@ Returns a state hash table for the database actor."
     (should (total-recall--Rating-eq rating (car (total-recall--ratings db id))))))
 #+end_src
 
-*** Searcher
+**** Searcher
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       f1bbb813-e964-4687-994c-bda31c6ba27b
@@ -2565,7 +2671,7 @@ Returns a state hash table for the searcher actor."
 (total-recall--Actor #'total-recall--Searcher-init total-recall--Searcher)
 #+end_src
 
-**** OrgKnowledgeFile
+***** OrgKnowledgeFile
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: b0c11bed-8c87-4c9b-b699-5d1c2230d0ad
@@ -2595,27 +2701,48 @@ OrgKnowledgeFile.
   )
 #+end_src
 
-*** Node
+**** Node
 :PROPERTIES:
 :ID:       7b449631-bbec-4cf2-ae86-247871af14fe
 :END:
 
 Node :≡ [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
 
-*** Edge
+**** Edge
 :PROPERTIES:
 :ID:       061bc1d1-d892-4bac-bc04-e21f3593646f
 :END:
 
 Edge :≡ [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Node]] × Node
 
-*** DAG
+**** DAG
 :PROPERTIES:
 :ID:       6b1ab7c6-087a-4f2a-a317-cede19042a73
 :END:
 
 A DAG(nodes edges) is a directed acyclic graph. nodes is a set of [[ref:7b449631-bbec-4cf2-ae86-247871af14fe][Node]] and edges is a
 set of [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Edge]].
+
+** discussion
+
+Executing total-recall yields the following computation:
+1. exs : Set(Exercise) of the user.
+2. t : Time the calling time of total-recall
+3. db : List(Record) where a Record#mk : Exercise Time Result → Record
+4. recall_probability : Exercise Time → interval(0 1) the probability of recall of ex
+   at time t infered from db by fitting a forgetting curve.
+5. schedule : List(Exercise) built from exs and db to match φ(exs t).
+
+
+1. schedule contains all exercises, so 1. is satisfied.
+2. graph :≡ ReferenceGraph#mk(exs)
+3. roots : Set(exs) :≡ the set of all roots in graph.
+4. components :≡ sort (map λr.ReachableComponent#mk(graph r) roots) <
+5. schedule :≡ fold [] (map components (λc.sort c <)) concat
+6. threshold : interval(0 1)
+7. high_low :≡ λex.(recall_probability(ex t) ≤ threshold) ? left(ex) right(ex)
+8. high_priority low_priority :≡ triage schedule high_low
+9. schedule :≡ high_priority + low_priority
 
 * footer
 
