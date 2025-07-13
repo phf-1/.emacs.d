@@ -1,0 +1,69 @@
+# key: genserver
+# name: elixir-genserver
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+defmodule Program.GenServerExample do
+  use GenServer
+
+  # Type
+
+  @type state :: %{count: integer(), name: String.t()}
+
+  # Module API
+
+  def start_link(opts \\ []) do
+    GenServer.start_link(__MODULE__, :ok, opts)
+  end
+
+  # Client API
+
+  def stop(pid) do
+    GenServer.stop(pid)
+  end
+
+  def sync_action(pid, data) do
+    GenServer.call(pid, {:sync_action, data})
+  end
+
+  def async_action(pid, data) do
+    GenServer.cast(pid, {:async_action, data})
+  end
+
+  # Server Callbacks
+
+  @impl true
+  @spec init(:ok) :: {:ok, state()}
+  def init(:ok) do
+    initial_state = %{}
+    {:ok, initial_state}
+  end
+
+  @impl true
+  def handle_call({:sync_action, data}, _from, state) do
+    new_state = state
+    {:reply, {:ok, data}, new_state}
+  end
+
+  @impl true
+  def handle_cast({:async_action, data}, state) do
+    new_state = state
+    {:noreply, new_state}
+  end
+
+  @impl true
+  def handle_info(msg, state) do
+    IO.puts("Received other message: #{inspect(msg)}")
+    {:noreply, state}
+  end
+
+  @impl true
+  def terminate(reason, state) do
+    IO.puts("Terminating with reason: #{inspect(reason)}")
+    :ok
+  end
+
+  @impl true
+  def code_change(_old_vsn, state, _extra) do
+    {:ok, state}
+  end
+end

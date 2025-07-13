@@ -1,0 +1,22 @@
+# -*- mode: snippet -*-
+# name: elixir-defstruct
+# key: defstruct
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+defmodule AStruct do
+  defstruct name: nil, age: nil
+
+  @type t :: %__MODULE__{
+          name: String.t(),
+          age: integer() | nil
+        }
+
+  @spec mk(String.t(), integer() | nil) :: {:ok, %__MODULE__{}} | {:error, term()}
+  def mk(name, age) when is_binary(name) and is_integer(age) do
+    if name == "" do
+      {:error, "name is the empty string."}
+    else
+      {:ok, %__MODULE__{name: name, age: age}}
+    end
+  end
+end

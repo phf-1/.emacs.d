@@ -1,0 +1,18 @@
+# -*- mode: snippet -*-
+# name: elixir-function
+# key: func
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+@spec mk(Ecto.UUID.t()) :: {:ok, t()} | {:error, term()}
+def mk(id) do
+  case Ecto.UUID.cast(id) do
+    {:ok, uuid} -> %__MODULE__{id: uuid}
+    :error -> {:error, "id is not a uuid. id = #{id}"}
+  end
+end
+
+@spec mk!(Ecto.UUID.t()) :: t()
+def mk!(id) do
+  {:ok, rf} = mk(id)
+  rf
+end

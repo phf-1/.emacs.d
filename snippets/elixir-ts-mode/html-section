@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: html-section
+# key: hsec
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<section>$0</section>
