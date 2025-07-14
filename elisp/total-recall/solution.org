@@ -433,72 +433,6 @@ The function sends a message to an actor with optional arguments."
 (total-recall--message value)
 #+end_src
 
-* Clock
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       3ca40a21-019b-4bba-b18b-bcec7282b445
-:END:
-
-Given a natural number named ~time~, ~clock : Clock :≡ Clock#mk time~ is a clock. It
-means that ~clock#read()~ is its current time and ~t :≡ clock#read();
-clock#tick()#read() = t + 1~. ~clock#now()~ is a lisp timestamp representing the UTC
-time at the call.
-
-
-#+begin_src emacs-lisp
-;; Clock
-
-(defun total-recall--Clock-membrane (msg)
-  "Process incoming MSG for the clock actor.
-MSG is a symbol or list representing a clock command.
-Returns a list of instructions to be executed."
-  (memq msg '(:read :tick :tick2 :now)))
-
-
-(defun total-recall--Clock-tx (state msg)
-  "Handle transaction INST for the clock actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a symbol representing a clock instruction.
-Updates MEMORY based on INST."
-  (let ((self (gethash :self state))
-        (time (gethash :time state)))
-    (pcase msg
-      (:read `(,state ,time))
-      (:now `(,state ,(time-convert (current-time) 'list)))
-      (:tick
-       (puthash :time (+ time 1) state)
-       `(,state ,self))
-      (:tick2
-       (total-recall--Clock-tx state :tick)
-       (total-recall--Clock-tx state :tick)
-       `(,state ,self)))))
-
-
-(defun total-recall--Clock-init (time)
-  "Initialize a clock actor with TIME.
-TIME is a natural number representing the initial clock time.
-Returns a state hash table for the clock actor."
-  (let ((state (total-recall--Actor-state
-                #'total-recall--Clock-membrane
-                #'total-recall--Clock-tx)))
-    (puthash :time time state)
-    state))
-
-(total-recall--Actor #'total-recall--Clock-init total-recall--Clock)
-#+end_src
-
-
-#+begin_src emacs-lisp :tangle "total-recall-test.el"
-(require 'total-recall)
-(require 'ert)
-
-(ert-deftest total-recall--Clock ()
-  (let ((clock (total-recall--Clock 0)))
-    (should (= (total-recall--read clock) 0))
-    (should (= (total-recall--read (total-recall--tick clock)) 1))
-    (should (= (total-recall--read (total-recall--tick2 clock)) 3))))
-#+end_src
-
 * Logger
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
@@ -1270,77 +1204,6 @@ class Logger:
         self._logger.debug(msg)
 #+end_src
 
-*** DB
-**** specification
-
-- db : DB :≡ DB()
-- db#add : List(String) List(String × String) → DB
-- db#sort() : List(String)
-- db#loops() : List(List(String))
-
-**** implementation
-:PROPERTIES:
-:header-args:python+: :tangle "network_server.py"
-:END:
-
-***** TODO loops is implemented
-
-***** ■
-
-#+begin_src python
-class DB:
-    def __init__(self,_data={}) -> None:
-        self._db = db = kuzu.Database(":memory:")
-        self._con = con = kuzu.Connection(db)
-        con.execute("CREATE NODE TABLE Node(id STRING, PRIMARY KEY(id))")
-        con.execute("CREATE REL TABLE References(FROM Node TO Node)")
-
-    def add(self, nodes: list[str] = [], refs: list[list] = []) -> Self:
-        con = self._con
-        if nodes:
-            nodes_list = ", ".join(f"'{node}'" for node in nodes)
-            con.execute(f"UNWIND [{nodes_list}] AS node CREATE (n:Node {{id: node}})")
-        if refs:
-            refs_list = ", ".join(f"['{ref[0]}', '{ref[1]}']" for ref in refs)
-            con.execute(f"UNWIND [{refs_list}] AS rel MATCH (a:Node {{id: rel[1]}}), (b:Node {{id: rel[2]}}) CREATE (a)-[:References]->(b)")
-        return self
-
-    def sort(self) -> list[str]:
-        con = self._con
-        res = self._con.execute("""
-        MATCH (n:Node)
-        OPTIONAL MATCH (n) -[r:References]-> (m:Node)
-        RETURN n, r;
-        """)
-        graph = res.get_as_networkx(directed=True)
-        relabel_mapping = {node: node.replace('Node_', '') for node in graph.nodes()}
-        nx.relabel_nodes(graph, relabel_mapping, copy=False)
-        components = sorted(nx.weakly_connected_components(graph), key=len, reverse=False)
-        subgraphs = map(lambda component: graph.subgraph(component), components)
-        ids = flatten(map(lambda graph: list(reversed(list(nx.topological_sort(graph)))), subgraphs))
-        return ids
-
-    def loops(self) -> list[list[str]]:
-        raise NotImplementedError()
-        return []
-#+end_src
-
-**** test
-:PROPERTIES:
-:header-args:python+: :tangle "network_server_test.py"
-:END:
-
-#+begin_src python
-import pytest
-from .network_server import DB
-
-class TestDB:
-    def test_db(self):
-        db = DB()
-        db.add(nodes=["a","b","c", "d"],refs=[["a","b"], ["a","c"], ["b","c"]])
-        assert db.sort() == ["d", "c", "b", "a"]
-#+end_src
-
 *** Interpreter
 :PROPERTIES:
 :header-args:python+: :tangle "network_server.py"
@@ -1526,32 +1389,52 @@ Returns a state hash table for the planner actor."
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
 
-** informal
+** Proposition
 
-The objective of ~total-recall~ is to schedule reviewing content so that you always
-study the most impactful content first /i.e./ the one that has that maximizes the
-impact on your overall predicted recall score.
-
-** formal
-
-Define φ : Set(Exercise) Time → List(Exercise) such that:
-1. ∀(ex ∈ φ(exs t)),review(ex t) = :success → predicted_score(exs t) = 1.
-2. ∀k, the exercises in φ[0:k] are chosen from exs to maximize the impact on predicted_score(exs t).
+The objective of total-recall is to provide an interactive interface to the user such
+that after ~M-x total-recall~, the user has completed a review session, meaning:
+1. All exercises in the FS have been scheduled and reviewed.
+2. Review data has been recorded.
+3. The user has been informed of his performance.
 
 *** Exercise
+**** Proposition
 
-An Exercise ex is an object from which a question, an answer and an id may be deduced
-from. In other words: ex#question(),ex#answer() : OrgContent and ex#id() : UUID.
-ex#string() represents the content of the exercise as an Org formatted string.
+exercise-protocol-p(x) = true means that x is an actor such that ex#question() :
+OrgContent, ex#answer() : OrgContent, ex#id() : UUID, ex#path() : List(String) and
+ex#string() represents the content of the exercise as an OrgContent.
 
-**** OrgContent
+***** OrgContent
 
 An OrgContent is a Org formatted string.
 
-**** UUID
+***** UUID
 
 A UUIDv4 formatted string.
 
+**** Construction
+
+#+begin_src emacs-lisp
+(defun total-recall--exercise-protocol-p (x)
+  (let ((q (total-recall--question x))
+        (a (total-recall--answer x))
+        (s (total-recall--string x))
+        (id (total-recall--id x))
+        (p (total-recall--path x))))
+  (and (listp p)
+       (total-recall--string-uuid-p id)
+       (stringp q)
+       (stringp a)
+       (stringp s)
+       (and
+        (string-match-p (regexp-quote id) s)
+        (string-match-p (regexp-quote q) s)
+        (string-match-p (regexp-quote a) s)
+        (string-match-p (regexp-quote (string-join p " / ")) s))))
+#+end_src
+
+**** Test
+**** Discussion
 
 *** Reference
 :PROPERTIES:
@@ -1609,10 +1492,10 @@ an exercise. review(ex t) = :success means that the user judged that his answer 
 satisfying /i.e./ close enough from ex#answer() according to him.
 
 *** Result :≡ :success | :failure | :skip
-*** predicted_score
+*** predicted_recall_score
 
-predicted_score : Set(Exercise) Time → interval(0 1) is an estimation of score.
-predicted_score :≡ λexs,t.Σ(ex ∈ exs),predicted_score(ex t) / card(exs)
+predicted_recall_score : Set(Exercise) Time → interval(0 1) is an estimation of score.
+predicted_recall_score :≡ λexs,t.Σ(ex ∈ exs),predicted_recall_score(ex t) / card(exs)
 
 **** score
 
@@ -1620,22 +1503,26 @@ score : Set(Exercise) Time → interval(0 1) :≡ λexs,t.
 1. number_of_success :≡ card({ x | ∀(ex ∈ exs),x : review(ex t) = :success })
 2. number_of_success / card(exs)
 
-** candidate
+** Construction
 
-
-3. Let ~tr : TotalRecall :≡ TotalRecall#mk root db-path~ be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]].
-4. Assume that over the next few days you use ~M-x total-recall~ build your reviewing
-   sessions,
-5. then ~total-recall~ will minimize the number of reviews while maximizing your
-   retention score over the set of elements found in the file system.
-
-After ~total-recall()~, the user has reviewed as many [[ref:b90e4015-0a31-477c-a3e4-a4b2c87a6fb9][Exercise]] as are available under a
-directory of his choosing. The presented Exercise have been selected for the session
-using an algorithm that minimizes reviews per Exercise while maximizing retention
-rate.
-
-~total-recall()~ starts a [[ref:1783fedc-7c77-4e5e-a73d-f4c93c4d5eb8][TotalRecall]] that builds an execution
-[[ref:05a4ce8c-583a-43d2-9dde-af32164d1a97][report]]. An [[ref:2076d556-ee35-4db7-bd58-887bc5a1c254][IO]] subsystem is used to write the report to the user.
+total-recall() :≡
+- root               : DirectoryPath                :≡ user defined
+- searcher           : Searcher                      :≡ Searcher#mk()
+- exs                : Set(Exercise)                 :≡ searcher#exercises(root)
+- clock              : Clock                         :≡ Clock#mk()
+- time               : Time                          :≡ clock#now()
+- db-path            : FilePath                      :≡ user defined
+- db                 : Database                      :≡ Database#mk(db-path)
+- curve-fitter       : CurveFitter                   :≡ CurveFitter#mk()
+- recall-probability : Exercise Time → interval(0 1) :≡ curve-fitter#fit(db)
+- scheduler          : Scheduler                     :≡ Scheduler#mk(recall-probability)
+- schedule           : List(Exercise)                :≡ scheduler#schedule(exs time)
+- ui                 : UI                            :≡ UI#mk(db)
+- report             : Report                        :≡ ui#start()
+- io                 : IO                            :≡ IO#mk()
+- io#buffer report#string()
+- io#minibuffer("Report written to …")
+- db#stop()
 
 
 #+begin_src emacs-lisp
@@ -1653,10 +1540,10 @@ Initiates a TotalRecall actor, processes data, and displays the report."
     (total-recall--minibuffer io (format "Total-recall execution finished. Report written to %s" (total-recall--buffer-name io)))))
 #+end_src
 
-**** predicted_score
+**** predicted_recall_score
 
-predicted_score : Exercise Time → interval(0 1)
-predicted_score(ex t) is an estimation of the probability that review(ex t) = :success
+predicted_recall_score : Exercise Time → interval(0 1)
+predicted_recall_score(ex t) is an estimation of the probability that review(ex t) = :success
 
 
 *** Element
@@ -1759,156 +1646,6 @@ HeadingAST h, ~definition-p(h) = true~ iff h is an OrgDefinition.
   ;; TODO
   nil)
 #+end_src
-
-*** IO
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 2076d556-ee35-4db7-bd58-887bc5a1c254
-:END:
-
-~io :≡ IO#mk name~ is an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that represents input/outputs of the current program.
-~io#buffer(s)~ writes the string ~s~ to an output buffer named ~name~. ~io#minibuffer(s)~
-writes the string ~s~ to Emacs minibuffer.
-
-
-#+begin_src emacs-lisp
-;; IO
-
-(defun total-recall--IO-membrane (msg)
-  (pcase msg
-    ((or :buffer-name `(:minibuffer ,_string) `(:buffer ,_string)) t)
-    (_ nil)))
-
-(defun total-recall--IO-tx (state msg)
-  (let ((self (gethash :self state))
-        (buffer (gethash :buffer state))
-        (name (gethash :name state)))
-
-    (pcase msg
-      (`(:minibuffer ,string)
-       (message "%s" (string-trim string))
-       `(,state ,self))
-
-      (`(:buffer ,string)
-       (with-current-buffer buffer
-         (erase-buffer)
-         (insert (string-join (list string "\n"))))
-       `(,state ,self))
-
-      (:buffer-name  `(,state ,name)))))
-
-(defun total-recall--IO-init (name)
-  "Initialize an IO actor with NAME.
-NAME is a string for the output buffer name.
-Returns a state hash table for the IO actor."
-  (let ((state (total-recall--Actor-state
-                #'total-recall--IO-membrane
-                #'total-recall--IO-tx)))
-    (puthash :buffer (get-buffer-create name) state)
-    (puthash :name (buffer-name (gethash :buffer state)) state)
-    state))
-
-(total-recall--Actor #'total-recall--IO-init total-recall--IO)
-#+end_src
-
-**** Actor
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       d1295024-a8aa-4dd7-a2a1-1ef4d64781db
-:END:
-
-An Actor is represented by a procedure that returns values given a [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][message]]. Given
-init : Any → [[ref:81e52518-3370-4a36-a17b-853ce95af579][State]], ~actor :≡ Actor#mk init~. Given a message msg, actor(msg) is the
-reply computed by actor in response to msg. The behavior of the actor can be
-described by:
-
-
-Actor#mk : (Any → State) → Any → Message → Any :≡
-- λinit,any.
-  1. state :≡ init any
-  2. λmsg:Message.
-     1. tx :≡ state[:tx]
-     2. check :≡ state[:check]
-     3. <state' any'> :≡ tx state check(msg)
-     4. state :≡ state'
-     5. any'
-
-
-#+begin_src emacs-lisp
-;; Actor
-
-(defun total-recall--Actor-state (membrane tx)
-  (let ((state (make-hash-table :test 'eq)))
-    (puthash :check
-             (lambda (msg)
-               (if (funcall membrane msg) msg
-                 (error "Unexpected msg. msg = %s" msg)))
-             state)
-    (puthash :tx tx state)
-    state))
-
-(defmacro total-recall--Actor (init name)
-  `(defun ,name (any)
-     (let* ((state (funcall ,init any))
-            (actor (lambda (msg)
-                     (let ((check (gethash :check state))
-                           (tx (gethash :tx state)))
-
-                       (pcase (funcall tx state (funcall check msg))
-                         (`(,state-next ,reply)
-                          (setf state state-next)
-                          reply)
-
-                         (value
-                          (error "Unexpected value. value = %s" value)))))))
-       (puthash :type ,name state)
-       (puthash :self actor state)
-       actor)))
-#+end_src
-
-***** Message
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 17cf4de2-18d2-4e90-876e-a537a6ce0616
-:END:
-
-A Message is either a [[ref:32932469-5c3a-4dfd-a116-04ea003acdcf][Keyword]] or a list that starts with a Keyword.
-
-****** Keyword
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 32932469-5c3a-4dfd-a116-04ea003acdcf
-:END:
-
-[[info:elisp#Constant Variables][elisp#Constant Variables]]
-
-***** State
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 81e52518-3370-4a36-a17b-853ce95af579
-:END:
-
-A State is a [[ref:20fa16f1-2e93-47bd-994e-c371b7ed90b4][Hashtable]] with at least the given keys and values:
-
-|--------+----------------------------|
-| Key    | Type                       |
-|--------+----------------------------|
-| :check | check : Message → Message  |
-| :tx    | tx : State Any → State Any |
-| :self  | actor : Actor              |
-|--------+----------------------------|
-
-
-For some predicate pred, check(msg) ≡ msg if pred(msg) = true or raise an exception.
-check is used to filter messages it accepts to process.
-
-****** Hashtable
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 20fa16f1-2e93-47bd-994e-c371b7ed90b4
-:END:
-
-[[help:make-hash-table]]
 
 *** DOING TotalRecall
 :PROPERTIES:
@@ -2129,7 +1866,170 @@ Returns a state hash table for the selector actor."
     (should (= (total-recall--read (total-recall--tick2 selector)) 3))))
 #+end_src
 
-**** total-recall-root-dir
+
+**** TODO Order
+:PROPERTIES:
+:ID:       696661be-ee3a-4f4d-9bf8-9b79e9edd9a7
+:END:
+
+**** DB
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       aee4f045-f225-4e4c-a145-0cb2baad2186
+:END:
+
+~db :≡ DB#mk db-path~ is a database that writes its data to the file denoted by the
+string ~db-path~. ~db#save rating~ saves the rating ~rating~. ~db#ratings id~ is the list of
+ratings associated with the given ~id~. ~db#stop()~ releases the resources associated
+with ~db~.
+
+
+#+begin_src emacs-lisp
+;; DB
+
+(defun total-recall--DB-membrane (msg)
+  "Process incoming MSG for the database actor.
+MSG is a list like `(save RATING)`, `(ratings ID)`, or `stop`.
+Returns a list containing the corresponding instruction."
+  (pcase msg
+    ((or :stop `(:save ,_rating) `(:ratings ,_id)) t)
+    (_ nil)))
+
+(defun total-recall--DB-tx (state msg)
+  "Handle transaction INST for the database actor using MEMORY.
+MEMORY is the actor’s state hash table.
+INST is a list or symbol like `(save RATING)`, `(ratings ID)`, or `stop`.
+Updates MEMORY based on INST."
+  (let ((self (gethash :self state))
+        (sqlite (gethash :sqlite state)))
+    (pcase msg
+      (`(:save ,rating)
+       (pcase (total-recall--struct rating)
+         (`(,date ,id ,value)
+          (let ((row nil))
+            (setq row
+                  (list
+                   (if (memq value '(success failure skip))
+                       (symbol-name value)
+                     (error "Unexpected value: value = %s" value))
+
+                   (if (total-recall--string-uuid-p id)
+                       id
+                     (error "ID is not a UUID string: id = %s" id))
+
+                   (format-time-string "%FT%TZ" (time-convert date 'list) t)))
+
+            (sqlite-execute
+             sqlite
+             "INSERT INTO exercise_log (type, id, time) VALUES (?, ?, ?)"
+             row)))
+
+         (struct (error "Unexpected struct: struct = %s" struct)))
+       `(,state ,self))
+
+      (`(:ratings ,id)
+       (unless (total-recall--string-uuid-p id)
+         (error "ID is not a UUID string: id = %s" id))
+
+       (let (rows ratings)
+         (setq rows
+               (sqlite-select
+                sqlite
+                "SELECT type, id, time FROM exercise_log WHERE id = ? ORDER BY time ASC"
+                (list id)))
+
+         (setq ratings
+               (mapcar
+                (lambda (row)
+                  (pcase row
+                    (`(,type ,id ,time)
+                     (total-recall--Rating
+                      `(,(parse-iso8601-time-string time)
+                        ,(if (total-recall--string-uuid-p id) id
+                           (error "ID is not a UUID string: id = %s" id))
+                        ,(if (member type '("success" "failure" "skip")) (intern type)
+                           (error "Unexpected type: id = %s, type = %s" type id)))))
+                    (_ (error "Unexpected row: row = %s" row))))
+                rows))
+
+         `(,state ,ratings)))
+
+      (:stop
+       (sqlite-close sqlite)
+       `(,state ,self)))))
+
+(defun total-recall--DB-init (db-path)
+  "Initialize a database actor with DB-PATH.
+DB-PATH is a string or nil for an in-memory SQLite database.
+Returns a state hash table for the database actor."
+  (let ((state (total-recall--Actor-state #'total-recall--DB-membrane #'total-recall--DB-tx))
+        (sqlite nil))
+
+    (unless (sqlite-available-p)
+      (error "Emacs must be compiled with built-in support for SQLite databases"))
+
+    (setq sqlite (sqlite-open db-path))
+
+    (unless (sqlite-select sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
+      (sqlite-execute sqlite
+                      "CREATE TABLE exercise_log (
+                       type TEXT NOT NULL,
+                       id TEXT NOT NULL,
+                       time TEXT NOT NULL)"))
+    (puthash :sqlite sqlite state)
+    state))
+
+(total-recall--Actor #'total-recall--DB-init total-recall--DB)
+#+end_src
+
+
+#+begin_src emacs-lisp :tangle "total-recall-test.el"
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--DB ()
+  "Test Total Recall database functionality using an in-memory database."
+  (let ((db (total-recall--DB nil))
+        (id "123e4567-e89b-12d3-a456-426614174000")
+        (time (parse-iso8601-time-string (format-time-string "%FT%TZ" (current-time) t)))
+        (rating nil))
+
+    (setq rating (total-recall--Rating (list time id 'success)))
+    (should (eq (total-recall--save db rating) db))
+    (should (total-recall--Rating-eq rating (car (total-recall--ratings db id))))))
+#+end_src
+
+**** Node
+:PROPERTIES:
+:ID:       7b449631-bbec-4cf2-ae86-247871af14fe
+:END:
+
+Node :≡ [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
+
+**** Edge
+:PROPERTIES:
+:ID:       061bc1d1-d892-4bac-bc04-e21f3593646f
+:END:
+
+Edge :≡ [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Node]] × Node
+
+**** DAG
+:PROPERTIES:
+:ID:       6b1ab7c6-087a-4f2a-a317-cede19042a73
+:END:
+
+A DAG(nodes edges) is a directed acyclic graph. nodes is a set of [[ref:7b449631-bbec-4cf2-ae86-247871af14fe][Node]] and edges is a
+set of [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Edge]].
+
+** Proof
+
+1. All exercises presented by a scheduler have be reviewed.
+2. The user has been informed of his performance.
+3. Data has been recorded.
+
+* total-recall
+** Context
+*** total-recall-root-dir
 :PROPERTIES:
 :ID:       5709bbc0-e7e6-4eba-90c9-1840b010f3b2
 :END:
@@ -2143,12 +2043,553 @@ are searched."
   :group 'total-recall)
 #+end_src
 
-**** TODO Order
+*** total-recall-database
 :PROPERTIES:
-:ID:       696661be-ee3a-4f4d-9bf8-9b79e9edd9a7
+:ID:       7a2f9b87-a2f8-4fd1-991c-deab4100614c
 :END:
 
-**** UI
+#+begin_src emacs-lisp
+(defcustom total-recall-database (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
+  "Specifies the path to the Total Recall SQLite database.
+This is a string representing the file path for storing review data."
+  :type 'string
+  :group 'total-recall)
+#+end_src
+
+*** Exercise
+*** Clock
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       3ca40a21-019b-4bba-b18b-bcec7282b445
+:END:
+
+Given a natural number named ~time~, ~clock : Clock :≡ Clock#mk time~ is a clock. It
+means that ~clock#read()~ is its current time and ~t :≡ clock#read();
+clock#tick()#read() = t + 1~. ~clock#now()~ is a lisp timestamp representing the UTC
+time at the call.
+
+
+#+begin_src emacs-lisp
+;; Clock
+
+(defun total-recall--Clock-membrane (msg)
+  "Process incoming MSG for the clock actor.
+MSG is a symbol or list representing a clock command.
+Returns a list of instructions to be executed."
+  (memq msg '(:read :tick :tick2 :now)))
+
+
+(defun total-recall--Clock-tx (state msg)
+  "Handle transaction INST for the clock actor using MEMORY.
+MEMORY is the actor’s state hash table.
+INST is a symbol representing a clock instruction.
+Updates MEMORY based on INST."
+  (let ((self (gethash :self state))
+        (time (gethash :time state)))
+    (pcase msg
+      (:read `(,state ,time))
+      (:now `(,state ,(time-convert (current-time) 'list)))
+      (:tick
+       (puthash :time (+ time 1) state)
+       `(,state ,self))
+      (:tick2
+       (total-recall--Clock-tx state :tick)
+       (total-recall--Clock-tx state :tick)
+       `(,state ,self)))))
+
+
+(defun total-recall--Clock-init (time)
+  "Initialize a clock actor with TIME.
+TIME is a natural number representing the initial clock time.
+Returns a state hash table for the clock actor."
+  (let ((state (total-recall--Actor-state
+                #'total-recall--Clock-membrane
+                #'total-recall--Clock-tx)))
+    (puthash :time time state)
+    state))
+
+(total-recall--Actor #'total-recall--Clock-init total-recall--Clock)
+#+end_src
+
+
+#+begin_src emacs-lisp :tangle "total-recall-test.el"
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Clock ()
+  (let ((clock (total-recall--Clock 0)))
+    (should (= (total-recall--read clock) 0))
+    (should (= (total-recall--read (total-recall--tick clock)) 1))
+    (should (= (total-recall--read (total-recall--tick2 clock)) 3))))
+#+end_src
+
+*** IO
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 2076d556-ee35-4db7-bd58-887bc5a1c254
+:END:
+
+~io :≡ IO#mk name~ is an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that represents input/outputs of the current program.
+~io#buffer(s)~ writes the string ~s~ to an output buffer named ~name~. ~io#minibuffer(s)~
+writes the string ~s~ to Emacs minibuffer.
+
+
+#+begin_src emacs-lisp
+;; IO
+
+(defun total-recall--IO-membrane (msg)
+  (pcase msg
+    ((or :buffer-name `(:minibuffer ,_string) `(:buffer ,_string)) t)
+    (_ nil)))
+
+(defun total-recall--IO-tx (state msg)
+  (let ((self (gethash :self state))
+        (buffer (gethash :buffer state))
+        (name (gethash :name state)))
+
+    (pcase msg
+      (`(:minibuffer ,string)
+       (message "%s" (string-trim string))
+       `(,state ,self))
+
+      (`(:buffer ,string)
+       (with-current-buffer buffer
+         (erase-buffer)
+         (insert (string-join (list string "\n"))))
+       `(,state ,self))
+
+      (:buffer-name  `(,state ,name)))))
+
+(defun total-recall--IO-init (name)
+  "Initialize an IO actor with NAME.
+NAME is a string for the output buffer name.
+Returns a state hash table for the IO actor."
+  (let ((state (total-recall--Actor-state
+                #'total-recall--IO-membrane
+                #'total-recall--IO-tx)))
+    (puthash :buffer (get-buffer-create name) state)
+    (puthash :name (buffer-name (gethash :buffer state)) state)
+    state))
+
+(total-recall--Actor #'total-recall--IO-init total-recall--IO)
+#+end_src
+
+**** Actor
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       d1295024-a8aa-4dd7-a2a1-1ef4d64781db
+:END:
+
+An Actor is represented by a procedure that returns values given a [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][message]]. Given
+init : Any → [[ref:81e52518-3370-4a36-a17b-853ce95af579][State]], ~actor :≡ Actor#mk init~. Given a message msg, actor(msg) is the
+reply computed by actor in response to msg. The behavior of the actor can be
+described by:
+
+
+Actor#mk : (Any → State) → Any → Message → Any :≡
+- λinit,any.
+  1. state :≡ init any
+  2. λmsg:Message.
+     1. tx :≡ state[:tx]
+     2. check :≡ state[:check]
+     3. <state' any'> :≡ tx state check(msg)
+     4. state :≡ state'
+     5. any'
+
+
+#+begin_src emacs-lisp
+;; Actor
+
+(defun total-recall--Actor-state (membrane tx)
+  (let ((state (make-hash-table :test 'eq)))
+    (puthash :check
+             (lambda (msg)
+               (if (funcall membrane msg) msg
+                 (error "Unexpected msg. msg = %s" msg)))
+             state)
+    (puthash :tx tx state)
+    state))
+
+(defmacro total-recall--Actor (init name)
+  `(defun ,name (any)
+     (let* ((state (funcall ,init any))
+            (actor (lambda (msg)
+                     (let ((check (gethash :check state))
+                           (tx (gethash :tx state)))
+
+                       (pcase (funcall tx state (funcall check msg))
+                         (`(,state-next ,reply)
+                          (setf state state-next)
+                          reply)
+
+                         (value
+                          (error "Unexpected value. value = %s" value)))))))
+       (puthash :type ,name state)
+       (puthash :self actor state)
+       actor)))
+#+end_src
+
+***** Message
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 17cf4de2-18d2-4e90-876e-a537a6ce0616
+:END:
+
+A Message is either a [[ref:32932469-5c3a-4dfd-a116-04ea003acdcf][Keyword]] or a list that starts with a Keyword.
+
+****** Keyword
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 32932469-5c3a-4dfd-a116-04ea003acdcf
+:END:
+
+[[info:elisp#Constant Variables][elisp#Constant Variables]]
+
+***** State
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 81e52518-3370-4a36-a17b-853ce95af579
+:END:
+
+A State is a [[ref:20fa16f1-2e93-47bd-994e-c371b7ed90b4][Hashtable]] with at least the given keys and values:
+
+|--------+----------------------------|
+| Key    | Type                       |
+|--------+----------------------------|
+| :check | check : Message → Message  |
+| :tx    | tx : State Any → State Any |
+| :self  | actor : Actor              |
+|--------+----------------------------|
+
+
+For some predicate pred, check(msg) ≡ msg if pred(msg) = true or raise an exception.
+check is used to filter messages it accepts to process.
+
+****** Hashtable
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 20fa16f1-2e93-47bd-994e-c371b7ed90b4
+:END:
+
+[[help:make-hash-table]]
+
+*** Report
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       05a4ce8c-583a-43d2-9dde-af32164d1a97
+:END:
+
+~report :≡ Report#mk()~ is a report. ~report#add string~ adds the string ~string~ to the
+report. ~report#string()~ is string representation of the report.
+
+
+#+begin_src emacs-lisp
+;; Report
+
+(defun total-recall--Report-membrane (msg)
+  "Process incoming MSG for the report actor.
+MSG is a list or symbol, such as `(add LINE)` or `string`.
+Returns a list containing the instruction to execute."
+  (pcase msg
+    ((or :string `(:add ,_line)) t)
+    (_ nil)))
+
+(defun total-recall--Report-tx (state msg)
+  "Handle transaction INST for the report actor using MEMORY.
+MEMORY is the actor’s state hash table.
+INST is a list or symbol, such as `(add LINE)` or `string`.
+Updates MEMORY based on INST."
+  (let ((self (gethash :self state))
+        (lines (gethash :lines state)))
+
+    (pcase msg
+      (`(:add ,line)
+       (puthash :lines (cons line lines) state)
+       `(,state ,self))
+
+      (:string
+       `(,state ,(string-join (reverse lines) "\n"))))))
+
+(defun total-recall--Report-init (_data)
+  "Initialize a report actor with DATA.
+DATA is ignored in this implementation.
+Returns a state hash table for the report actor."
+  (let ((state (total-recall--Actor-state #'total-recall--Report-membrane #'total-recall--Report-tx)))
+    (puthash :lines '() state)
+    state))
+
+(total-recall--Actor #'total-recall--Report-init total-recall--Report)
+#+end_src
+
+
+#+begin_src emacs-lisp :tangle "total-recall-test.el"
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Report ()
+  (let ((report (total-recall--Report t)))
+    (total-recall--add report "line1")
+    (total-recall--add report "line2")
+    (should (string= (total-recall--string report) "line1\nline2"))))
+#+end_src
+
+*** Searcher
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       f1bbb813-e964-4687-994c-bda31c6ba27b
+:END:
+
+**** Context
+***** Actor
+**** Proposition
+
+Let searcher : Searcher :≡ Searcher#mk(root definition-id exercise-id), be an actor
+such that exercises : List(Exercise) :≡ searcher#exercises().
+
+There is a bijection φ from the set of exercises and definitions headings of files
+under root to exercises. φ : headings → exercises, Bijection(φ).
+
+∀ ex ∈ exercises, we have:
+1. heading :≡ φ^-1(ex)
+2. ex#id() = Id of heading, a string.
+3. ex#file() = Path of the file that contains heading, a string
+4. ex#line() = Line number in file where the id of heading is written, an integer.
+5. ex#question() = the question deduced from heading, an Org string.
+6. ex#answer() = the answer deduced from heading, an Org string.
+
+**** Construction
+
+
+
+
+#+begin_src emacs-lisp
+;; Searcher
+
+(defun total-recall--Searcher-init (data)
+  (let ((state (total-recall--Actor-state #'total-recall--Searcher-membrane #'total-recall--Searcher-tx)))
+    (pcase data
+      (`(,root ,def-id ,ex-id)
+
+       (unless (file-directory-p (puthash :root root state))
+         (error "Root is not a directory: root = %s" root))
+
+       (let ((ripgrep total-recall-ripgrep-cmd))
+         (unless (stringp (puthash :ripgrep (executable-find ripgrep) state))
+           (error "Ripgrep not found in PATH: ripgrep = %s" ripgrep)))
+
+       (unless (stringp (puthash :def-id def-id state))
+         (error "Def-id is not a string: def-id = %s" def-id))
+
+       (unless (stringp (puthash :ex-id ex-id state))
+         (error "Ex-id is not a string: ex-id = %s" ex-id))
+
+       (puthash :cmd
+                (format "%s -g '*.org' -i --no-heading -n --color=never -m 1 '%s' %s"
+                        (gethash :ripgrep state)
+                        (format "%s|%s" (gethash :def-id state) (gethash :ex-id state))
+                        (gethash :root state))
+                state)
+
+       state)
+      (_ (error "Unexpected data: data = %s" data)))))
+
+(defun total-recall--Searcher-membrane (msg)
+  (pcase msg
+    (:files t)
+    (_ nil)))
+
+(defun total-recall--Searcher-tx (state msg)
+  (let ((cmd (gethash :cmd state)))
+    (pcase msg
+      (:files
+       (let (matches)
+         (with-temp-buffer
+           (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
+           (goto-char (point-min))
+           (while (not (eobp))
+             (let* ((line (buffer-substring-no-properties
+                           (line-beginning-position) (line-end-position)))
+                    (match (split-string line ":")))
+               (push (car match) matches))
+             (forward-line 1)))
+         `(,state ,(delete-dups matches)))))))
+
+(total-recall--Actor #'total-recall--Searcher-init total-recall--Searcher)
+#+end_src
+
+**** Proof
+
+
+**** OrgKnowledgeFile
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: b0c11bed-8c87-4c9b-b699-5d1c2230d0ad
+:END:
+
+A OrgKnowledgeFile is a path to a OrgFile such that:
+- Its content contains a string ~# :ID: <uuid>~ such that ~<uuid>~ is equal to the [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
+  ~org-knowledge-file-type-id~.
+- All headings of its associated associated [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] are either [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinitions]] or
+  [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercises]].
+
+
+Given a path ~path~, ~org-knowledge-file-p(path) = true~ iff ~path~ is an
+OrgKnowledgeFile.
+
+
+#+begin_src emacs-lisp
+(defcustom total-recall-org-knowledge-file-type-id "066ef595-0505-48b5-930a-74a4242e9d0d"
+  :type 'string
+  :group 'total-recall)
+#+end_src
+
+
+#+begin_src emacs-lisp
+(defun total-recall--org-knowledge-file-p (path)
+  ;; TODO
+  )
+#+end_src
+
+*** Record
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       4187a5b0-15c1-49fc-9962-7dd5802e4f25
+:END:
+
+~record :≡ Record#mk date id value~ is a record of the entity denoted by the string ~id~ at
+date ~date~, lisp timestamp, with the value ~value~, a symbol. ~record#struct()~ is the
+list ~date, id, value~.
+
+
+#+begin_src emacs-lisp
+;; Record
+
+(defun total-recall--Record-membrane (msg)
+  "Process incoming MSG for the record actor.
+MSG is a symbol like `struct`, `date`, or `value`.
+Returns a list containing the corresponding instruction."
+  (pcase msg
+    ((or :struct :date :value) t)
+    (_ nil)))
+
+(defun total-recall--Record-tx (state msg)
+  "Handle transaction INST for the record actor using MEMORY.
+MEMORY is the actor’s state hash table.
+INST is a symbol like `struct`, `date`, or `value`.
+Updates MEMORY with the requested data."
+  (let ((date (gethash :date state))
+        (id (gethash :id state))
+        (value (gethash :value state)))
+    (pcase msg
+      (:struct `(,state ,`(,date ,id ,value)))
+      (:date `(,state ,date))
+      (:value `(,state ,value)))))
+
+(defun total-recall--Record-eq (r1 r2)
+  "Check if record actors R1 and R2 are equal.
+R1 and R2 are record actors.
+Returns t if their structures are equal, nil otherwise."
+  (equal (total-recall--struct r1)
+         (total-recall--struct r2)))
+
+(defun total-recall--Record-init (data)
+  "Initialize a record actor with DATA.
+DATA is a list of (DATE ID VALUE), where DATE is a timestamp,
+ID is a UUID string, and VALUE is a symbol.
+Returns a state hash table for the record actor."
+  (let ((state (total-recall--Actor-state #'total-recall--Record-membrane #'total-recall--Record-tx)))
+    (pcase data
+      (`(,date ,id ,value)
+       (puthash :date date state)
+       (puthash :id id state)
+       (puthash :value value state)))
+
+    state))
+
+(total-recall--Actor #'total-recall--Record-init total-recall--Record)
+#+end_src
+
+
+#+begin_src emacs-lisp :tangle "total-recall-test.el"
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Record ()
+  (should (eq t t)))
+#+end_src
+
+*** DB
+**** specification
+
+- db : DB :≡ DB()
+- db#add : List(String) List(String × String) → DB
+- db#sort() : List(String)
+- db#loops() : List(List(String))
+
+**** implementation
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
+
+***** TODO loops is implemented
+
+***** ■
+
+#+begin_src python
+class DB:
+    def __init__(self,_data={}) -> None:
+        self._db = db = kuzu.Database(":memory:")
+        self._con = con = kuzu.Connection(db)
+        con.execute("CREATE NODE TABLE Node(id STRING, PRIMARY KEY(id))")
+        con.execute("CREATE REL TABLE References(FROM Node TO Node)")
+
+    def add(self, nodes: list[str] = [], refs: list[list] = []) -> Self:
+        con = self._con
+        if nodes:
+            nodes_list = ", ".join(f"'{node}'" for node in nodes)
+            con.execute(f"UNWIND [{nodes_list}] AS node CREATE (n:Node {{id: node}})")
+        if refs:
+            refs_list = ", ".join(f"['{ref[0]}', '{ref[1]}']" for ref in refs)
+            con.execute(f"UNWIND [{refs_list}] AS rel MATCH (a:Node {{id: rel[1]}}), (b:Node {{id: rel[2]}}) CREATE (a)-[:References]->(b)")
+        return self
+
+    def sort(self) -> list[str]:
+        con = self._con
+        res = self._con.execute("""
+        MATCH (n:Node)
+        OPTIONAL MATCH (n) -[r:References]-> (m:Node)
+        RETURN n, r;
+        """)
+        graph = res.get_as_networkx(directed=True)
+        relabel_mapping = {node: node.replace('Node_', '') for node in graph.nodes()}
+        nx.relabel_nodes(graph, relabel_mapping, copy=False)
+        components = sorted(nx.weakly_connected_components(graph), key=len, reverse=False)
+        subgraphs = map(lambda component: graph.subgraph(component), components)
+        ids = flatten(map(lambda graph: list(reversed(list(nx.topological_sort(graph)))), subgraphs))
+        return ids
+
+    def loops(self) -> list[list[str]]:
+        raise NotImplementedError()
+        return []
+#+end_src
+
+**** test
+:PROPERTIES:
+:header-args:python+: :tangle "network_server_test.py"
+:END:
+
+#+begin_src python
+import pytest
+from .network_server import DB
+
+class TestDB:
+    def test_db(self):
+        db = DB()
+        db.add(nodes=["a","b","c", "d"],refs=[["a","b"], ["a","c"], ["b","c"]])
+        assert db.sort() == ["d", "c", "b", "a"]
+#+end_src
+
+*** UI
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       7c752724-7e3d-4529-bf1b-06482ca53b3e
@@ -2325,424 +2766,241 @@ Returns a state hash table for the UI actor."
 (total-recall--Actor #'total-recall--UI-init total-recall--UI)
 #+end_src
 
-**** Report
+*** CurveFitter
+*** Scheduler
 :PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       05a4ce8c-583a-43d2-9dde-af32164d1a97
+:ID:       76f234fc-5f51-4626-80a5-23e8dfcc50e2
 :END:
+**** Proposition
 
-~report :≡ Report#mk()~ is a report. ~report#add string~ adds the string ~string~ to the
-report. ~report#string()~ is string representation of the report.
+# Informal
+The objective of a scheduler is to schedule reviewing content so that the most
+impactful content is always reviewed first /i.e./ the one that improves the most on
+your overall predicted recall score. The predicted recall score is an approximation
+of the recall score. If your recall score is 1, it means that you can recall all your
+content.
 
+# Formal
+Define Sheduler such that for s : Scheduler, we have:
+1. s#schedule : Set(Exercise) Time → List(Exercise)
+2. set s#schedule(exs t) = exs
+3. ∀k, exercises in s#schedule(exs t)[0:k] are chosen from exs to:
+   1. ∨ maximize the improvement on predicted_recall_score(exs t)
+   2. ∨ maximise the number of reviews per session.
+
+***** Exercise
+****** Proposition
+
+exercise-protocol-p(x) = true means that x is an actor such that ex#question() :
+OrgContent, ex#answer() : OrgContent, ex#id() : UUID, ex#path() : List(String) and
+ex#string() represents the content of the exercise as an OrgContent.
+
+******* OrgContent
+
+An OrgContent is a Org formatted string.
+
+******* UUID
+
+A UUIDv4 formatted string.
+
+****** Construction
 
 #+begin_src emacs-lisp
-;; Report
+(defun total-recall--exercise-protocol-p (x)
+  (let ((q (total-recall--question x))
+        (a (total-recall--answer x))
+        (s (total-recall--string x))
+        (id (total-recall--id x))
+        (p (total-recall--path x))))
+  (and (listp p)
+       (total-recall--string-uuid-p id)
+       (stringp q)
+       (stringp a)
+       (stringp s)
+       (and
+        (string-match-p (regexp-quote id) s)
+        (string-match-p (regexp-quote q) s)
+        (string-match-p (regexp-quote a) s)
+        (string-match-p (regexp-quote (string-join p " / ")) s))))
+#+end_src
 
-(defun total-recall--Report-membrane (msg)
-  "Process incoming MSG for the report actor.
-MSG is a list or symbol, such as `(add LINE)` or `string`.
-Returns a list containing the instruction to execute."
+****** Test
+****** Discussion
+
+***** Reference
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 885d0860-25fa-4697-b9f4-7f150a047872
+:END:
+
+Let ex1, ex2 : Exercise, a reference(ex1 ex2) is introduced by adding a ref Org link
+in ex1#string() to ex2#id(), or making ex2 a direct sub-heading of ex1#string().
+
+***** < : Exercise Exercise → Prop
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: a28fd20f-ce68-4fc3-bc94-16d8d9cfb517
+:END:
+
+# What it means
+Let g :≡ ReferenceGraph#mk(exs), and ex1,ex2 ∈ exs, <(g ex1 ex2) means that there is
+a path(ex2 ex1) in g.
+
+# How to proove it
+<(g ex1 ex2) :≡ 🞎
+
+****** ReferenceGraph
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: df9bdab5-6395-4b0b-89a4-bedd5c57c829
+:END:
+
+# What it is
+ReferenceGraph#mk : Set(Exercise) → ReferenceGraph :≡ λexs.
+1. refs : Set(Reference) the set of references deduced from exs with starts and ends
+   in exs.
+2. g :≡ digraph(exs refs)
+3. g is a DAG
+4. g
+
+***** < : ReachableComponent ReachableComponent → Prop
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 10429f86-c3a5-49a0-9d6e-3ad9d5a29da8
+:END:
+
+# What it means
+Let c1 and c2 be ReachableComponents of a digraph(v e) ≡: g, then <(g c1 c2) means that
+there is a path(n2 n1) such that n2,n1 ∈ v.
+
+# How to prove it
+# …
+
+***** review
+
+review : Exercise Time → Result models a user trying to solve
+an exercise. review(ex t) = :success means that the user judged that his answer was
+satisfying /i.e./ close enough from ex#answer() according to him.
+
+***** Result :≡ :success | :failure | :skip
+***** predicted_recall_score
+
+predicted_recall_score : Set(Exercise) Time → interval(0 1) is an estimation of score.
+predicted_recall_score :≡ λexs,t.Σ(ex ∈ exs),predicted_recall_score(ex t) / card(exs)
+
+****** score
+
+score : Set(Exercise) Time → interval(0 1) :≡ λexs,t.
+1. number_of_success :≡ card({ x | ∀(ex ∈ exs),x : review(ex t) = :success })
+2. number_of_success / card(exs)
+
+**** Construction
+
+1. Scheduler#mk : (Exercise Time → interval(0 1)) → Scheduler
+2. s :≡ Scheduler#mk(recall_probability)
+   - self#schedule : List(Exercise) Time → List(Exercise) :≡ λexs,t.
+     1. graph                         : ReferenceGraph                  :≡ ReferenceGraph#mk(exs)
+     2. roots                         : Set(exs)                        :≡ the set of all roots in graph.
+     3. components                    : List(ReachableComponent)        :≡ sort (map λr.ReachableComponent#mk(graph r) roots) <
+     4. schedule                      : List(Exercise)                  :≡ fold [] (map components (λc.sort c <)) concat
+     5. threshold                     : interval(0 1)                   :≡ 0.8
+     6. high_low                      : Exercise → Exercise + Exercise  :≡ λex.(recall_probability(ex t) ≤ threshold) ? left(ex) right(ex)
+     7. <high_priority, low_priority> : List(Exercise) × List(Exercise) :≡ triage schedule high_low
+     8. schedule                      : List(Exercise)                  :≡ high_priority + low_priority
+
+#+begin_src emacs-lisp
+;; Scheduler
+
+(defun total-recall--Scheduler-init (recall-probability)
+  (let ((state (total-recall--Actor-state
+                #'total-recall--Scheduler-membrane
+                #'total-recall--Scheduler-tx)))
+    (puthash :recall-probability recall-probability state)
+    state))
+
+(defun total-recall--Scheduler-membrane (msg)
   (pcase msg
-    ((or :string `(:add ,_line)) t)
+    (`(:schedule ,exs ,time) t)
     (_ nil)))
 
-(defun total-recall--Report-tx (state msg)
-  "Handle transaction INST for the report actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a list or symbol, such as `(add LINE)` or `string`.
-Updates MEMORY based on INST."
+(defun total-recall--Scheduler-tx (state msg)
   (let ((self (gethash :self state))
-        (lines (gethash :lines state)))
-
+        (recall-probability (gethash :recall-probability state)))
     (pcase msg
-      (`(:add ,line)
-       (puthash :lines (cons line lines) state)
-       `(,state ,self))
+      ((:schedule `(,exs ,time))
+       ;; TODO
+       exs))))
 
-      (:string
-       `(,state ,(string-join (reverse lines) "\n"))))))
-
-(defun total-recall--Report-init (_data)
-  "Initialize a report actor with DATA.
-DATA is ignored in this implementation.
-Returns a state hash table for the report actor."
-  (let ((state (total-recall--Actor-state #'total-recall--Report-membrane #'total-recall--Report-tx)))
-    (puthash :lines '() state)
-    state))
-
-(total-recall--Actor #'total-recall--Report-init total-recall--Report)
+(total-recall--Actor #'total-recall--Scheduler-init total-recall--Scheduler)
 #+end_src
 
+**** Proof
 
-#+begin_src emacs-lisp :tangle "total-recall-test.el"
-(require 'total-recall)
-(require 'ert)
+1. obvious by construction.
+2. proof :≡
+   1. exercises are presented in a logical order → minimize context switches →
+      minimize mental energy spent per review → maximize number of reviews per
+      session → ■
+   2. exercises are presented by components → minimize context switches → ■
+   3. high priority exercises are reviewed first → maximize next probability of recall where needed the most → ■
 
-(ert-deftest total-recall--Report ()
-  (let ((report (total-recall--Report t)))
-    (total-recall--add report "line1")
-    (total-recall--add report "line2")
-    (should (string= (total-recall--string report) "line1\nline2"))))
-#+end_src
+** Proposition
 
-**** Rating
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       4187a5b0-15c1-49fc-9962-7dd5802e4f25
-:END:
+The objective of total-recall is to provide an interactive interface to the user such
+that after ~M-x total-recall~, the user has completed a review session, meaning:
+1. All exercises (Exercise) in the file system under a user defined directory
+   (root-dir) have been scheduled (Scheduler) and reviewed through a ui (UI).
+2. Review data (Records) has been recorded in a database file (DB).
+3. The user has been informed of his performance by written report to the io (IO) of
+   Emacs.
 
-~rating :≡ Rating#mk date id value~ is a rating of the entity denoted by the string ~id~ at
-date ~date~, lisp timestamp, with the value ~value~, a symbol. ~rating#struct()~ is the
-list ~date, id, value~.
+** Construction
+
+total-recall() :≡
+- report             : Report                        :≡ Report#mk()
+- root               : DirectoryPath                 :≡ user defined
+- searcher           : Searcher                      :≡ Searcher#mk(report)
+- exs                : Set(Exercise)                 :≡ searcher#exercises(root)
+- clock              : Clock                         :≡ Clock#mk(report)
+- time               : Time                          :≡ clock#now()
+- db-path            : FilePath                      :≡ user defined
+- db                 : Database                      :≡ Database#mk(db-path report)
+- curve-fitter       : CurveFitter                   :≡ CurveFitter#mk(report)
+- recall-probability : Exercise Time → interval(0 1) :≡ curve-fitter#fit(db)
+- scheduler          : Scheduler                     :≡ Scheduler#mk(recall-probability report)
+- schedule           : List(Exercise)                :≡ scheduler#schedule(exs time)
+- ui                 : UI                            :≡ UI#mk(db report)
+- io                 : IO                            :≡ IO#mk(report)
+- ui#start schedule
+- io#buffer report#string()
+- io#minibuffer "Report written to …"
+- db#stop()
 
 
 #+begin_src emacs-lisp
-;; Rating
+;; total-recall
 
-(defun total-recall--Rating-membrane (msg)
-  "Process incoming MSG for the rating actor.
-MSG is a symbol like `struct`, `date`, or `value`.
-Returns a list containing the corresponding instruction."
-  (pcase msg
-    ((or :struct :date :value) t)
-    (_ nil)))
-
-(defun total-recall--Rating-tx (state msg)
-  "Handle transaction INST for the rating actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a symbol like `struct`, `date`, or `value`.
-Updates MEMORY with the requested data."
-  (let ((date (gethash :date state))
-        (id (gethash :id state))
-        (value (gethash :value state)))
-    (pcase msg
-      (:struct `(,state ,`(,date ,id ,value)))
-      (:date `(,state ,date))
-      (:value `(,state ,value)))))
-
-(defun total-recall--Rating-eq (r1 r2)
-  "Check if rating actors R1 and R2 are equal.
-R1 and R2 are rating actors.
-Returns t if their structures are equal, nil otherwise."
-  (equal (total-recall--struct r1)
-         (total-recall--struct r2)))
-
-(defun total-recall--Rating-init (data)
-  "Initialize a rating actor with DATA.
-DATA is a list of (DATE ID VALUE), where DATE is a timestamp,
-ID is a UUID string, and VALUE is a symbol.
-Returns a state hash table for the rating actor."
-  (let ((state (total-recall--Actor-state #'total-recall--Rating-membrane #'total-recall--Rating-tx)))
-    (pcase data
-      (`(,date ,id ,value)
-       (puthash :date date state)
-       (puthash :id id state)
-       (puthash :value value state)))
-
-    state))
-
-(total-recall--Actor #'total-recall--Rating-init total-recall--Rating)
+;;;###autoload
+(defun total-recall ()
+  (interactive)
+  (let* ((report (total-recall--Report-mk))
+         (report (total-recall--add report "total-recall()"))
+         (searcher (total-recall--Searcher-mk report))
+         (exercises (total-recall--exercises searcher total-recall-root-dir))
+         (clock (total-recall--Clock-mk report))
+         (time (total-recall--now clock))
+         (db (total-recall--DB-mk total-recall-database report))
+         (curve-fitter (total-recall--CurveFitter-mk report))
+         (recall-probability (total-recall--fit curve-fitter db))
+         (scheduler (total-recall--Scheduler-mk recall-probability report))
+         (schedule (total-recall--schedule scheduler exercises time))
+         (ui (total-recall--UI-mk db report))
+         (io (total-recall--IO-mk report)))
+    (total-recall--start ui schedule)
+    (total-recall--buffer io (total-recall--string report))
+    (total-recall--minibuffer io (format "Report written to %s" (total-recall--buffer-name io)))
+    (total-recall--stop db)))
 #+end_src
-
-
-#+begin_src emacs-lisp :tangle "total-recall-test.el"
-(require 'total-recall)
-(require 'ert)
-
-(ert-deftest total-recall--Rating ()
-  (should (eq t t)))
-#+end_src
-
-**** total-recall-database
-:PROPERTIES:
-:ID:       7a2f9b87-a2f8-4fd1-991c-deab4100614c
-:END:
-
-#+begin_src emacs-lisp
-(defcustom total-recall-database (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
-  "Specifies the path to the Total Recall SQLite database.
-This is a string representing the file path for storing review data."
-  :type 'string
-  :group 'total-recall)
-#+end_src
-
-**** DB
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       aee4f045-f225-4e4c-a145-0cb2baad2186
-:END:
-
-~db :≡ DB#mk db-path~ is a database that writes its data to the file denoted by the
-string ~db-path~. ~db#save rating~ saves the rating ~rating~. ~db#ratings id~ is the list of
-ratings associated with the given ~id~. ~db#stop()~ releases the resources associated
-with ~db~.
-
-
-#+begin_src emacs-lisp
-;; DB
-
-(defun total-recall--DB-membrane (msg)
-  "Process incoming MSG for the database actor.
-MSG is a list like `(save RATING)`, `(ratings ID)`, or `stop`.
-Returns a list containing the corresponding instruction."
-  (pcase msg
-    ((or :stop `(:save ,_rating) `(:ratings ,_id)) t)
-    (_ nil)))
-
-(defun total-recall--DB-tx (state msg)
-  "Handle transaction INST for the database actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a list or symbol like `(save RATING)`, `(ratings ID)`, or `stop`.
-Updates MEMORY based on INST."
-  (let ((self (gethash :self state))
-        (sqlite (gethash :sqlite state)))
-    (pcase msg
-      (`(:save ,rating)
-       (pcase (total-recall--struct rating)
-         (`(,date ,id ,value)
-          (let ((row nil))
-            (setq row
-                  (list
-                   (if (memq value '(success failure skip))
-                       (symbol-name value)
-                     (error "Unexpected value: value = %s" value))
-
-                   (if (total-recall--string-uuid-p id)
-                       id
-                     (error "ID is not a UUID string: id = %s" id))
-
-                   (format-time-string "%FT%TZ" (time-convert date 'list) t)))
-
-            (sqlite-execute
-             sqlite
-             "INSERT INTO exercise_log (type, id, time) VALUES (?, ?, ?)"
-             row)))
-
-         (struct (error "Unexpected struct: struct = %s" struct)))
-       `(,state ,self))
-
-      (`(:ratings ,id)
-       (unless (total-recall--string-uuid-p id)
-         (error "ID is not a UUID string: id = %s" id))
-
-       (let (rows ratings)
-         (setq rows
-               (sqlite-select
-                sqlite
-                "SELECT type, id, time FROM exercise_log WHERE id = ? ORDER BY time ASC"
-                (list id)))
-
-         (setq ratings
-               (mapcar
-                (lambda (row)
-                  (pcase row
-                    (`(,type ,id ,time)
-                     (total-recall--Rating
-                      `(,(parse-iso8601-time-string time)
-                        ,(if (total-recall--string-uuid-p id) id
-                           (error "ID is not a UUID string: id = %s" id))
-                        ,(if (member type '("success" "failure" "skip")) (intern type)
-                           (error "Unexpected type: id = %s, type = %s" type id)))))
-                    (_ (error "Unexpected row: row = %s" row))))
-                rows))
-
-         `(,state ,ratings)))
-
-      (:stop
-       (sqlite-close sqlite)
-       `(,state ,self)))))
-
-(defun total-recall--DB-init (db-path)
-  "Initialize a database actor with DB-PATH.
-DB-PATH is a string or nil for an in-memory SQLite database.
-Returns a state hash table for the database actor."
-  (let ((state (total-recall--Actor-state #'total-recall--DB-membrane #'total-recall--DB-tx))
-        (sqlite nil))
-
-    (unless (sqlite-available-p)
-      (error "Emacs must be compiled with built-in support for SQLite databases"))
-
-    (setq sqlite (sqlite-open db-path))
-
-    (unless (sqlite-select sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
-      (sqlite-execute sqlite
-                      "CREATE TABLE exercise_log (
-                       type TEXT NOT NULL,
-                       id TEXT NOT NULL,
-                       time TEXT NOT NULL)"))
-    (puthash :sqlite sqlite state)
-    state))
-
-(total-recall--Actor #'total-recall--DB-init total-recall--DB)
-#+end_src
-
-
-#+begin_src emacs-lisp :tangle "total-recall-test.el"
-(require 'total-recall)
-(require 'ert)
-
-(ert-deftest total-recall--DB ()
-  "Test Total Recall database functionality using an in-memory database."
-  (let ((db (total-recall--DB nil))
-        (id "123e4567-e89b-12d3-a456-426614174000")
-        (time (parse-iso8601-time-string (format-time-string "%FT%TZ" (current-time) t)))
-        (rating nil))
-
-    (setq rating (total-recall--Rating (list time id 'success)))
-    (should (eq (total-recall--save db rating) db))
-    (should (total-recall--Rating-eq rating (car (total-recall--ratings db id))))))
-#+end_src
-
-**** Searcher
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       f1bbb813-e964-4687-994c-bda31c6ba27b
-:END:
-
-Given a path of a directory named ~root~ in the current file-system, ~searcher :≡
-Searcher#mk root DefinitionID ExerciseID~ is an actor used to search files and
-directories. ~searcher#files()~ is a list of paths to regular files, each of which
-contains at least one [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][definition]] or [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][exercise]].
-
-
-#+begin_src emacs-lisp
-;; Searcher
-
-(defun total-recall--Searcher-membrane (msg)
-  "Process incoming MSG for the searcher actor.
-MSG is the symbol `files` to request file paths.
-Returns a list containing the `files` instruction."
-  (pcase msg
-    (:files t)
-    (_ nil)))
-
-(defun total-recall--Searcher-tx (state msg)
-  "Handle transaction INST for the searcher actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is the symbol `files` to search for files.
-Updates MEMORY with the list of found file paths."
-  (let ((cmd (gethash :cmd state)))
-    (pcase msg
-      (:files
-       (let (matches)
-         (with-temp-buffer
-           (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
-           (goto-char (point-min))
-           (while (not (eobp))
-             (let* ((line (buffer-substring-no-properties
-                           (line-beginning-position) (line-end-position)))
-                    (match (split-string line ":")))
-               (push (car match) matches))
-             (forward-line 1)))
-         `(,state ,(delete-dups matches)))))))
-
-(defun total-recall--Searcher-init (data)
-  "Initialize a searcher actor with DATA.
-DATA is a list of (ROOT DEF-ID EX-ID), where ROOT is a directory path,
-DEF-ID and EX-ID are strings identifying definitions and exercises.
-Returns a state hash table for the searcher actor."
-  (let ((state (total-recall--Actor-state #'total-recall--Searcher-membrane #'total-recall--Searcher-tx)))
-    (pcase data
-      (`(,root ,def-id ,ex-id)
-
-       (unless (file-directory-p (puthash :root root state))
-         (error "Root is not a directory: root = %s" root))
-
-       (let ((ripgrep total-recall-ripgrep-cmd))
-         (unless (stringp (puthash :ripgrep (executable-find ripgrep) state))
-           (error "Ripgrep not found in PATH: ripgrep = %s" ripgrep)))
-
-       (unless (stringp (puthash :def-id def-id state))
-         (error "Def-id is not a string: def-id = %s" def-id))
-
-       (unless (stringp (puthash :ex-id ex-id state))
-         (error "Ex-id is not a string: ex-id = %s" ex-id))
-
-       (puthash :cmd
-                (format "%s -g '*.org' -i --no-heading -n --color=never -m 1 '%s' %s"
-                        (gethash :ripgrep state)
-                        (format "%s|%s" (gethash :def-id state) (gethash :ex-id state))
-                        (gethash :root state))
-                state)
-
-       state)
-      (_ (error "Unexpected data: data = %s" data)))))
-
-(total-recall--Actor #'total-recall--Searcher-init total-recall--Searcher)
-#+end_src
-
-***** OrgKnowledgeFile
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: b0c11bed-8c87-4c9b-b699-5d1c2230d0ad
-:END:
-
-A OrgKnowledgeFile is a path to a OrgFile such that:
-- Its content contains a string ~# :ID: <uuid>~ such that ~<uuid>~ is equal to the [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
-  ~org-knowledge-file-type-id~.
-- All headings of its associated associated [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] are either [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinitions]] or
-  [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercises]].
-
-
-Given a path ~path~, ~org-knowledge-file-p(path) = true~ iff ~path~ is an
-OrgKnowledgeFile.
-
-
-#+begin_src emacs-lisp
-(defcustom total-recall-org-knowledge-file-type-id "066ef595-0505-48b5-930a-74a4242e9d0d"
-  :type 'string
-  :group 'total-recall)
-#+end_src
-
-
-#+begin_src emacs-lisp
-(defun total-recall--org-knowledge-file-p (path)
-  ;; TODO
-  )
-#+end_src
-
-**** Node
-:PROPERTIES:
-:ID:       7b449631-bbec-4cf2-ae86-247871af14fe
-:END:
-
-Node :≡ [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
-
-**** Edge
-:PROPERTIES:
-:ID:       061bc1d1-d892-4bac-bc04-e21f3593646f
-:END:
-
-Edge :≡ [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Node]] × Node
-
-**** DAG
-:PROPERTIES:
-:ID:       6b1ab7c6-087a-4f2a-a317-cede19042a73
-:END:
-
-A DAG(nodes edges) is a directed acyclic graph. nodes is a set of [[ref:7b449631-bbec-4cf2-ae86-247871af14fe][Node]] and edges is a
-set of [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Edge]].
-
-** discussion
-
-Executing total-recall yields the following computation:
-1. exs : Set(Exercise) of the user.
-2. t : Time the calling time of total-recall
-3. db : List(Record) where a Record#mk : Exercise Time Result → Record
-4. recall_probability : Exercise Time → interval(0 1) the probability of recall of ex
-   at time t infered from db by fitting a forgetting curve.
-5. schedule : List(Exercise) built from exs and db to match φ(exs t).
-
-
-1. schedule contains all exercises, so 1. is satisfied.
-2. graph :≡ ReferenceGraph#mk(exs)
-3. roots : Set(exs) :≡ the set of all roots in graph.
-4. components :≡ sort (map λr.ReachableComponent#mk(graph r) roots) <
-5. schedule :≡ fold [] (map components (λc.sort c <)) concat
-6. threshold : interval(0 1)
-7. high_low :≡ λex.(recall_probability(ex t) ≤ threshold) ? left(ex) right(ex)
-8. high_priority low_priority :≡ triage schedule high_low
-9. schedule :≡ high_priority + low_priority
 
 * footer
 
