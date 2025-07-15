@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: introduce-new-construction
+# key: var
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+$1 :≡ $0

@@ -1,0 +1,39 @@
+# -*- mode: snippet -*-
+# name: introduction
+# key: intro
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+`(let ((level (org-current-level)))
+   (if (> level 2)
+       (concat (make-string (- level 1) ?*) " Object")
+       "** Object"))`
+:PROPERTIES:
+:TYPE: 27895409-4970-4941-95e6-ea6cf7f1d0fc
+:ID: `(org-id-new)`
+:END:
+
+`(let ((level (org-current-level)))
+   (if (> level 2)
+       (concat (make-string level ?*) " context")
+       "*** context"))`
+
+`(let ((level (org-current-level)))
+   (if (> level 2)
+       (concat (make-string level ?*) " proposition")
+       "*** proposition"))`
+
+`(let ((level (org-current-level)))
+   (if (> level 2)
+       (concat (make-string level ?*) " construction")
+       "*** construction"))`
+
+`(let ((level (org-current-level)))
+   (if (> level 2)
+       (concat (make-string level ?*) " test")
+       "*** test"))`
+
+`(let ((level (org-current-level)))
+   (if (> level 2)
+       (concat (make-string level ?*) " discussion")
+       "*** discussion"))`
+

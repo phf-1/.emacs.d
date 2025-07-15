@@ -1,0 +1,5 @@
+# key: vart
+# name: introduce-new-construction-typed
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+${2:name} : ${1:Type} :≡ $0
