@@ -52,7 +52,7 @@ TODO
 (require 'cl-lib)
 #+end_src
 
-* configuration
+* COMMENT configuration
 
 #+begin_src emacs-lisp
 ;; Configuration
@@ -76,14 +76,14 @@ This is a string used for the buffer where reports are written."
   :group 'total-recall)
 
 (defcustom total-recall-def-type "f590edb9-5fa3-4a07-8f3d-f513950d5663"
-  "Specifies the UUID for identifying definition headings in Org files.
-This is a string used to mark headings as definitions in Total Recall."
+  "Specifies the UUID for identifying definition headlines in Org files.
+This is a string used to mark headlines as definitions in Total Recall."
   :type 'string
   :group 'total-recall)
 
 (defcustom total-recall-ex-type "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
-  "Specifies the UUID for identifying exercise headings in Org files.
-This is a string used to mark headings as exercises in Total Recall."
+  "Specifies the UUID for identifying exercise headlines in Org files.
+This is a string used to mark headlines as exercises in Total Recall."
   :type 'string
   :group 'total-recall)
 
@@ -130,7 +130,7 @@ This is a character used to show the exercise answer."
   :group 'total-recall)
 #+end_src
 
-* Buffer
+* COMMENT Buffer
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 58e40ccb-95ad-4aca-81c4-7be40372c901
@@ -138,7 +138,7 @@ This is a character used to show the exercise answer."
 
 [[info:elisp#Buffers][elisp#Buffers]]
 
-* OrgBuffer
+* COMMENT OrgBuffer
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 3be131b5-2eb2-49f1-b2bc-2fd8cfb68dda
@@ -146,16 +146,7 @@ This is a character used to show the exercise answer."
 
 An OrgBuffer is a [[ref:58e40ccb-95ad-4aca-81c4-7be40372c901][Buffer]] that has [[help:org-mode]] activated.
 
-* OrgAST
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 8be264dc-9c8e-42b8-b919-98f2afa97f91
-:END:
-
-An OrgAST /i.e./ an [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] ~['org-data …]~ that represents the content of the [[id:3be131b5-2eb2-49f1-b2bc-2fd8cfb68dda][OrgBuffer]]
-~buffer~.
-
-* buffer->org-ast
+* COMMENT buffer->org-ast
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       666d8740-7b4c-4bd3-a03f-90760eee176b
@@ -171,7 +162,7 @@ An OrgAST /i.e./ an [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] ~['org-dat
     (org-element-parse-buffer)))
 #+end_src
 
-* org-knowledge-file->dag
+* COMMENT org-knowledge-file->dag
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
@@ -202,12 +193,12 @@ org-knowledge-file->dag : OrgKnowledgeFile → DAG :≡
    1. rels : Set(Id × Id) :≡
       1. rels-hierarchy :≡
          1. rels :≡ {}
-         2. ∀a:Heading ∈ file.org
-            1. ∃b:heading ∈ file.org
+         2. ∀a:Headline ∈ file.org
+            1. ∃b:headline ∈ file.org
                1. ∧ level(b) = level(a)
                2. ∧ b comes just after a
                3. → rels :≡ rels ∪ { <b#id() a#id()> }
-            2. ∃b:heading ∈ file.org
+            2. ∃b:headline ∈ file.org
                1. ∧ level(b) = level(a) + 1
                2. ∧ b first child of a
                3. → rels :≡ rels ∪ { <a#id() b#id()> }
@@ -247,13 +238,13 @@ org-knowledge-file->dag : OrgKnowledgeFile → DAG :≡
 
 #+end_src
 
-* TODO dag->order
+* COMMENT TODO dag->order
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 98acbc5a-3630-4297-b8af-3344c0909033
 :END:
 
-* utils
+* COMMENT utils
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
@@ -367,7 +358,7 @@ Returns a list of non-nil results in reverse order or the first match."
         (org-element-parse-buffer)))))
 #+end_src
 
-* send
+* COMMENT send
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: eaae96be-a72b-424c-9165-8141f5944ba6
@@ -433,60 +424,7 @@ The function sends a message to an actor with optional arguments."
 (total-recall--message value)
 #+end_src
 
-* Logger
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:END:
-
-~logger :≡ Logger#mk()~. ~msg : Line~, ~logger#info(msg)~,  ~logger#debug(msg)~.
-
-
-#+begin_src emacs-lisp
-;; Logger
-
-(defun total-recall--Logger-membrane (msg)
-  ""
-  (pcase msg
-    ((or `(:info ,obj) `(:debug ,obj)) t)
-    (_ nil)))
-
-(defun total-recall--Logger-tx (state msg)
-  ""
-  (let ((self (gethash :self state))
-        (io (gethash :io state)))
-    (pcase msg
-      (`(:info ,obj)
-       (total-recall--Logger-tx state (list :print "info" obj))
-       `(,state ,self))
-
-      (`(:debug ,obj)
-       (total-recall--Logger-tx state (list :print "debug" obj))
-       `(,state ,self))
-
-      (`(:line ,obj)
-       `(,state ,(string-trim (string-join (string-split (format "%s" obj) "\n") " "))))
-
-      (`(:print ,prefix ,obj)
-       (pcase (total-recall--Logger-tx state (list :line obj))
-         (`(,state ,line)
-          (total-recall--minibuffer io (string-join (list prefix line) " | "))))
-       `(,state ,self)))))
-
-(defun total-recall--Logger-init (data)
-  ""
-  (let ((state (total-recall--State-mk
-                 #'total-recall--Logger-membrane
-                 #'total-recall--Logger-tx)))
-    (pcase data
-      (`(,io)
-       (puthash :io io state)
-       state)
-      (_ (error "Unexpected data. data = %s" data)))))
-
-(total-recall--Actor #'total-recall--Logger-init total-recall--Logger)
-#+end_src
-
-* Exercise
+* COMMENT Exercise
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       1793e4fa-1c89-4b92-9e26-6ca1c4441067
@@ -495,7 +433,7 @@ The function sends a message to an actor with optional arguments."
 ~exercise :≡ Exercise#mk id path question answer~ represents an [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][exercise]] in ELisp. ~exercise#id()~
 is a UUID string. ~exercise#question()~, ~exercise#answer()~ are strings. ~exercise#path()~
 is a string of the form ~A/B/…/Z~ that locates the exercise relative to its context
-/i.e./ The exercise is about ~Z~ which parent heading is ~…~ up until ~A~. ~exercise#string()~
+/i.e./ The exercise is about ~Z~ which parent headline is ~…~ up until ~A~. ~exercise#string()~
 is a one line string representation of the exercise for debugging purposes.
 ~exercise#file()~ is the absolute path to the file it has been extracted from.
 
@@ -558,7 +496,7 @@ Returns a state hash table for the exercise actor."
 (total-recall--Actor #'total-recall--Exercise-init total-recall--Exercise)
 #+end_src
 
-* Definition
+* COMMENT Definition
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       278f886b-8fa5-487d-91a7-e2e27b90ab3f
@@ -569,7 +507,7 @@ Returns a state hash table for the exercise actor."
 def1#id() = def2#id()~. ~definition#content()~ is a string that represents the content
 of the definition. ~definition#path()~ is a string of the form ~A/B/…/Z~ that locates the
 definition relative to its context /i.e./ the definition is about ~Z~ which parent
-heading is ~…~ up until ~A~. ~definition~ satisfies the ~Exercise~ protocol.
+headline is ~…~ up until ~A~. ~definition~ satisfies the ~Exercise~ protocol.
 ~definition#refs()~ is a list of UUID, each one identifies a definition mentioned in
 ~definition#content()~.
 
@@ -636,7 +574,7 @@ Returns a state hash table for the definition actor."
 
 ** TODO refs implemented
 
-* ReviewElement
+* COMMENT ReviewElement
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 6082d5e5-2249-4da0-aff9-dbb09b0ee064
@@ -644,15 +582,15 @@ Returns a state hash table for the definition actor."
 
 ReviewElement :≡ [[ref:278f886b-8fa5-487d-91a7-e2e27b90ab3f][Definition]] | [[ref:1793e4fa-1c89-4b92-9e26-6ca1c4441067][Exercise]]
 
-* Parser
+* COMMENT Parser
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
 
 ~parser :≡ Parser#mk def-id ex-id~ is a parser such that ~parser#parse file~ is a list of
 [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][definitions]] and [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][exercises]] found in ~file~ content in a depth first order relative to
-the tree of headings. ~file~ is a path to an Org Mode file. ~def-id~ and ~ex-id~ are
-strings that identify headings that are considered to be definitions or exercises
+the tree of headlines. ~file~ is a path to an Org Mode file. ~def-id~ and ~ex-id~ are
+strings that identify headlines that are considered to be definitions or exercises
 /i.e./ the ~:TYPE:~ property has a value equal to one of these values.
 
 
@@ -789,7 +727,7 @@ Returns a list of strings like (list A B C), where C is NODE’s title and A, B 
 (defun total-recall--Parser-init (data)
   "Initialize a parser actor with DATA.
 DATA is a list of (DEF-ID EX-ID), where DEF-ID and EX-ID are strings
-identifying definition and exercise headings.
+identifying definition and exercise headlines.
 Returns a state hash table for the parser actor."
   (let ((state (total-recall--State-mk
                 #'total-recall--Parser-membrane
@@ -805,26 +743,26 @@ Returns a state hash table for the parser actor."
 (total-recall--Actor #'total-recall--Parser-init total-recall--Parser)
 #+end_src
 
-* TODO Gnosis
+* COMMENT TODO Gnosis
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
 
-* TODO set-kermos-gnoseos->gnosis
+* COMMENT TODO set-kermos-gnoseos->gnosis
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
 
 set-kermos-gnoseos->gnosis : Set(DAG) → Gnosis :≡ 🞎
 
-* TODO org-file->org-knowledge-file
+* COMMENT TODO org-file->org-knowledge-file
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
 
 org-file->org-knowledge-file : OrgFile → OrgKnowledgeFile :≡
 
-* Network
+* COMMENT Network
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       0863bc67-a376-4d52-9f71-88416477339f
@@ -1288,7 +1226,7 @@ done
 echo '{ "type": "Stop" }' >&3
 #+end_src
 
-* Planner
+* COMMENT Planner
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
@@ -1384,7 +1322,7 @@ Returns a state hash table for the planner actor."
 (total-recall--Actor #'total-recall--Planner-init total-recall--Planner)
 #+end_src
 
-* total-recall
+* COMMENT total-recall
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
@@ -1443,7 +1381,7 @@ A UUIDv4 formatted string.
 :END:
 
 Let ex1, ex2 : Exercise, a reference(ex1 ex2) is introduced by adding a ref Org link
-in ex1#string() to ex2#id(), or making ex2 a direct sub-heading of ex1#string().
+in ex1#string() to ex2#id(), or making ex2 a direct sub-headline of ex1#string().
 
 *** < : Exercise Exercise → Prop
 :PROPERTIES:
@@ -1580,72 +1518,6 @@ string that starts with ~"ref:"~ followed by a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a
 An AST is a synonym for an "element or object" as described in the documentation of
 [[help:org-element-parse-buffer][org-element-parse-buffer]]. It is a list ~[…]~.
 
-***** UUID
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 9ed6dfab-89aa-4bfb-8bff-d7a357546f2f
-:END:
-
-A UUID is a string that satisfies the [[https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)][UUIDv4 format]]. Given a string s, ~uuid-p(s) =
-true~ iff ~s~ is a UUID.
-
-
-#+begin_src emacs-lisp
-(defun total-recall--string-uuid-p (str)
-  (and (stringp str)
-       (string-match-p
-        "^[0-9a-fA-F]\\{8\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{12\\}$"
-        str)))
-#+end_src
-
-**** OrgExercise
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       a474c4de-9bd2-4c2b-8189-c91eb0ab9014
-:END:
-
-An OrgExercise is a [[ref:c5fbf85e-e846-4a44-b590-23aaebe2c40e][HeadingAST]] that has a ~TYPE~ property of value
-~b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8~ and an ~ID~ propety that is a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]] and two sub
-headings. Given a HeadingAST h, ~exercise-p(h) = true~ iff ~h~ is an OrgExercise.
-
-#+begin_src emacs-lisp
-(defun total-recall--org-exercise-p (heading-ast)
-  ;; TODO
-  nil)
-#+end_src
-
-***** HeadingAST
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: c5fbf85e-e846-4a44-b590-23aaebe2c40e
-:END:
-
-A HeadingAST is an [[ref:8be264dc-9c8e-42b8-b919-98f2afa97f91][AST]] ~['headline …]~. It represents the parsed content of a
-heading. Given an AST ~ast~, ~heading-p(ast) = true~ iff ~ast~ is a HeadingAST.
-
-
-#+begin_src emacs-lisp
-(defun total-recall--heading-p (ast)
-  (eq (car ast) 'headline))
-#+end_src
-
-**** OrgDefinition
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       83056aa9-1b7a-4678-a29e-7389db7f885f
-:END:
-
-An OrgDefinition is a [[ref:c5fbf85e-e846-4a44-b590-23aaebe2c40e][HeadingAST]] that has a type property of value
-~f590edb9-5fa3-4a07-8f3d-f513950d5663~ and an id propety that is a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]. The content of
-the definition extends up to the first sub-definition or [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][sub-exercise]] if any. Given a
-HeadingAST h, ~definition-p(h) = true~ iff h is an OrgDefinition.
-
-
-#+begin_src emacs-lisp
-(defun total-recall--org-definition-p (heading)
-  ;; TODO
-  nil)
-#+end_src
 
 *** DOING TotalRecall
 :PROPERTIES:
@@ -2166,6 +2038,72 @@ actor : Message → Any :≡
        actor)))
 #+end_src
 
+*** Logger
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:END:
+
+**** proposition
+
+Given mode : :silent | :info | :debug, let logger : Logger :≡ Logger#mk mode io be an
+actor that aims at providing a logging interface. Given a line msg, logger#info msg
+writes msg to Emacs minibuffer if mode ∈ { :info :debug }. logger#debug msg writes
+msg to Emacs minibuffer if mode ∈ { :debug }.
+
+**** construction
+
+#+begin_src emacs-lisp
+;; Logger
+
+(defun total-recall--Logger-init (data)
+  ""
+  (let ((state (total-recall--State-mk
+                 #'total-recall--Logger-membrane
+                 #'total-recall--Logger-tx)))
+    (pcase data
+      (`(,mode ,io)
+       (puthash :io io state)
+       (pcase mode
+         ((or :silent :info :debug)
+          (puthash :mode mode state))
+         (_ (error "Unexpected mode. mode = %s" mode)))       
+       state)
+      (_ (error "Unexpected data. data = %s" data)))))
+
+
+(defun total-recall--Logger-membrane (msg)
+  ""
+  (pcase msg
+    ((or `(:info ,obj) `(:debug ,obj)) t)
+    (_ nil)))
+
+(defun total-recall--Logger-tx (state msg)
+  ""
+  (let ((self (gethash :self state))
+        (io (gethash :io state))
+        (mode (gethash :mode state)))
+    (pcase msg
+      (`(:info ,obj)
+       (pcase mode
+         ((or :info :debug)
+          (total-recall--Logger-tx state `(:print "info" ,obj)))
+         (_ `(,state ,self))))
+
+      (`(:debug ,obj)
+       (pcase mode
+         ((or :debug)
+          (total-recall--Logger-tx state `(:print "debug" ,obj)))
+         (_ `(,state ,self))))
+
+      (`(:print ,prefix ,obj)
+       (let* ((line (string-trim (replace-regexp-in-string "\n" " " (format "%s" obj))))
+              (prefix (string-join (list prefix line) " | ")))
+         (total-recall--minibuffer io (string-join (list prefix line) " | "))
+         `(,state ,self))))))
+
+(total-recall--Actor #'total-recall--Logger-init total-recall--Logger)
+#+end_src
+
 *** Clock
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
@@ -2377,7 +2315,7 @@ A UUIDv4 formatted string.
 :END:
 
 Let ex1, ex2 : Exercise, a reference(ex1 ex2) is introduced by adding a ref Org link
-in ex1#string() to ex2#id(), or making ex2 a direct sub-heading of ex1#string().
+in ex1#string() to ex2#id(), or making ex2 a direct sub-headline of ex1#string().
 
 ***** < : Exercise Exercise → Prop
 :PROPERTIES:
@@ -2750,7 +2688,6 @@ path is db-file. db#save [[ref:4187a5b0-15c1-49fc-9962-7dd5802e4f25][record]]
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       05a4ce8c-583a-43d2-9dde-af32164d1a97
 :END:
-
 **** proposition
 
 Let report : Report :≡ Report#mk() be an actor that accumulates logs. Given line :
@@ -2852,29 +2789,131 @@ buffer-name.
 (total-recall--Actor #'total-recall--IO-init total-recall--IO)
 #+end_src
 
+*** UUID
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 9ed6dfab-89aa-4bfb-8bff-d7a357546f2f
+:END:
+
+A UUID is a string that satisfies the [[https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)][UUIDv4 format]]. Given a string s, ~uuid-p(s) =
+true~ iff ~s~ is a UUID.
+
+
+#+begin_src emacs-lisp
+(defun total-recall--string-uuid-p (str)
+  (and (stringp str)
+       (string-match-p
+        "^[0-9a-fA-F]\\{8\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{12\\}$"
+        str)))
+#+end_src
+
+*** Headline
+:PROPERTIES:
+:TYPE: 27895409-4970-4941-95e6-ea6cf7f1d0fc
+:ID: a8bbf2b3-cdbd-4e12-affc-64496268e54b
+:END:
+
+[[info:org#Headlines][org#Headlines]]
+
+*** OrgExercise
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       a474c4de-9bd2-4c2b-8189-c91eb0ab9014
+:END:
+
+A OrgExercise is a [[ref:a8bbf2b3-cdbd-4e12-affc-64496268e54b][Headline]] such that it has a ~TYPE~ property of value
+~b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8~ and an ~ID~ propety that is a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]] and two sub
+headlines.
+
+*** OrgDefinition
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       83056aa9-1b7a-4678-a29e-7389db7f885f
+:END:
+
+A OrgDefinition is a [[ref:a8bbf2b3-cdbd-4e12-affc-64496268e54b][Headline]] such that it has a type property of value
+~f590edb9-5fa3-4a07-8f3d-f513950d5663~ and an id propety that is a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]. The content of
+the definition extends up to the first sub-definition or [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][sub-exercise]] if any.
+~definition-p(h) = true~ iff the Headline h is an OrgDefinition.
+
+*** OrgKnowledgeFile
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: b0c11bed-8c87-4c9b-b699-5d1c2230d0ad
+:END:
+
+A OrgKnowledgeFile is a path to a OrgFile such that:
+- Its content contains a string ~# :ID: <uuid>~ such that ~<uuid>~ is equal to the [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
+  ~org-knowledge-file-type-id~.
+- All headlines of its associated associated [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] are either [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinitions]] or
+  [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercises]].
+
+
+Given a path ~path~, ~org-knowledge-file-p(path) = true~ iff ~path~ is an
+OrgKnowledgeFile.
+
+
+#+begin_src emacs-lisp
+(defcustom total-recall-org-knowledge-file-type-id "066ef595-0505-48b5-930a-74a4242e9d0d"
+  :type 'string
+  :group 'total-recall)
+#+end_src
+
+
+#+begin_src emacs-lisp
+(defun total-recall--org-knowledge-file-p (path)
+  ;; TODO
+  )
+#+end_src
+
+*** AST
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 8be264dc-9c8e-42b8-b919-98f2afa97f91
+:END:
+
+Let AST be the type of values returned by [[help:org-element-parse-buffer]].
+
+*** HeadlineAST
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: c5fbf85e-e846-4a44-b590-23aaebe2c40e
+:END:
+
+**** proposition
+
+Given ast : [[ref:8be264dc-9c8e-42b8-b919-98f2afa97f91][AST]], let headline-ast : HeadlineAST :≡ HeadlineAST#mk ast be an AST that
+starts with the symbol 'headline. HeadlineAST#p ast = true iff ast is a HeadlineAST.
+
+**** construction
+
+#+begin_src emacs-lisp
+(defun total-recall--headline-p (ast)
+  (eq (car ast) 'headline))
+#+end_src
+
 *** Searcher
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       f1bbb813-e964-4687-994c-bda31c6ba27b
 :END:
-
-**** Context
-***** Actor
 **** proposition
 
 Let searcher : Searcher :≡ Searcher#mk(root definition-id exercise-id), be an actor
-such that exercises : List(Exercise) :≡ searcher#exercises().
+such that exercises : List([[ref:2ade1c31-ced1-4673-a7f2-b63b7a20ab26][Exercise]]) :≡ searcher#exercises() is the list of all
+exercises derived from OrgExercises found under root, including exercises derived
+from OrgDefinitions.
 
-There is a bijection φ from the set of exercises and definitions headings of files
-under root to exercises. φ : headings → exercises, Bijection(φ).
+There is a bijection φ from the set of exercises and definitions headlines of files
+under root to exercises. φ : headlines → exercises, Bijection(φ).
 
 ∀ ex ∈ exercises, we have:
-1. heading :≡ φ^-1(ex)
-2. ex#id() = Id of heading, a string.
-3. ex#file() = Path of the file that contains heading, a string
-4. ex#line() = Line number in file where the id of heading is written, an integer.
-5. ex#question() = the question deduced from heading, an Org string.
-6. ex#answer() = the answer deduced from heading, an Org string.
+1. headline :≡ φ^-1(ex)
+2. ex#id() = Id of headline, a string.
+3. ex#file() = Path of the file that contains headline, a string
+4. ex#line() = Line number in file where the id of headline is written, an integer.
+5. ex#question() = the question deduced from headline, an Org string.
+6. ex#answer() = the answer deduced from headline, an Org string.
 
 **** construction
 
@@ -2900,7 +2939,7 @@ under root to exercises. φ : headings → exercises, Bijection(φ).
          (error "Ex-id is not a string: ex-id = %s" ex-id))
 
        (puthash :cmd
-                (format "%s -g '*.org' -i --no-heading -n --color=never -m 1 '%s' %s"
+                (format "%s -g '*.org' -i --no-headline -n --color=never -m 1 '%s' %s"
                         (gethash :ripgrep state)
                         (format "%s|%s" (gethash :def-id state) (gethash :ex-id state))
                         (gethash :root state))
@@ -2931,39 +2970,6 @@ under root to exercises. φ : headings → exercises, Bijection(φ).
          `(,state ,(delete-dups matches)))))))
 
 (total-recall--Actor #'total-recall--Searcher-init total-recall--Searcher)
-#+end_src
-
-**** Proof
-
-
-**** OrgKnowledgeFile
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: b0c11bed-8c87-4c9b-b699-5d1c2230d0ad
-:END:
-
-A OrgKnowledgeFile is a path to a OrgFile such that:
-- Its content contains a string ~# :ID: <uuid>~ such that ~<uuid>~ is equal to the [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
-  ~org-knowledge-file-type-id~.
-- All headings of its associated associated [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] are either [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinitions]] or
-  [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercises]].
-
-
-Given a path ~path~, ~org-knowledge-file-p(path) = true~ iff ~path~ is an
-OrgKnowledgeFile.
-
-
-#+begin_src emacs-lisp
-(defcustom total-recall-org-knowledge-file-type-id "066ef595-0505-48b5-930a-74a4242e9d0d"
-  :type 'string
-  :group 'total-recall)
-#+end_src
-
-
-#+begin_src emacs-lisp
-(defun total-recall--org-knowledge-file-p (path)
-  ;; TODO
-  )
 #+end_src
 
 ** proposition
@@ -3025,12 +3031,12 @@ total-recall() :≡
 #+end_src
 
 ** discussion
-
 *** DONE Context is linear
 
 Apparently, it is easier to start with a single linear context and add structure
 later one.
 
+*** TODO Reporting to the user and logging for the dev are ≠.
 *** TODO total-recall is mocked up
 
 total-recall() should start by just printing all the calls. Think of the tale of two
@@ -3051,6 +3057,10 @@ bridges. use report and io.
 ;; indent-tabs-mode: nil
 ;; End:
 #+end_src
+
+
+
+
 
 
 
