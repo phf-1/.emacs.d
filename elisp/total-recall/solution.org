@@ -357,72 +357,6 @@ Returns a list of non-nil results in reverse order or the first match."
         (org-element-parse-buffer)))))
 #+end_src
 
-* COMMENT send
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: eaae96be-a72b-424c-9165-8141f5944ba6
-:END:
-
-Let actor : [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][Actor]] and msg : [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]], then send(actor msg) :≡ actor(msg).
-
-
-#+begin_src emacs-lisp
-(defun total-recall--send (actor msg)
-  (funcall actor msg))
-#+end_src
-
-
-- total-recall--msg actor :≡ send actor :msg
-- total-recall--msg actor … :≡ send actor '(:msg …)
-
-
-#+begin_src emacs-lisp
-(defmacro total-recall--message (name)
-  "Define a message function for NAME to send to an actor.
-NAME is a symbol used to create a function `total-recall--NAME'.
-The function sends a message to an actor with optional arguments."
-  `(defun ,(intern (concat "total-recall--" (symbol-name name))) (actor &rest args)
-     (total-recall--send actor
-                         (pcase args
-                           ('() ,(intern (concat ":" (symbol-name name))))
-                           (_ (cons ,(intern (concat ":" (symbol-name name))) args))))))
-
-(total-recall--message add)
-(total-recall--message ambiguous-p)
-(total-recall--message answer)
-(total-recall--message buffer)
-(total-recall--message buffer-name)
-(total-recall--message date)
-(total-recall--message debug)
-(total-recall--message file)
-(total-recall--message files)
-(total-recall--message id)
-(total-recall--message impredicative-p)
-(total-recall--message info)
-(total-recall--message list-of-ambiguities)
-(total-recall--message list-of-definition)
-(total-recall--message minibuffer)
-(total-recall--message now)
-(total-recall--message parse)
-(total-recall--message path)
-(total-recall--message question)
-(total-recall--message ratings)
-(total-recall--message read)
-(total-recall--message refs)
-(total-recall--message save)
-(total-recall--message select)
-(total-recall--message self-references)
-(total-recall--message show-exercise)
-(total-recall--message show-report)
-(total-recall--message start)
-(total-recall--message stop)
-(total-recall--message string)
-(total-recall--message struct)
-(total-recall--message tick)
-(total-recall--message tick2)
-(total-recall--message value)
-#+end_src
-
 * COMMENT Exercise
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
@@ -1001,6 +935,7 @@ def flatten(input_tree):
 *** Message
 :PROPERTIES:
 :header-args:python+: :tangle "network_server.py"
+:ID:       49a7f2e7-e9e5-4455-a46e-9dd4928e0fe9
 :END:
 
 #+begin_src python
@@ -1733,8 +1668,7 @@ Returns a state hash table for the selector actor."
 (ert-deftest total-recall--Selector ()
   (let ((selector (total-recall--Selector 0)))
     (should (= (total-recall--read selector) 0))
-    (should (= (total-recall--read (total-recall--tick selector)) 1))
-    (should (= (total-recall--read (total-recall--tick2 selector)) 3))))
+    (should (= (total-recall--read (total-recall--tick selector)) 1))))
 #+end_src
 
 
@@ -1903,6 +1837,10 @@ set of [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Edge]].
 :ID:       9030fde9-f7fc-4c83-a54b-41fd1a9872d7
 :END:
 ** context
+*** COMMENT Type
+:PROPERTIES:
+:ID:       0cacaedd-a6fc-4647-9d5a-848d40af691e
+:END:
 *** total-recall-db-path
 :PROPERTIES:
 :ID:       7a2f9b87-a2f8-4fd1-991c-deab4100614c
@@ -1915,7 +1853,9 @@ review data is to be recorded.
 **** construction
 
 #+begin_src emacs-lisp
-(defcustom total-recall-db-path (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
+(defcustom total-recall-db-path
+  (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
+  "DOC"
   :type 'string
   :group 'total-recall)
 #+end_src
@@ -1924,7 +1864,6 @@ review data is to be recorded.
 :PROPERTIES:
 :ID:       5709bbc0-e7e6-4eba-90c9-1840b010f3b2
 :END:
-
 **** proposition
 
 Let root-dir be a string such that it represents the absolute path of the directory
@@ -1934,6 +1873,7 @@ under which Total Recall searches exercises.
 
 #+begin_src emacs-lisp
 (defcustom total-recall-root-dir (expand-file-name "~")
+  "DOC"
   :type 'string
   :group 'total-recall)
 #+end_src
@@ -1959,7 +1899,6 @@ under which Total Recall searches exercises.
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 17cf4de2-18d2-4e90-876e-a537a6ce0616
 :END:
-
 **** proposition
 
 Message :≡ [[ref:32932469-5c3a-4dfd-a116-04ea003acdcf][Keyword]] | cons(Keyword List)
@@ -1971,13 +1910,12 @@ Message :≡ [[ref:32932469-5c3a-4dfd-a116-04ea003acdcf][Keyword]] | cons(Keywor
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 81e52518-3370-4a36-a17b-853ce95af579
 :END:
-
 **** proposition
 
-Given membrane : Message → Message | Nil, tx : State Any → State Any, then let state : State :≡
-State#mk(pred tx) be a [[ref:20fa16f1-2e93-47bd-994e-c371b7ed90b4][hashtable]] such that it has at least the following key/value
-pairs:
-- state[:check] :≡ λmsg.match membrane(msg): msg' : Message → msg'; nil → | ⊥
+Given membrane : Message → Message | Nil, tx : State [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]] → State Any, then let
+state : State :≡ State#mk(pred tx) be a [[ref:20fa16f1-2e93-47bd-994e-c371b7ed90b4][hashtable]] such that it has at least the
+following key/value pairs:
+- state[:membrane] :≡ λmsg.match membrane(msg): msg' : Message → msg'; nil → | ⊥
 - state[:tx] :≡ tx
 
 **** construction
@@ -1985,7 +1923,7 @@ pairs:
 #+begin_src emacs-lisp
 (defun total-recall--State-mk (membrane transfer)
   (let ((state (make-hash-table :test 'eq)))
-    (puthash :check (lambda (msg) (or (funcall membrane msg) (error "Unexpected msg. msg = %s" msg))) state)
+    (puthash :membrane (lambda (msg) (or (funcall membrane msg) (error "Unexpected msg. msg = %s" msg))) state)
     (puthash :tx transfer state)
     state))
 #+end_src
@@ -1995,23 +1933,22 @@ pairs:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       d1295024-a8aa-4dd7-a2a1-1ef4d64781db
 :END:
-
 **** proposition
 
-Given init : Any → [[ref:81e52518-3370-4a36-a17b-853ce95af579][State]], let actor : Actor :≡ Actor#mk(init) be an Actor. Given a
-value any, after actor(any), actor behaves as if we had:
+Given init : Any → [[ref:81e52518-3370-4a36-a17b-853ce95af579][State]], then TypeOfActor : [[ref:0cacaedd-a6fc-4647-9d5a-848d40af691e][Type]] :≡ Actor#mk(init) is the type of actors
+that are initialized by init. actor : TypeOfActor :≡ TypeOfActor#mk(any) is an actor
+that has been initialized using init(any):
 
-
-actor : Message → Any :≡
+actor : [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]] → Any :≡
 1. state :≡ init any
 2. self :≡ λmsg.
    1. tx :≡ state[:tx]
-   2. check :≡ state[:check]
+   2. check :≡ state[:membrane]
    3. <state' any'> :≡ tx state check(msg)
    4. state :≡ state'
    5. any'
 3. state[:self] = self
-4. self
+5. self
 
 **** construction
 
@@ -2034,7 +1971,7 @@ actor : Message → Any :≡
        (defun ,(intern constructor-name) (any)
          (let* ((state (funcall #',(intern init-name) any))
                 (actor (lambda (msg)
-                         (let ((check (gethash :check state))
+                         (let ((check (gethash :membrane state))
                                (tx (gethash :tx state)))
 
                            (pcase (funcall tx state (funcall check msg))
@@ -2049,7 +1986,189 @@ actor : Message → Any :≡
            actor)))))
 #+end_src
 
-*** Logger
+*** send
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: eaae96be-a72b-424c-9165-8141f5944ba6
+:END:
+**** proposition
+
+Let actor : [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][Actor]] and msg : [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]], then send(actor msg) :≡ actor(msg).
+
+**** construction
+
+#+begin_src emacs-lisp
+(defun total-recall--send (actor msg)
+  (funcall actor msg))
+#+end_src
+
+
+#+begin_src emacs-lisp
+(defmacro total-recall--message (name)
+  "Define a message function for NAME to send to an actor.
+NAME is a symbol used to create a function `total-recall--NAME'.
+The function sends a message to an actor with optional arguments."
+  `(defun ,(intern (concat "total-recall--" (symbol-name name))) (actor &rest args)
+     (total-recall--send actor
+                         (pcase args
+                           ('() ,(intern (concat ":" (symbol-name name))))
+                           (_ (cons ,(intern (concat ":" (symbol-name name))) args))))))
+
+(total-recall--message add)
+(total-recall--message ambiguous-p)
+(total-recall--message answer)
+(total-recall--message buffer)
+(total-recall--message buffer-name)
+(total-recall--message date)
+(total-recall--message debug)
+(total-recall--message file)
+(total-recall--message files)
+(total-recall--message id)
+(total-recall--message impredicative-p)
+(total-recall--message info)
+(total-recall--message lines)
+(total-recall--message list-of-ambiguities)
+(total-recall--message list-of-definition)
+(total-recall--message minibuffer)
+(total-recall--message now)
+(total-recall--message parse)
+(total-recall--message path)
+(total-recall--message question)
+(total-recall--message ratings)
+(total-recall--message read)
+(total-recall--message refs)
+(total-recall--message save)
+(total-recall--message select)
+(total-recall--message self-references)
+(total-recall--message show-exercise)
+(total-recall--message show-report)
+(total-recall--message start)
+(total-recall--message stop)
+(total-recall--message string)
+(total-recall--message struct)
+(total-recall--message tick)
+(total-recall--message tick2)
+(total-recall--message value)
+#+end_src
+
+*** Clock
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       3ca40a21-019b-4bba-b18b-bcec7282b445
+:END:
+**** proposition
+
+Clock is used to illustrate how to define and use a type of actors. Given time : ℕ,
+let clock : Clock :≡ Clock#mk(time) be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that represents a clock initialized
+at time. clock#read() gives the clock time. ~t :≡ clock#read(); clock#tick()#read() =
+t + 1~. In order to serve some purpose to the program, ~clock#now()~ gives the system
+time /i.e./ a lisp timestamp representing the UTC time at the call.
+
+**** construction
+
+#+begin_src emacs-lisp
+;; Clock
+
+(defun total-recall--Clock-membrane (msg)
+  (if (memq msg '(:read :tick :now)) msg nil))
+
+(defun total-recall--Clock-tx (state msg)
+  (let ((self (gethash :self state))
+        (time (gethash :time state)))
+    (pcase msg
+      (:read `(,state ,time))
+      (:now `(,state ,(time-convert (current-time) 'list)))
+      (:tick (puthash :time (+ time 1) state) `(,state ,self)))))
+
+(total-recall--Actor Clock
+                     (pcase any
+                       ((and time (pred integerp) (guard (>= time 0)))
+                        (puthash :time time state))
+                       (_ (error "Unexpected init data. data = %s" any))))
+#+end_src
+
+**** test
+
+#+begin_src emacs-lisp :tangle "total-recall-test.el"
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Clock ()
+  (let ((clock (total-recall--Clock-mk 0)))
+    (should (= (total-recall--read clock) 0))
+    (should (= (total-recall--read (total-recall--tick clock)) 1))))
+#+end_src
+
+*** Report
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       05a4ce8c-583a-43d2-9dde-af32164d1a97
+:END:
+**** proposition
+
+Let report : Report :≡ Report#mk() be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that accumulates lines. Given line :
+Line, report#add line adds line after the last one, if any. report#string() is a
+string built from the lines of the report. Given report2 : Report, report#add
+report2 : Report such that the lines of report2 are added after the lines of report
+in report.
+
+**** construction
+
+#+begin_src emacs-lisp
+;; Report
+
+(defun total-recall--Report-membrane (msg)
+  (pcase msg
+    ((and `(:add ,line) (guard (stringp line))) `(:add :line ,line))
+    (`(:add ,report) `(:add :report ,report))
+    (:string msg)
+    (:lines msg)
+    (_ nil)))
+
+(defun total-recall--Report-tx (state msg)
+  (let ((self (gethash :self state))
+        (lines (gethash :lines state)))
+
+    (pcase msg
+      (`(:add :line ,line)
+       (puthash :lines (cons line lines) state)
+       `(,state ,self))
+
+      (`(:add :report ,report)
+       (let ((result lines)
+             (report-lines (total-recall--lines report)))
+         (dolist (line report-lines result)
+                 (setq result (cons line result)))
+         (puthash :lines result state))
+       `(,state ,self))
+
+      (:lines
+       `(,state ,(reverse lines)))
+
+      (:string
+       `(,state ,(string-join (reverse lines) "\n"))))))
+
+(total-recall--Actor Report (puthash :lines '() state))
+#+end_src
+
+**** test
+
+#+begin_src emacs-lisp :tangle "total-recall-test.el"
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Report ()
+  (let ((report (total-recall--Report-mk :data))
+        (report2 (total-recall--Report-mk :data)))
+    (total-recall--add report "line1")
+    (total-recall--add report "line2")
+    (should (string= (total-recall--string report) "line1\nline2"))
+    (total-recall--add report2 "line1")
+    (total-recall--add report report2)
+    (should (string= (total-recall--string report) "line1\nline2\nline1"))))
+#+end_src
+
+*** COMMENT Logger
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
@@ -2115,64 +2234,7 @@ msg to Emacs minibuffer if mode ∈ { :debug }.
 (total-recall--Actor #'total-recall--Logger-init total-recall--Logger)
 #+end_src
 
-*** Clock
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       3ca40a21-019b-4bba-b18b-bcec7282b445
-:END:
-
-**** proposition
-
-Let clock : Clock :≡ Clock#mk time be an actor that represents a clock that is
-initialized at time, an integer. clock is used to illustrate how to define an actor.
-clock#read() gives the clock time. ~t :≡ clock#read(); clock#tick()#read() = t + 1~.
-~clock#now()~ gives the system time /i.e./ a lisp timestamp representing the UTC time at
-the call.
-
-**** construction
-
-#+begin_src emacs-lisp
-;; Clock
-
-(defun total-recall--Clock-membrane (msg)
-  (if (memq msg '(:read :tick :tick2 :now)) msg nil))
-
-(defun total-recall--Clock-tx (state msg)
-  (let ((self (gethash :self state))
-        (time (gethash :time state)))
-    (pcase msg
-      (:read `(,state ,time))
-      (:now `(,state ,(time-convert (current-time) 'list)))
-      (:tick
-       (puthash :time (+ time 1) state)
-       `(,state ,self))
-      (:tick2
-       (total-recall--Clock-tx state :tick)
-       (total-recall--Clock-tx state :tick)
-       `(,state ,self)))))
-
-(total-recall--Actor
- Clock
- (pcase any
-   ((and time (pred integerp) (guard (>= time 0)))
-    (puthash :time time state))
-   (_ (error "Unexpected init data. data = %s" any))))
-#+end_src
-
-**** test
-
-#+begin_src emacs-lisp :tangle "total-recall-test.el"
-(require 'total-recall)
-(require 'ert)
-
-(ert-deftest total-recall--Clock ()
-  (let ((clock (total-recall--Clock-mk 0)))
-    (should (= (total-recall--read clock) 0))
-    (should (= (total-recall--read (total-recall--tick clock)) 1))
-    (should (= (total-recall--read (total-recall--tick2 clock)) 3))))
-#+end_src
-
-*** Graph
+*** COMMENT Graph
 :PROPERTIES:
 :ID:       69b93da1-d17a-49a5-99ef-363a44c33f41
 :END:
@@ -2247,11 +2309,11 @@ class TestDB:
         assert db.sort() == ["d", "c", "b", "a"]
 #+end_src
 
-*** CurveFitter
+*** COMMENT CurveFitter
 :PROPERTIES:
 :ID:       6d544af8-f5f7-464c-a86a-4f6ab5173c42
 :END:
-*** ReferenceGraph
+*** COMMENT ReferenceGraph
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: df9bdab5-6395-4b0b-89a4-bedd5c57c829
@@ -2265,7 +2327,7 @@ ReferenceGraph#mk : Set(Exercise) → ReferenceGraph :≡ λexs.
 3. g is a DAG
 4. g
 
-*** < : Exercise Exercise → Prop
+*** COMMENT < : Exercise Exercise → Prop
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: a28fd20f-ce68-4fc3-bc94-16d8d9cfb517
@@ -2278,7 +2340,7 @@ a path(ex2 ex1) in g.
 # How to proove it
 <(g ex1 ex2) :≡ 🞎
 
-*** < : ReachableComponent ReachableComponent → Prop
+*** COMMENT < : ReachableComponent ReachableComponent → Prop
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 10429f86-c3a5-49a0-9d6e-3ad9d5a29da8
@@ -2291,23 +2353,23 @@ there is a path(n2 n1) such that n2,n1 ∈ v.
 # How to prove it
 # …
 
-*** review
+*** COMMENT review
 
 review : Exercise Time → Result models a user trying to solve
 an exercise. review(ex t) = :success means that the user judged that his answer was
 satisfying /i.e./ close enough from ex#answer() according to him.
-*** Result :≡ :success | :failure | :skip
-*** score
+*** COMMENT Result :≡ :success | :failure | :skip
+*** COMMENT score
 
 score : Set(Exercise) Time → interval(0 1) :≡ λexs,t.
 1. number_of_success :≡ card({ x | ∀(ex ∈ exs),x : review(ex t) = :success })
 2. number_of_success / card(exs)
-*** predicted_recall_score
+*** COMMENT predicted_recall_score
 
 predicted_recall_score : Set(Exercise) Time → interval(0 1) is an estimation of score.
 predicted_recall_score :≡ λexs,t.Σ(ex ∈ exs),predicted_recall_score(ex t) / card(exs)
 
-*** Reference
+*** COMMENT Reference
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 885d0860-25fa-4697-b9f4-7f150a047872
@@ -2316,15 +2378,15 @@ predicted_recall_score :≡ λexs,t.Σ(ex ∈ exs),predicted_recall_score(ex t) 
 Let ex1, ex2 : Exercise, a reference(ex1 ex2) is introduced by adding a ref Org link
 in ex1#string() to ex2#id(), or making ex2 a direct sub-headline of ex1#string().
 
-*** UUID
+*** COMMENT UUID
 
 A UUIDv4 formatted string.
 
-*** OrgContent
+*** COMMENT OrgContent
 
 An OrgContent is a Org formatted string.
 
-*** Exercise
+*** COMMENT Exercise
 :PROPERTIES:
 :ID:       2ade1c31-ced1-4673-a7f2-b63b7a20ab26
 :END:
@@ -2358,7 +2420,7 @@ ex#string() represents the content of the exercise as an OrgContent.
 **** test
 **** discussion
 
-*** Scheduler
+*** COMMENT Scheduler
 :PROPERTIES:
 :ID:       76f234fc-5f51-4626-80a5-23e8dfcc50e2
 :END:
@@ -2429,7 +2491,7 @@ Define Sheduler such that for s : Scheduler, we have:
    2. exercises are presented by components → minimize context switches → ■
    3. high priority exercises are reviewed first → maximize next probability of recall where needed the most → ■
 
-*** UI
+*** COMMENT UI
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       7c752724-7e3d-4529-bf1b-06482ca53b3e
@@ -2606,7 +2668,7 @@ Returns a state hash table for the UI actor."
 (total-recall--Actor #'total-recall--UI-init total-recall--UI)
 #+end_src
 
-*** Record
+*** COMMENT Record
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       4187a5b0-15c1-49fc-9962-7dd5802e4f25
@@ -2677,7 +2739,7 @@ Returns a state hash table for the record actor."
   (should (eq t t)))
 #+end_src
 
-*** DB
+*** COMMENT DB
 :PROPERTIES:
 :ID:       f55fac90-c922-4653-bfb0-10f83a68d53c
 :END:
@@ -2690,71 +2752,7 @@ path is db-file. db#save [[ref:4187a5b0-15c1-49fc-9962-7dd5802e4f25][record]]
 
 **** construction
 
-*** Report
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       05a4ce8c-583a-43d2-9dde-af32164d1a97
-:END:
-**** proposition
-
-Let report : Report :≡ Report#mk() be an actor that accumulates logs. Given line :
-Line, report#add line adds line after the last one. report#string() is a string built
-from the line that represent the report. Given report2 : Report, report#add report2 :
-Report such that the lines of report2 are added after the lines of report in report.
-
-**** construction
-
-#+begin_src emacs-lisp
-;; Report
-
-(defun total-recall--Report-membrane (msg)
-  (pcase msg
-    ((and `(:add ,line) (guard (stringp line))) `(:add :line ,line))
-    (`(:add ,report) `(:add :report ,report))
-    (:string msg)
-    (:lines msg)
-    (_ nil)))
-
-(defun total-recall--Report-tx (state msg)
-  (let ((self (gethash :self state))
-        (lines (gethash :lines state)))
-
-    (pcase msg
-      (`(:add :line ,line)
-       (puthash :lines (cons line lines) state)
-       `(,state ,self))
-
-      (`(:add :report ,report)
-       (let ((result lines)
-             (report-lines (total-recall--lines report)))
-         (dolist line report-lines result
-                 (setq result (cons line result)))
-         (puthash :lines result state))
-       `(,state ,self))
-
-      (:lines
-       `(,state ,(reverse lines)))
-
-      (:string
-       `(,state ,(string-join (reverse lines) "\n"))))))
-
-(total-recall--Actor Report (puthash :lines '() state))
-#+end_src
-
-**** test
-
-#+begin_src emacs-lisp :tangle "total-recall-test.el"
-(require 'total-recall)
-(require 'ert)
-
-(ert-deftest total-recall--Report ()
-  (let ((report (total-recall--Report t)))
-    (total-recall--add report "line1")
-    (total-recall--add report "line2")
-    (should (string= (total-recall--string report) "line1\nline2"))))
-#+end_src
-
-*** IO
+*** COMMENT IO
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 2076d556-ee35-4db7-bd58-887bc5a1c254
@@ -2806,7 +2804,7 @@ buffer-name.
 (total-recall--Actor #'total-recall--IO-init total-recall--IO)
 #+end_src
 
-*** UUID
+*** COMMENT UUID
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 9ed6dfab-89aa-4bfb-8bff-d7a357546f2f
@@ -2824,7 +2822,7 @@ true~ iff ~s~ is a UUID.
         str)))
 #+end_src
 
-*** Headline
+*** COMMENT Headline
 :PROPERTIES:
 :TYPE: 27895409-4970-4941-95e6-ea6cf7f1d0fc
 :ID: a8bbf2b3-cdbd-4e12-affc-64496268e54b
@@ -2832,7 +2830,7 @@ true~ iff ~s~ is a UUID.
 
 [[info:org#Headlines][org#Headlines]]
 
-*** OrgExercise
+*** COMMENT OrgExercise
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       a474c4de-9bd2-4c2b-8189-c91eb0ab9014
@@ -2842,7 +2840,7 @@ A OrgExercise is a [[ref:a8bbf2b3-cdbd-4e12-affc-64496268e54b][Headline]] such t
 ~b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8~ and an ~ID~ propety that is a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]] and two sub
 headlines.
 
-*** OrgDefinition
+*** COMMENT OrgDefinition
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       83056aa9-1b7a-4678-a29e-7389db7f885f
@@ -2853,7 +2851,7 @@ A OrgDefinition is a [[ref:a8bbf2b3-cdbd-4e12-affc-64496268e54b][Headline]] such
 the definition extends up to the first sub-definition or [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][sub-exercise]] if any.
 ~definition-p(h) = true~ iff the Headline h is an OrgDefinition.
 
-*** OrgKnowledgeFile
+*** COMMENT OrgKnowledgeFile
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: b0c11bed-8c87-4c9b-b699-5d1c2230d0ad
@@ -2883,7 +2881,7 @@ OrgKnowledgeFile.
   )
 #+end_src
 
-*** AST
+*** COMMENT AST
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 8be264dc-9c8e-42b8-b919-98f2afa97f91
@@ -2891,7 +2889,7 @@ OrgKnowledgeFile.
 
 Let AST be the type of values returned by [[help:org-element-parse-buffer]].
 
-*** HeadlineAST
+*** COMMENT HeadlineAST
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: c5fbf85e-e846-4a44-b590-23aaebe2c40e
@@ -2909,7 +2907,7 @@ starts with the symbol 'headline. HeadlineAST#p ast = true iff ast is a Headline
   (eq (car ast) 'headline))
 #+end_src
 
-*** Searcher
+*** COMMENT Searcher
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       f1bbb813-e964-4687-994c-bda31c6ba27b
@@ -2996,7 +2994,7 @@ completed a review session, meaning:
 1. All [[ref:2ade1c31-ced1-4673-a7f2-b63b7a20ab26][exercises]] in the file system under [[ref:5709bbc0-e7e6-4eba-90c9-1840b010f3b2][root-dir]] have been
    [[ref:76f234fc-5f51-4626-80a5-23e8dfcc50e2][scheduled]] and reviewed through a [[ref:7c752724-7e3d-4529-bf1b-06482ca53b3e][ui]].
 2. Review data have been recorded in a [[ref:f55fac90-c922-4653-bfb0-10f83a68d53c][database]] under [[ref:7a2f9b87-a2f8-4fd1-991c-deab4100614c][db-path]].
-3. The user has been informed of his performance by written [[ref:4187a5b0-15c1-49fc-9962-7dd5802e4f25][report]] to the [[ref:2076d556-ee35-4db7-bd58-887bc5a1c254][io]] of
+3. The user has been informed of his performance by a [[ref:4187a5b0-15c1-49fc-9962-7dd5802e4f25][report]] written to the [[ref:2076d556-ee35-4db7-bd58-887bc5a1c254][io]] of
    Emacs.
 
 ** construction
@@ -3028,7 +3026,7 @@ total-recall() :≡
 ;;;###autoload
 (defun total-recall ()
   (interactive)
-  (let* ((report (total-recall--Report-mk))
+  (let* ((report (total-recall--Report-mk :data))
          (report (total-recall--add report "total-recall()"))
          (searcher (total-recall--Searcher-mk report))
          (exercises (total-recall--exercises searcher total-recall-root-dir))

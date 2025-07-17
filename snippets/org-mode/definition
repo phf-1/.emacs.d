@@ -12,7 +12,6 @@
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: `(org-id-new)`
 :END:
-
 `(let ((level (org-current-level)))
    (let ((name "context"))
      (pcase (org-current-level)
