@@ -1974,18 +1974,18 @@ Message :≡ [[ref:32932469-5c3a-4dfd-a116-04ea003acdcf][Keyword]] | cons(Keywor
 
 **** proposition
 
-Given pred : Message → Boolean, tx : State Any → State Any, then let state : State :≡
+Given membrane : Message → Message | Nil, tx : State Any → State Any, then let state : State :≡
 State#mk(pred tx) be a [[ref:20fa16f1-2e93-47bd-994e-c371b7ed90b4][hashtable]] such that it has at least the following key/value
 pairs:
-- state[:check] :≡ λmsg.pred(msg) ? msg : ⊥
+- state[:check] :≡ λmsg.match membrane(msg): msg' : Message → msg'; nil → | ⊥
 - state[:tx] :≡ tx
 
 **** construction
 
 #+begin_src emacs-lisp
-(defun total-recall--State-mk (predicate transfer)
+(defun total-recall--State-mk (membrane transfer)
   (let ((state (make-hash-table :test 'eq)))
-    (puthash :check (lambda (msg) (if (funcall predicate msg) msg (error "Unexpected msg. msg = %s" msg))) state)
+    (puthash :check (lambda (msg) (or (funcall membrane msg) (error "Unexpected msg. msg = %s" msg))) state)
     (puthash :tx transfer state)
     state))
 #+end_src
@@ -2135,7 +2135,7 @@ the call.
 ;; Clock
 
 (defun total-recall--Clock-membrane (msg)
-  (memq msg '(:read :tick :tick2 :now)))
+  (if (memq msg '(:read :tick :tick2 :now)) msg nil))
 
 (defun total-recall--Clock-tx (state msg)
   (let ((self (gethash :self state))
@@ -2699,21 +2699,20 @@ path is db-file. db#save [[ref:4187a5b0-15c1-49fc-9962-7dd5802e4f25][record]]
 
 Let report : Report :≡ Report#mk() be an actor that accumulates logs. Given line :
 Line, report#add line adds line after the last one. report#string() is a string built
-from the line that represent the report.
+from the line that represent the report. Given report2 : Report, report#add report2 :
+Report such that the lines of report2 are added after the lines of report in report.
 
 **** construction
 
 #+begin_src emacs-lisp
 ;; Report
 
-(defun total-recall--Report-init (_data)
-  (let ((state (total-recall--State-mk #'total-recall--Report-membrane #'total-recall--Report-tx)))
-    (puthash :lines '() state)
-    state))
-
 (defun total-recall--Report-membrane (msg)
   (pcase msg
-    ((or :string `(:add ,_line)) t)
+    ((and `(:add ,line) (guard (stringp line))) `(:add :line ,line))
+    (`(:add ,report) `(:add :report ,report))
+    (:string msg)
+    (:lines msg)
     (_ nil)))
 
 (defun total-recall--Report-tx (state msg)
@@ -2721,14 +2720,25 @@ from the line that represent the report.
         (lines (gethash :lines state)))
 
     (pcase msg
-      (`(:add ,line)
+      (`(:add :line ,line)
        (puthash :lines (cons line lines) state)
        `(,state ,self))
+
+      (`(:add :report ,report)
+       (let ((result lines)
+             (report-lines (total-recall--lines report)))
+         (dolist line report-lines result
+                 (setq result (cons line result)))
+         (puthash :lines result state))
+       `(,state ,self))
+
+      (:lines
+       `(,state ,(reverse lines)))
 
       (:string
        `(,state ,(string-join (reverse lines) "\n"))))))
 
-(total-recall--Actor #'total-recall--Report-init total-recall--Report)
+(total-recall--Actor Report (puthash :lines '() state))
 #+end_src
 
 **** test
