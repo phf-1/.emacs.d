@@ -1,6 +1,5 @@
-# -*- mode: snippet -*-
-# name: introduction
 # key: intro
+# name: introduction
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
 `(let ((level (org-current-level)))
@@ -36,4 +35,3 @@
    (if (> level 2)
        (concat (make-string level ?*) " discussion")
        "*** discussion"))`
-
