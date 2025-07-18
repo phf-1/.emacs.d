@@ -62,12 +62,6 @@ This package provides `total-recall' for spaced repetition in Emacs."
   :group 'convenience
   :prefix "total-recall-")
 
-(defcustom total-recall-ripgrep-cmd "rg"
-  "Specifies the name or path of the Ripgrep executable.
-This is a string used to locate the Ripgrep command for file searching."
-  :type 'string
-  :group 'total-recall)
-
 (defcustom total-recall-io-buffer-name "*TotalRecall*"
   "Specifies the name of the Total Recall output buffer.
 This is a string used for the buffer where reports are written."
@@ -1463,7 +1457,7 @@ An AST is a synonym for an "element or object" as described in the documentation
 
 ~tr#init()~ is a state that contains a [[ref:7c752724-7e3d-4529-bf1b-06482ca53b3e][ui]], a [[ref:aee4f045-f225-4e4c-a145-0cb2baad2186][db]], a [[ref:05a4ce8c-583a-43d2-9dde-af32164d1a97][report]], and ~els~, the list of
 elements to be presented to the user. To build ~els~, a [[ref:f1bbb813-e964-4687-994c-bda31c6ba27b][searcher]] is used to find all
-[[ref:b0c11bed-8c87-4c9b-b699-5d1c2230d0ad][OrgKnowledgeFiles]] under [[ref:5709bbc0-e7e6-4eba-90c9-1840b010f3b2][total-recall-root-dir]]. For each file, a set of [[ref:7b449631-bbec-4cf2-ae86-247871af14fe][nodes]] and
+[[ref:b0c11bed-8c87-4c9b-b699-5d1c2230d0ad][OrgKnowledgeFiles]] under [[ref:5709bbc0-e7e6-4eba-90c9-1840b010f3b2][total-recall-root]]. For each file, a set of [[ref:7b449631-bbec-4cf2-ae86-247871af14fe][nodes]] and
 [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][edges]] is built from its elements and added to a [[ref:6b1ab7c6-087a-4f2a-a317-cede19042a73][DAG]]. The DAG is used to derive a
 logical [[ref:696661be-ee3a-4f4d-9bf8-9b79e9edd9a7][order]] over the elements. The ordered list of elements is then pruned by a
 [[ref:b6e43048-cf5d-4540-aab4-6b282e78fbb2][selector]].
@@ -1577,7 +1571,7 @@ that minimizes "context switches" from one element to another, thus minimizing t
     (puthash :db-path total-recall-db-path state)
     (puthash :db (total-recall--DB (gethash :db-path state)) state)
 
-    (puthash :root total-recall-root-dir state)
+    (puthash :root total-recall-root state)
     (puthash :def-type total-recall-def-type state)
     (puthash :ex-type total-recall-ex-type state)
     (puthash :searcher (total-recall--Searcher (list (gethash :root state) (gethash :def-type state) (gethash :ex-type state))) state)
@@ -1691,6 +1685,12 @@ with ~db~.
 
 #+begin_src emacs-lisp
 ;; DB
+
+(defcustom total-recall-db-path
+  (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
+  "DOC"
+  :type 'string
+  :group 'total-recall)
 
 (defun total-recall--DB-membrane (msg)
   "Process incoming MSG for the database actor.
@@ -1841,43 +1841,6 @@ set of [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Edge]].
 :PROPERTIES:
 :ID:       0cacaedd-a6fc-4647-9d5a-848d40af691e
 :END:
-*** total-recall-db-path
-:PROPERTIES:
-:ID:       7a2f9b87-a2f8-4fd1-991c-deab4100614c
-:END:
-**** proposition
-
-Let db-path be a string that represents a file path to the SQLite database where
-review data is to be recorded.
-
-**** construction
-
-#+begin_src emacs-lisp
-(defcustom total-recall-db-path
-  (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
-  "DOC"
-  :type 'string
-  :group 'total-recall)
-#+end_src
-
-*** total-recall-root-dir
-:PROPERTIES:
-:ID:       5709bbc0-e7e6-4eba-90c9-1840b010f3b2
-:END:
-**** proposition
-
-Let root-dir be a string such that it represents the absolute path of the directory
-under which Total Recall searches exercises.
-
-**** construction
-
-#+begin_src emacs-lisp
-(defcustom total-recall-root-dir (expand-file-name "~")
-  "DOC"
-  :type 'string
-  :group 'total-recall)
-#+end_src
-
 *** Keyword
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
@@ -2214,6 +2177,173 @@ Set(:debug), logger#debug msg writes msg to Emacs minibuffer.
                      (pcase any
                        ((and mode (or :silent :info :debug))
                         (puthash :mode mode state))
+                       (_ (error "Unexpected init data. data = %s" any))))
+#+end_src
+
+*** UUID
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 9ed6dfab-89aa-4bfb-8bff-d7a357546f2f
+:END:
+**** proposition
+
+Let UUID be the type of strings that satify the [[https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)][UUIDv4 format]]. ~string-uuid-p(s) =
+true~ iff s is a UUID.
+
+**** construction
+
+#+begin_src emacs-lisp
+(defun total-recall--string-uuid-p (str)
+  (and (stringp str)
+       (string-match-p
+        "^[0-9a-fA-F]\\{8\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{12\\}$"
+        str)))
+#+end_src
+
+*** Headline
+:PROPERTIES:
+:TYPE: 27895409-4970-4941-95e6-ea6cf7f1d0fc
+:ID: a8bbf2b3-cdbd-4e12-affc-64496268e54b
+:END:
+**** proposition
+
+Headline is a synonym for what is defined in [[info:org#Headlines][org#Headlines]].
+
+*** OrgExercise
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       a474c4de-9bd2-4c2b-8189-c91eb0ab9014
+:END:
+**** proposition
+
+A OrgExercise is a [[ref:a8bbf2b3-cdbd-4e12-affc-64496268e54b][Headline]] such that it has a TYPE property of value
+org-exercise-type-uuid : [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]] and an ID propety that is a UUID and two sub headlines.
+
+**** construction
+
+#+begin_src emacs-lisp
+(defconst total-recall--exercise-type-uuid "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8")
+#+end_src
+
+*** OrgDefinition
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       83056aa9-1b7a-4678-a29e-7389db7f885f
+:END:
+**** proposition
+
+A OrgDefinition is a [[ref:a8bbf2b3-cdbd-4e12-affc-64496268e54b][Headline]] such that it has a TYPE property of value
+org-exercise-type-uuid : [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]] and an id propety that is a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]. The content of the
+definition extends up to the first sub-definition or [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][sub-exercise]] if any.
+
+**** construction
+
+#+begin_src emacs-lisp
+(defconst total-recall--definition-type-uuid "f590edb9-5fa3-4a07-8f3d-f513950d5663")
+#+end_src
+
+*** Searcher
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       f1bbb813-e964-4687-994c-bda31c6ba27b
+:END:
+**** proposition
+
+Given root : Path to a directory in the current file system, let searcher : Searcher
+:≡ Searcher#mk(root) be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] such that searcher#files() : List(Path) is the list
+of absolute file paths under root which extension is =.org= and that contain at least
+one [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercise]] or one [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinition]].
+
+**** construction
+
+#+begin_src emacs-lisp
+;; Searcher
+
+(defcustom total-recall-ripgrep-cmd "rg"
+  "Specifies the name or path of the Ripgrep executable.
+This is a string used to locate the Ripgrep command for file searching."
+  :type 'string
+  :group 'total-recall)
+
+(defun total-recall--Searcher-membrane (msg)
+  (if (eq msg :files) msg nil))
+
+(defun total-recall--Searcher-tx (state msg)
+  (let ((self (gethash :self state))
+        (root (gethash :root state))
+        (ripgrep (gethash :ripgrep state))
+        (def-type (gethash :def-type state))
+        (ex-type (gethash :ex-type state)))
+    (pcase msg
+      (:files
+       (let* ((command (format "%s -g '*.org' -i --no-heading -n --color=never -m 1 '%s' %s"
+                               ripgrep
+                               (format "%s|%s" def-type ex-type)
+                               (shell-quote-argument root)))
+              (output (split-string (shell-command-to-string command) "\n" t))
+              (files (mapcar (lambda (line) (car (split-string line ":"))) output)))
+         `(,state ,files))))))
+
+(total-recall--Actor Searcher
+                     (pcase any
+                       ((and root (pred file-directory-p))
+                        (let ((rg total-recall-ripgrep-cmd))
+                          (puthash :root (expand-file-name root) state)
+                          (if (not (executable-find rg))
+                              (error "ripgrep executable not found in PATH. executable = %s" rg)
+                            (puthash :ripgrep rg state))
+                          (puthash :def-type total-recall--definition-type-uuid state)
+                          (puthash :ex-type total-recall--exercise-type-uuid state)))
+                       (_ (error "Unexpected init data. data = %s" any))))
+#+end_src
+
+*** IO
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 2076d556-ee35-4db7-bd58-887bc5a1c254
+:END:
+**** proposition
+
+Given buffer-name : String, let io : IO :≡ IO#mk buffer-name be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that
+represents Emacs IO. Given a string s, io#buffer(s) writes s to buffer named
+buffer-name. io#minibuffer(s) writes s to Emacs minibuffer. io#buffer-name() =
+buffer-name.
+
+**** construction
+
+#+begin_src emacs-lisp
+;; IO
+
+(defun total-recall--IO-membrane (msg)
+  (pcase msg
+    ((and `(:buffer ,str) (guard (stringp str))) msg)
+    ((and `(:minibuffer ,str) (guard (stringp str))) msg)
+    (:buffer-name msg)
+    (_ nil)))
+
+(defun total-recall--IO-tx (state msg)
+  (let ((self (gethash :self state))
+        (buffer-name (gethash :buffer-name state)))
+    (pcase msg
+      (`(:buffer ,str)
+       (with-current-buffer (get-buffer-create buffer-name)
+         (save-excursion
+           (goto-char (point-max))
+           (insert
+            (if (string-suffix-p "\n" str)
+                str
+              (concat str "\n")))))
+       `(,state ,self))
+      (`(:minibuffer ,str)
+       (message "%s" str)
+       `(,state ,self))
+      (:buffer-name
+       `(,state ,buffer-name)))))
+
+(total-recall--Actor IO
+                     (pcase any
+                       ((and buffer-name (pred stringp))
+                        (puthash :buffer-name buffer-name state))
                        (_ (error "Unexpected init data. data = %s" any))))
 #+end_src
 
@@ -2735,105 +2865,6 @@ path is db-file. db#save [[ref:4187a5b0-15c1-49fc-9962-7dd5802e4f25][record]]
 
 **** construction
 
-*** COMMENT IO
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 2076d556-ee35-4db7-bd58-887bc5a1c254
-:END:
-
-**** proposition
-
-Given a string buffer-name, let io : IO :≡ IO#mk buffer-name be an actor that
-represents Emacs IO. Given a string s, io#buffer(s) writes s to buffer named
-buffer-name. io#minibuffer(s) writes s to Emacs minibuffer. io#buffer-name() =
-buffer-name.
-
-**** construction
-
-#+begin_src emacs-lisp
-;; IO
-
-(defun total-recall--IO-init (name)
-  (let ((state (total-recall--State-mk
-                #'total-recall--IO-membrane
-                #'total-recall--IO-tx)))
-    (puthash :buffer (get-buffer-create name) state)
-    (puthash :name (buffer-name (gethash :buffer state)) state)
-    state))
-
-(defun total-recall--IO-membrane (msg)
-  (pcase msg
-    ((or :buffer-name `(:minibuffer ,_string) `(:buffer ,_string)) t)
-    (_ nil)))
-
-(defun total-recall--IO-tx (state msg)
-  (let ((self (gethash :self state))
-        (buffer (gethash :buffer state))
-        (name (gethash :name state)))
-
-    (pcase msg
-      (`(:minibuffer ,string)
-       (message "%s" (string-trim string))
-       `(,state ,self))
-
-      (`(:buffer ,string)
-       (with-current-buffer buffer
-         (erase-buffer)
-         (insert (string-join (list string "\n"))))
-       `(,state ,self))
-
-      (:buffer-name  `(,state ,name)))))
-
-(total-recall--Actor #'total-recall--IO-init total-recall--IO)
-#+end_src
-
-*** COMMENT UUID
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 9ed6dfab-89aa-4bfb-8bff-d7a357546f2f
-:END:
-
-A UUID is a string that satisfies the [[https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)][UUIDv4 format]]. Given a string s, ~uuid-p(s) =
-true~ iff ~s~ is a UUID.
-
-
-#+begin_src emacs-lisp
-(defun total-recall--string-uuid-p (str)
-  (and (stringp str)
-       (string-match-p
-        "^[0-9a-fA-F]\\{8\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{4\\}-[0-9a-fA-F]\\{12\\}$"
-        str)))
-#+end_src
-
-*** COMMENT Headline
-:PROPERTIES:
-:TYPE: 27895409-4970-4941-95e6-ea6cf7f1d0fc
-:ID: a8bbf2b3-cdbd-4e12-affc-64496268e54b
-:END:
-
-[[info:org#Headlines][org#Headlines]]
-
-*** COMMENT OrgExercise
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       a474c4de-9bd2-4c2b-8189-c91eb0ab9014
-:END:
-
-A OrgExercise is a [[ref:a8bbf2b3-cdbd-4e12-affc-64496268e54b][Headline]] such that it has a ~TYPE~ property of value
-~b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8~ and an ~ID~ propety that is a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]] and two sub
-headlines.
-
-*** COMMENT OrgDefinition
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       83056aa9-1b7a-4678-a29e-7389db7f885f
-:END:
-
-A OrgDefinition is a [[ref:a8bbf2b3-cdbd-4e12-affc-64496268e54b][Headline]] such that it has a type property of value
-~f590edb9-5fa3-4a07-8f3d-f513950d5663~ and an id propety that is a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]. The content of
-the definition extends up to the first sub-definition or [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][sub-exercise]] if any.
-~definition-p(h) = true~ iff the Headline h is an OrgDefinition.
-
 *** COMMENT OrgKnowledgeFile
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
@@ -2890,86 +2921,6 @@ starts with the symbol 'headline. HeadlineAST#p ast = true iff ast is a Headline
   (eq (car ast) 'headline))
 #+end_src
 
-*** COMMENT Searcher
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       f1bbb813-e964-4687-994c-bda31c6ba27b
-:END:
-**** proposition
-
-Let searcher : Searcher :≡ Searcher#mk(root definition-id exercise-id), be an actor
-such that exercises : List([[ref:2ade1c31-ced1-4673-a7f2-b63b7a20ab26][Exercise]]) :≡ searcher#exercises() is the list of all
-exercises derived from OrgExercises found under root, including exercises derived
-from OrgDefinitions.
-
-There is a bijection φ from the set of exercises and definitions headlines of files
-under root to exercises. φ : headlines → exercises, Bijection(φ).
-
-∀ ex ∈ exercises, we have:
-1. headline :≡ φ^-1(ex)
-2. ex#id() = Id of headline, a string.
-3. ex#file() = Path of the file that contains headline, a string
-4. ex#line() = Line number in file where the id of headline is written, an integer.
-5. ex#question() = the question deduced from headline, an Org string.
-6. ex#answer() = the answer deduced from headline, an Org string.
-
-**** construction
-
-#+begin_src emacs-lisp
-;; Searcher
-
-(defun total-recall--Searcher-init (data)
-  (let ((state (total-recall--State-mk #'total-recall--Searcher-membrane #'total-recall--Searcher-tx)))
-    (pcase data
-      (`(,root ,def-id ,ex-id)
-
-       (unless (file-directory-p (puthash :root root state))
-         (error "Root is not a directory: root = %s" root))
-
-       (let ((ripgrep total-recall-ripgrep-cmd))
-         (unless (stringp (puthash :ripgrep (executable-find ripgrep) state))
-           (error "Ripgrep not found in PATH: ripgrep = %s" ripgrep)))
-
-       (unless (stringp (puthash :def-id def-id state))
-         (error "Def-id is not a string: def-id = %s" def-id))
-
-       (unless (stringp (puthash :ex-id ex-id state))
-         (error "Ex-id is not a string: ex-id = %s" ex-id))
-
-       (puthash :cmd
-                (format "%s -g '*.org' -i --no-headline -n --color=never -m 1 '%s' %s"
-                        (gethash :ripgrep state)
-                        (format "%s|%s" (gethash :def-id state) (gethash :ex-id state))
-                        (gethash :root state))
-                state)
-
-       state)
-      (_ (error "Unexpected data: data = %s" data)))))
-
-(defun total-recall--Searcher-membrane (msg)
-  (pcase msg
-    (:files t)
-    (_ nil)))
-
-(defun total-recall--Searcher-tx (state msg)
-  (let ((cmd (gethash :cmd state)))
-    (pcase msg
-      (:files
-       (let (matches)
-         (with-temp-buffer
-           (call-process-shell-command cmd nil `(,(current-buffer) nil) nil)
-           (goto-char (point-min))
-           (while (not (eobp))
-             (let* ((line (buffer-substring-no-properties
-                           (line-beginning-position) (line-end-position)))
-                    (match (split-string line ":")))
-               (push (car match) matches))
-             (forward-line 1)))
-         `(,state ,(delete-dups matches)))))))
-
-(total-recall--Actor #'total-recall--Searcher-init total-recall--Searcher)
-#+end_src
-
 ** proposition
 
 Let total-recall be an interactive function such that after execution, the user has
@@ -2982,50 +2933,61 @@ completed a review session, meaning:
 
 ** construction
 
-total-recall() :≡
-- report             : Report                        :≡ Report#mk()
-- root               : DirectoryPath                 :≡ user defined
-- searcher           : [[ref:f1bbb813-e964-4687-994c-bda31c6ba27b][Searcher]]                      :≡ Searcher#mk(report)
-- exs                : Set(Exercise)                 :≡ searcher#exercises(root)
-- clock              : [[ref:3ca40a21-019b-4bba-b18b-bcec7282b445][Clock]]                         :≡ Clock#mk(report)
-- time               : Time                          :≡ clock#now()
-- db-path            : FilePath                      :≡ user defined
-- db                 : Database                      :≡ Database#mk(db-path report)
-- curve-fitter       : [[ref:6d544af8-f5f7-464c-a86a-4f6ab5173c42][CurveFitter]]                   :≡ CurveFitter#mk(report)
-- recall-probability : Exercise Time → interval(0 1) :≡ curve-fitter#fit(db)
-- scheduler          : Scheduler                     :≡ Scheduler#mk(recall-probability report)
-- schedule           : List(Exercise)                :≡ scheduler#schedule(exs time)
-- ui                 : UI                            :≡ UI#mk(db report)
-- io                 : IO                            :≡ IO#mk(report)
-- ui#start schedule
-- io#buffer report#string()
-- io#minibuffer "Report written to …"
-- db#stop()
+#+begin_src org
+,* total-rcecall : ∅ → ∅ :≡ λ.
+,** root : AbsoluteDirectoryPath :≡ user defined.
+,** files : List(AbsoluteOrgPath) :≡ files root
+,** exercises : Set(Exercise) :≡ exercises files
+,** time : Time :≡ time()
+,** db-path : AbsoluteFilePath :≡ user-defined
+,** db : Database :≡ db db-path
+,** schedule : List(Exercise) :≡ schedule files exercises db time.
+,*** reference-graph : ReferenceGraph :≡ reference-graph exercises
+,*** forest-graph : ForestGraph :≡ forest-graph files
+,*** dag : DAG(UUID) :≡ dag reference-graph forest-graph
+,*** order : Exercise Exercise → Boolean :≡ order dag
+,*** recall-probability : Exercise Time → interval(0 1) :≡ recall-probability db
+,*** 🞎(order recall-probability)
+,** ui : UI :≡ UI#mk()
+,** io : IO :≡ IO#mk()
+,** next : Schedule → ∅ :≡ λ schedule.
+,*** match schedule
+,**** [] →
+,***** db#stop()
+,***** ui#stop()
+,***** io#buffer report#string()
+,***** io#mini-buffer "Report written to …"
+,**** [exercise] + rest →
+,***** reply : Rating | Stop :≡ ui#show exercise
+,***** match reply
+,****** Rating →
+,******* db#save reply
+,******* next rest
+,****** Stop → next []
+,** next schedule
+#+end_src
 
 
 #+begin_src emacs-lisp
 ;; total-recall
 
+(defcustom total-recall-root (expand-file-name "~")
+  "DOC"
+  :type 'string
+  :group 'total-recall)
+
 ;;;###autoload
 (defun total-recall ()
   (interactive)
   (let* ((report (total-recall--Report-mk :data))
-         (report (total-recall--add report "total-recall()"))
-         (searcher (total-recall--Searcher-mk report))
-         (exercises (total-recall--exercises searcher total-recall-root-dir))
-         (clock (total-recall--Clock-mk report))
-         (time (total-recall--now clock))
-         (db (total-recall--DB-mk total-recall-db-path report))
-         (curve-fitter (total-recall--CurveFitter-mk report))
-         (recall-probability (total-recall--fit curve-fitter db))
-         (scheduler (total-recall--Scheduler-mk recall-probability report))
-         (schedule (total-recall--schedule scheduler exercises time))
-         (ui (total-recall--UI-mk db report))
-         (io (total-recall--IO-mk report)))
-    (total-recall--start ui schedule)
+         (searcher (total-recall--Searcher-mk total-recall-root))
+         (files (total-recall--files searcher))
+         (io (total-recall--IO-mk "*TotalRecall Report*")))
+    (total-recall--add report "files found:")
+    (dolist (file files)
+      (total-recall--add report (format "  %s" file)))
     (total-recall--buffer io (total-recall--string report))
-    (total-recall--minibuffer io (format "Report written to %s" (total-recall--buffer-name io)))
-    (total-recall--stop db)))
+    (total-recall--minibuffer io (format "Report written to %s" (total-recall--buffer-name io)))))
 #+end_src
 
 ** discussion

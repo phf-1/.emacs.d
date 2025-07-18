@@ -2,4 +2,4 @@
 # name: lambda-function
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-λx,y.z
+λ x y.z
