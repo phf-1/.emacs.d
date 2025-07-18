@@ -1955,6 +1955,8 @@ actor : [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]] → Any :≡
 #+begin_src emacs-lisp
 ;; Actor
 
+(defconst total-recall--Actor-log-received-msg t)
+
 (defmacro total-recall--Actor (name &rest init-body)
   (let* ((name-str (symbol-name name))
          (prefix (concat "total-recall--" name-str))
@@ -1973,6 +1975,11 @@ actor : [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]] → Any :≡
                 (actor (lambda (msg)
                          (let ((check (gethash :membrane state))
                                (tx (gethash :tx state)))
+
+                           (when total-recall--Actor-log-received-msg
+                             (message "%s#%s"
+                                      ,name-str
+                                      (if (symbolp msg) msg (car msg))))
 
                            (pcase (funcall tx state (funcall check msg))
                              (`(,state-next ,reply)
@@ -2168,70 +2175,46 @@ in report.
     (should (string= (total-recall--string report) "line1\nline2\nline1"))))
 #+end_src
 
-*** COMMENT Logger
+*** Logger
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
-
 **** proposition
 
-Given mode : :silent | :info | :debug, let logger : Logger :≡ Logger#mk mode io be an
-actor that aims at providing a logging interface. Given a line msg, logger#info msg
-writes msg to Emacs minibuffer if mode ∈ { :info :debug }. logger#debug msg writes
-msg to Emacs minibuffer if mode ∈ { :debug }.
+Given mode : Set(:silent :info :debug), let logger : Logger :≡ Logger#mk(mode) be an
+[[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that aims at providing a logging interface. Given a line msg and mode ∈
+Set(:info :debug), logger#info msg writes msg to Emacs minibuffer. Given mode ∈
+Set(:debug), logger#debug msg writes msg to Emacs minibuffer.
 
 **** construction
 
 #+begin_src emacs-lisp
 ;; Logger
 
-(defun total-recall--Logger-init (data)
-  ""
-  (let ((state (total-recall--State-mk
-                 #'total-recall--Logger-membrane
-                 #'total-recall--Logger-tx)))
-    (pcase data
-      (`(,mode ,io)
-       (puthash :io io state)
-       (pcase mode
-         ((or :silent :info :debug)
-          (puthash :mode mode state))
-         (_ (error "Unexpected mode. mode = %s" mode)))
-       state)
-      (_ (error "Unexpected data. data = %s" data)))))
-
-
 (defun total-recall--Logger-membrane (msg)
-  ""
   (pcase msg
-    ((or `(:info ,obj) `(:debug ,obj)) t)
+    ((and `(:info ,line) (guard (stringp line))) msg)
+    ((and `(:debug ,line) (guard (stringp line))) msg)
     (_ nil)))
 
 (defun total-recall--Logger-tx (state msg)
-  ""
   (let ((self (gethash :self state))
-        (io (gethash :io state))
         (mode (gethash :mode state)))
     (pcase msg
-      (`(:info ,obj)
-       (pcase mode
-         ((or :info :debug)
-          (total-recall--Logger-tx state `(:print "info" ,obj)))
-         (_ `(,state ,self))))
+      (`(:info ,line)
+       (when (memq mode '(:info :debug))
+         (message "info: %s" line))
+       `(,state ,self))
+      (`(:debug ,line)
+       (when (eq mode :debug)
+         (message "debug: %s" line))
+       `(,state ,self)))))
 
-      (`(:debug ,obj)
-       (pcase mode
-         ((or :debug)
-          (total-recall--Logger-tx state `(:print "debug" ,obj)))
-         (_ `(,state ,self))))
-
-      (`(:print ,prefix ,obj)
-       (let* ((line (string-trim (replace-regexp-in-string "\n" " " (format "%s" obj))))
-              (prefix (string-join (list prefix line) " | ")))
-         (total-recall--minibuffer io (string-join (list prefix line) " | "))
-         `(,state ,self))))))
-
-(total-recall--Actor #'total-recall--Logger-init total-recall--Logger)
+(total-recall--Actor Logger
+                     (pcase any
+                       ((and mode (or :silent :info :debug))
+                        (puthash :mode mode state))
+                       (_ (error "Unexpected init data. data = %s" any))))
 #+end_src
 
 *** COMMENT Graph

@@ -50,11 +50,11 @@ ${TOTAL_RECALL_EL}: solution.org | ${BUILD}
 	emacs -Q --batch --file "$<" --eval '(org-babel-tangle)'
 	mv total-recall.el "$@"
 	mv total-recall-test.el "${TOTAL_RECALL_TEST_EL}"
-	mv network_server.py "${NETWORK_SERVER_PY}"
-	mv __init__.py "${INIT_PY}"
-	mv network_server_test.py "${NETWORK_SERVER_TEST_PY}"
-	mv network-server "${NETWORK_SERVER}"
-	mv network-server-test "${NETWORK_SERVER_TEST}"
+	# mv network_server.py "${NETWORK_SERVER_PY}"
+	# mv __init__.py "${INIT_PY}"
+	# mv network_server_test.py "${NETWORK_SERVER_TEST_PY}"
+	# mv network-server "${NETWORK_SERVER}"
+	# mv network-server-test "${NETWORK_SERVER_TEST}"
 	pushd "${BUILD}"
 	  if [[ ! -d .venv ]]; then
 	    uv venv
