@@ -2,13 +2,6 @@
 
 #+PROPERTY: header-args:emacs-lisp :noweb yes :mkdirp yes :tangle total-recall.el
 
-* objective
-
-#+name: objective
-#+begin_src org
-TODO
-#+end_src
-
 * header
 
 #+begin_src emacs-lisp
@@ -31,7 +24,7 @@ TODO
 ;;
 ;;; Commentary:
 ;;
-;; <<objective>>
+;; commentary
 ;;
 ;;; Code:
 #+end_src
@@ -51,1797 +44,12 @@ TODO
 (require 'cl-lib)
 #+end_src
 
-* COMMENT configuration
-
-#+begin_src emacs-lisp
-;; Configuration
-
-(defgroup total-recall nil
-  "Customization options for Total Recall.
-This package provides `total-recall' for spaced repetition in Emacs."
-  :group 'convenience
-  :prefix "total-recall-")
-
-(defcustom total-recall-io-buffer-name "*TotalRecall*"
-  "Specifies the name of the Total Recall output buffer.
-This is a string used for the buffer where reports are written."
-  :type 'string
-  :group 'total-recall)
-
-(defcustom total-recall-def-type "f590edb9-5fa3-4a07-8f3d-f513950d5663"
-  "Specifies the UUID for identifying definition headlines in Org files.
-This is a string used to mark headlines as definitions in Total Recall."
-  :type 'string
-  :group 'total-recall)
-
-(defcustom total-recall-ex-type "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
-  "Specifies the UUID for identifying exercise headlines in Org files.
-This is a string used to mark headlines as exercises in Total Recall."
-  :type 'string
-  :group 'total-recall)
-
-(defcustom total-recall-window-width 160
-  "Specifies the width of the Total Recall UI frame in characters.
-This is an integer defining the frame width for the UI."
-  :type 'integer
-  :group 'total-recall)
-
-(defcustom total-recall-window-height 90
-  "Specifies the height of the Total Recall UI frame in characters.
-This is an integer defining the frame height for the UI."
-  :type 'integer
-  :group 'total-recall)
-
-(defcustom total-recall-key-skip ?k
-  "Specifies the key to skip an exercise in the Total Recall UI.
-This is a character used to skip the current exercise."
-  :type 'character
-  :group 'total-recall)
-
-(defcustom total-recall-key-quit ?q
-  "Specifies the key to quit the Total Recall session.
-This is a character used to exit the UI session."
-  :type 'character
-  :group 'total-recall)
-
-(defcustom total-recall-key-success ?s
-  "Specifies the key to mark an exercise as successful in the Total Recall UI.
-This is a character used to record a successful review."
-  :type 'character
-  :group 'total-recall)
-
-(defcustom total-recall-key-failure ?f
-  "Specifies the key to mark an exercise as failed in the Total Recall UI.
-This is a character used to record a failed review."
-  :type 'character
-  :group 'total-recall)
-
-(defcustom total-recall-key-reveal ?r
-  "Specifies the key to reveal the answer in the Total Recall UI.
-This is a character used to show the exercise answer."
-  :type 'character
-  :group 'total-recall)
-#+end_src
-
-* COMMENT Buffer
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 58e40ccb-95ad-4aca-81c4-7be40372c901
-:END:
-
-[[info:elisp#Buffers][elisp#Buffers]]
-
-* COMMENT OrgBuffer
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 3be131b5-2eb2-49f1-b2bc-2fd8cfb68dda
-:END:
-
-An OrgBuffer is a [[ref:58e40ccb-95ad-4aca-81c4-7be40372c901][Buffer]] that has [[help:org-mode]] activated.
-
-* COMMENT buffer->org-ast
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       666d8740-7b4c-4bd3-a03f-90760eee176b
-:END:
-
-~buffer->org-ast(buffer)~ is the [[ref:8be264dc-9c8e-42b8-b919-98f2afa97f91][OrgAST]] derived from the [[ref:3be131b5-2eb2-49f1-b2bc-2fd8cfb68dda][OrgBuffer]] ~buffer~.
-
-#+begin_src emacs-lisp
-(defun total-recall--buffer->org-ast (buffer)
-  (with-current-buffer buffer
-    (unless (derived-mode-p 'org-mode)
-      (error "org-mode is not activated in the current buffer."))
-    (org-element-parse-buffer)))
-#+end_src
-
-* COMMENT org-knowledge-file->dag
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:END:
-
-~org-knowledge-file->dag(path)~ is a DAG([[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]) derived from the [[ref:b0c11bed-8c87-4c9b-b699-5d1c2230d0ad][OrgKnowledgeFile]]
-~file~. The set of nodes is the union of the set of [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUIDs]] of the [[ref:b90e4015-0a31-477c-a3e4-a4b2c87a6fb9][Elements]] of the
-matching [[ref:8be264dc-9c8e-42b8-b919-98f2afa97f91][OrgAST]]. The set of edges is formed by the union of hierarchical edges and
-referencial edges.
-
-Let a,b : [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinition]] | [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercise]]. If ~a~ and ~b~ have the same level and ~b~
-comes juste after ~a~, then ~<b a>~ is an edge of hierarchical edges. If the level of ~b~
-is the level of ~a~ + 1, and ~b~ is the first child of ~a~, then ~<a b>~ is an edge of
-hierarchical edges. If ~b~ content has a reference ~a~, then ~<b a>~ is an edge of
-referancial edges.
-
-** TODO
-Given a OrgKnowledgeFile named ~file.org~, ~kg :≡ ~ is
-
-
-org-knowledge-file->dag : OrgKnowledgeFile → DAG :≡
-1. file.org : [[ref:b0c11bed-8c87-4c9b-b699-5d1c2230d0ad][OrgKnowledgeFile]]
-2. els : Set(ReviewElement) :≡
-   1. list-el : List([[ref:278f886b-8fa5-487d-91a7-e2e27b90ab3f][Definition]] | [[ref:1793e4fa-1c89-4b92-9e26-6ca1c4441067][Exercise]]) :≡ λ file.org
-   2. match duplicates(map λe.e#id() list-el)
-      - { } → set(list-el)
-      - _ → ⊥
-3. dag :≡
-   1. rels : Set(Id × Id) :≡
-      1. rels-hierarchy :≡
-         1. rels :≡ {}
-         2. ∀a:Headline ∈ file.org
-            1. ∃b:headline ∈ file.org
-               1. ∧ level(b) = level(a)
-               2. ∧ b comes just after a
-               3. → rels :≡ rels ∪ { <b#id() a#id()> }
-            2. ∃b:headline ∈ file.org
-               1. ∧ level(b) = level(a) + 1
-               2. ∧ b first child of a
-               3. → rels :≡ rels ∪ { <a#id() b#id()> }
-         3. rels
-      2. rels-reference :≡
-         1. rels :≡ {}
-         2. ∀e ∈ els, ∀id ∈ e#refs(), rels :≡ rels ∪ { <e#id() id> }
-         3. rels
-      3. rels-hierarchy ∪ rels-reference
-   2. nodes :≡ set(map(λe.e#id() els)) ∪ set(flatten(rels))
-   3. g :≡ Graph nodes rels
-   4. g is a DAG ? g : ⊥
-4. < : els els → Boolean :≡
-   - λa,b.∃path(b#id() a#id()) ∈ dag
-5. p : [[ref:1e7ac163-18a7-44cd-bba9-97ed8029f319][TotalStrictOrder(<)]] :≡
-   1. p1 : ∀(a,b:ids), a < b or a = b or a > b :≡
-      - a,b:ids
-      - cond
-        1. a = b → ■
-        2. a ≠ b → ■
-   2. p2 : [[ref:bc98f978-3347-4ad8-8520-9b9c38c5b932][Transitive(<)]] :≡
-      1. assume a < b ∧ b < c
-      2. then there is a path from c to b and b to a
-      3. then there is a path from c to a
-      4. then a < c
-      5. ■
-   3. p3 : [[ref:4c9aeebc-00fe-4bd3-8fa3-b61838260e57][Irreflexive(<)]]
-      1. a < a
-      2. then there is a path from a to a in dag
-      3. then ⊥
-      4. ■
-   4. ■
-6. ■
-
-
-#+begin_src emacs-lisp
-
-#+end_src
-
-* COMMENT TODO dag->order
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 98acbc5a-3630-4297-b8af-3344c0909033
-:END:
-
-* COMMENT utils
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:END:
-
-#+begin_src emacs-lisp
-;; Utils
-
-(defun total-recall--truncate-str (str)
-  "Truncates STR to 25 characters, replacing newlines with spaces.
-Returns the truncated string with an ellipsis if necessary."
-  (truncate-string-to-width
-   (replace-regexp-in-string "\n" " " (string-trim str))
-   25
-   0
-   nil
-   "…"))
-
-(defun total-recall--not-implemented-error ()
-  "Signals an error indicating the function is not implemented.
-Throws an error with the message \"NotImplemented\"."
-  (error "NotImplemented"))
-
-(defun total-recall--not-implemented-warning ()
-  "Displays a warning indicating the function is not implemented.
-Shows a message \"WARNING: NotImplemented\" in the echo area."
-  (message "WARNING: NotImplemented"))
-
-(defun total-recall--timestamp-leq (t1 t2)
-  "Check if timestamp T1 is less than or equal to T2.
-Returns t if T1 is less than or equal to T2, nil otherwise."
-  (or (time-less-p t1 t2)
-      (equal t1 t2)))
-
-(defconst total-recall--day (* 24 60 60)
-  "Number of seconds in a day.")
-
-(defun total-recall--find-last-index (lst pred)
-  "Find the last index in LST where PRED return non-nil.
-LST is a list, and PRED is a function taking a list element.
-Returns the index of the last matching element or nil if none."
-  (let ((index -1)
-        (last-index nil))
-    (dolist (item lst)
-      (setq index (1+ index))
-      (when (funcall pred item)
-        (setq last-index index)))
-    last-index))
-
-(defun total-recall--org-element-lineage-map (fun datum &optional types with-self first-match)
-  "Apply FUN to each ancestor of DATUM, from closest to farthest.
-DATUM is an Org element or object.
-TYPES, if non-nil, is a list of symbols to restrict ancestors.
-WITH-SELF, if non-nil, includes DATUM if it matches TYPES.
-FIRST-MATCH, if non-nil, stops at the first non-nil result from FUN.
-Returns a list of non-nil results in reverse order or the first match."
-  (let ((lineage (if with-self
-                     (cons datum (org-element-lineage datum))
-                   (org-element-lineage datum)))
-        results)
-    (catch 'first-match
-      (dolist (element lineage)
-        (when (or (not types)
-                  (memq (org-element-type element) types))
-          (let ((result (funcall fun element)))
-            (when result
-              (if first-match
-                  (throw 'first-match result)
-                (push result results)))))))
-    (if first-match
-        nil  ; If we reach here with first-match, no match was found
-      (nreverse results))))
-
-(defun total-recall--proc-start (path &optional args name)
-  (let* ((name (or name (file-name-base path)))
-         (process
-          (apply #'start-process
-                 (concat name "-process")
-                 (concat "*" name "-buffer*")
-                 path
-                 args)))
-    (set-process-query-on-exit-flag process nil)
-    process))
-
-(defun total-recall--proc-send (proc data &optional timeout)
-  (if (not (process-live-p proc))
-      (error "Process is not alive")
-    (let ((output "")
-          (timeout (or timeout 1)))
-      (set-process-filter
-       proc
-       (lambda (process line)
-         (setq output (concat output line))))
-      (process-send-string proc (concat data "\n"))
-      (accept-process-output proc timeout)
-      output)))
-
-(defun total-recall--proc-stop (proc)
-  (when (and proc (process-live-p proc))
-    (kill-process proc)
-    (let ((buffer (process-buffer proc)))
-      (when (buffer-live-p buffer)
-        (kill-buffer buffer)))))
-#+end_src
-
-#+begin_src emacs-lisp
-(defun total-recall--print-org-structure ()
-  (interactive)
-  (let ((print-length nil))
-    (pp-eval-expression
-     '(with-current-buffer (current-buffer)
-        (org-element-parse-buffer)))))
-#+end_src
-
-* COMMENT Exercise
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       1793e4fa-1c89-4b92-9e26-6ca1c4441067
-:END:
-
-~exercise :≡ Exercise#mk id path question answer~ represents an [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][exercise]] in ELisp. ~exercise#id()~
-is a UUID string. ~exercise#question()~, ~exercise#answer()~ are strings. ~exercise#path()~
-is a string of the form ~A/B/…/Z~ that locates the exercise relative to its context
-/i.e./ The exercise is about ~Z~ which parent headline is ~…~ up until ~A~. ~exercise#string()~
-is a one line string representation of the exercise for debugging purposes.
-~exercise#file()~ is the absolute path to the file it has been extracted from.
-
-
-#+begin_src emacs-lisp
-;; Exercise
-
-(defun total-recall--Exercise-membrane (msg)
-  "Process incoming MSG for the exercise actor.
-MSG is a symbol like `file`, `id`, `path`, `question`, `answer`, or `string`.
-Returns a list containing the corresponding instruction."
-  (pcase msg
-    ((or :file :id :path :question :answer :string) t)
-    (_ nil)))
-
-(defun total-recall--Exercise-tx (state msg)
-  "Handle transaction INST for the exercise actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a symbol like `file`, `id`, `path`, `question`, `answer`, or `string`.
-Updates MEMORY with the requested data."
-  (let ((file (gethash :file state))
-        (id (gethash :id state))
-        (path (gethash :path state))
-        (question (gethash :question state))
-        (answer (gethash :answer state)))
-
-    (pcase msg
-      (:file `(,state ,file))
-      (:id `(,state ,id))
-      (:path `(,state ,path))
-      (:question `(,state ,question))
-      (:answer `(,state ,answer))
-      (:string
-       `(,state
-         ,(string-join
-           `("Exercise("
-             ,id
-             ,(format "%s" path)
-             ,(total-recall--truncate-str question)
-             ,(total-recall--truncate-str answer) ")")
-           " "))))))
-
-(defun total-recall--Exercise-init (data)
-  "Initialize an exercise actor with DATA.
-DATA is a list of (FILE ID PATH QUESTION ANSWER), where FILE is a path,
-ID is a UUID string, PATH, QUESTION, and ANSWER are strings.
-Returns a state hash table for the exercise actor."
-  (let ((state (total-recall--State-mk #'total-recall--Exercise-membrane #'total-recall--Exercise-tx)))
-    (pcase data
-      (`(,file ,id ,path ,question ,answer)
-       (puthash :file file state)
-       (puthash :id id state)
-       (puthash :path path state)
-       (puthash :question question state)
-       (puthash :answer answer state)
-       state)
-      (_
-       (error "Unexpected data: data = %s" data)))))
-
-(total-recall--Actor #'total-recall--Exercise-init total-recall--Exercise)
-#+end_src
-
-* COMMENT Definition
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       278f886b-8fa5-487d-91a7-e2e27b90ab3f
-:END:
-
-~definition :≡ Definition#mk id path content~ represents a [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][definition]] in ELisp.
-~definition#id()~ is a UUID string that identifies the definition. ~def1 = def2 ⇔
-def1#id() = def2#id()~. ~definition#content()~ is a string that represents the content
-of the definition. ~definition#path()~ is a string of the form ~A/B/…/Z~ that locates the
-definition relative to its context /i.e./ the definition is about ~Z~ which parent
-headline is ~…~ up until ~A~. ~definition~ satisfies the ~Exercise~ protocol.
-~definition#refs()~ is a list of UUID, each one identifies a definition mentioned in
-~definition#content()~.
-
-
-#+begin_src emacs-lisp
-;; Definition
-
-(defun total-recall--Definition-membrane (msg)
-  "Process incoming MSG for the definition actor.
-MSG is a symbol like `file`, `id`, `path`, `content`, `question`,
-`answer`, or `string`.  Returns a list containing the corresponding
-instruction."
-  (pcase msg
-    ((or :file :id :path :content :question :answer :string :refs) t)
-    (_ nil)))
-
-(defun total-recall--Definition-tx (state msg)
-  "Handle transaction INST for the definition actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a symbol like `file`, `id`, `path`, `content`, `question`, or `string`.
-Updates MEMORY with the requested data."
-  (let ((file (gethash :file state))
-        (id (gethash :id state))
-        (path (gethash :path state))
-        (content (gethash :content state)))
-
-    (pcase msg
-      (:file `(,state ,file))
-      (:id `(,state ,id))
-      (:path `(,state ,path))
-      (:content `(,state ,content))
-      (:question `(,state ,"* Definition?"))
-      (:string `(,state
-                 ,(string-join
-                   `("Definition("
-                     ,id
-                     ,(format "%s" path)
-                     ,(total-recall--truncate-str content)
-                     ")")
-                   " ")))
-      ;; TODO
-      (:refs `(,state ,'())))))
-
-(defun total-recall--Definition-init (data)
-  "Initialize a definition actor with DATA.
-DATA is a list of (FILE ID PATH CONTENT), where FILE is a path,
-ID is a UUID string, PATH and CONTENT are strings.
-Returns a state hash table for the definition actor."
-  (let ((state (total-recall--State-mk
-                 #'total-recall--Definition-membrane
-                 #'total-recall--Definition-tx)))
-    (pcase data
-      (`(,file ,id ,path ,content)
-       (puthash :file file state)
-       (puthash :id id state)
-       (puthash :path path state)
-       (puthash :content content state)
-       state)
-      (_
-       (error "Unexpected data: data = %s" data)))))
-
-(total-recall--Actor #'total-recall--Definition-init total-recall--Definition)
-#+end_src
-
-** TODO refs implemented
-
-* COMMENT ReviewElement
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 6082d5e5-2249-4da0-aff9-dbb09b0ee064
-:END:
-
-ReviewElement :≡ [[ref:278f886b-8fa5-487d-91a7-e2e27b90ab3f][Definition]] | [[ref:1793e4fa-1c89-4b92-9e26-6ca1c4441067][Exercise]]
-
-* COMMENT Parser
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:END:
-
-~parser :≡ Parser#mk def-id ex-id~ is a parser such that ~parser#parse file~ is a list of
-[[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][definitions]] and [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][exercises]] found in ~file~ content in a depth first order relative to
-the tree of headlines. ~file~ is a path to an Org Mode file. ~def-id~ and ~ex-id~ are
-strings that identify headlines that are considered to be definitions or exercises
-/i.e./ the ~:TYPE:~ property has a value equal to one of these values.
-
-
-#+begin_src emacs-lisp
-;; Parser
-
-(defun total-recall--Parser-membrane (msg)
-  "Process incoming MSG for the parser actor.
-MSG is a list like `(parse FILE)` where FILE is a file path.
-Returns a list containing the parse instruction."
-  (pcase msg
-    (`(:parse ,_file) t)
-    (_ nil)))
-
-(defun total-recall--Parser-tx (state msg)
-  "Handle transaction INST for the parser actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a list like `(parse FILE)` where FILE is a file path.
-Updates MEMORY with the parsed elements."
-  (pcase msg
-    (`(:parse ,file)
-
-     (list
-      state
-      (with-temp-buffer
-        (insert-file-contents file)
-        (org-mode)
-        (org-fold-show-all)
-        (let ((org-element-use-cache nil))
-          (total-recall--node-depth-first
-           (org-element-parse-buffer 'greater-element)
-           (lambda (node) (total-recall--node-to-element file node)))))))))
-
-(defun total-recall--node-depth-first (node func)
-  "Traverse NODE depth-first and apply FUNC to each node.
-NODE is an Org element, and FUNC is a function taking a node.
-Returns a list of non-error results from FUNC."
-  (let ((head
-         (mapcan
-          (lambda (node) (total-recall--node-depth-first node func))
-          (org-element-contents node)))
-        (last (funcall func node)))
-    (pcase last
-      (:err head)
-      (_ (append head (list last))))))
-
-(defun total-recall--node-to-element (file node)
-  "Convert NODE to an exercise or definition element from FILE.
-FILE is the path to the Org file, and NODE is an Org element.
-Returns an exercise or definition actor, or `:err` if not applicable."
-  (let ((exercise-result (total-recall--node-to-exercise file node)))
-    (if (eq exercise-result :err)
-        (total-recall--node-to-definition file node)
-      exercise-result)))
-
-(defun total-recall--node-to-exercise (file node)
-  "Convert NODE to an exercise actor from FILE.
-FILE is the path to the Org file, and NODE is an Org element.
-Returns an exercise actor or `:err` if NODE is not an exercise."
-  (let (should-be-exercise id list-headline question answer)
-
-    (setq should-be-exercise
-          (and (eq (org-element-type node) 'headline)
-               (string= (org-element-property :TYPE node) total-recall-ex-type)))
-
-    (if should-be-exercise
-        (progn
-          (setq id (org-element-property :ID node))
-          (unless (stringp id) (error "Exercise has no ID property"))
-          (setq list-headline
-                (seq-filter
-                 (lambda (child) (eq (org-element-type child) 'headline))
-                 (org-element-contents node)))
-          (pcase (length list-headline)
-            (0 (error "Exercise has no question nor answer: id = %s" id))
-            (1 (error "Exercise has no answer: id = %s" id))
-            (_
-             (setq question (total-recall--node-to-string (car list-headline)))
-             (setq answer (total-recall--node-to-string (cadr list-headline)))))
-
-          (total-recall--Exercise
-           (list
-            file
-            id
-            (total-recall--node-subject node)
-            question
-            answer)))
-      :err)))
-
-(defun total-recall--node-to-definition (file node)
-  "Convert NODE to a definition actor from FILE.
-FILE is the path to the Org file, and NODE is an Org element.
-Returns a definition actor or `:err` if NODE is not a definition."
-  (let (should-be-definition id subject content)
-
-    (setq should-be-definition
-          (and (eq (org-element-type node) 'headline)
-               (string= (org-element-property :TYPE node) total-recall-def-type)))
-
-    (if should-be-definition
-        (progn
-          (setq id (org-element-property :ID node))
-          (setq subject (total-recall--node-subject node))
-          (unless (stringp id) (error "Definition has no ID property: file = %s" file))
-          (setq content (total-recall--node-to-string node))
-          (total-recall--Definition
-           (list
-            file
-            id
-            subject
-            content)))
-      :err)))
-
-(defun total-recall--node-to-string (node)
-  "Convert NODE to a string with headline leveled to level 1.
-NODE is an Org element.
-Returns the trimmed string representation."
-  (replace-regexp-in-string
-   "\\`\\*+" "*"
-   (string-trim
-    (buffer-substring-no-properties
-     (org-element-property :begin node)
-     (org-element-property :end node)))))
-
-(defun total-recall--node-subject (node)
-  "Extract the subject of NODE as a list of strings.
-NODE is an Org headline element.
-Returns a list of strings like (list A B C), where C is NODE’s title and A, B are ancestors."
-  (reverse
-   (total-recall--org-element-lineage-map
-    (lambda (parent) (org-element-property :raw-value parent))
-    node '(headline) t)))
-
-(defun total-recall--Parser-init (data)
-  "Initialize a parser actor with DATA.
-DATA is a list of (DEF-ID EX-ID), where DEF-ID and EX-ID are strings
-identifying definition and exercise headlines.
-Returns a state hash table for the parser actor."
-  (let ((state (total-recall--State-mk
-                #'total-recall--Parser-membrane
-                #'total-recall--Parser-tx)))
-    (pcase data
-      (`(,def-id ,ex-id)
-       (puthash :def-id def-id state)
-       (puthash :ex-id ex-id state)
-       state)
-      (_
-       (error "Unexpected data: data = %s" data)))))
-
-(total-recall--Actor #'total-recall--Parser-init total-recall--Parser)
-#+end_src
-
-* COMMENT TODO Gnosis
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:END:
-
-* COMMENT TODO set-kermos-gnoseos->gnosis
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:END:
-
-set-kermos-gnoseos->gnosis : Set(DAG) → Gnosis :≡ 🞎
-
-* COMMENT TODO org-file->org-knowledge-file
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:END:
-
-org-file->org-knowledge-file : OrgFile → OrgKnowledgeFile :≡
-
-* COMMENT Network
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       0863bc67-a376-4d52-9f71-88416477339f
-:END:
-
-Let ~def1,def2,def3 : Definition~. If ~def2~ contains a reference to ~def1~, then we write
-~def2 → def1 : Reference({ def1 def2 })~. Let ~defs : { Definition }~, then we may build
-~refs(defs) : { Reference(defs) }~, the set of references over ~defs~. We call
-~graph(defs) : Graph(defs) :≡ <defs, refs(defs)>~. If ~def3 → def2~ and ~def2 → def1~, then
-we write ~def3 →+ def1 : Path(graph(defs)) :≡ <def3 def2 def1>~ meaning that there is a
-path from ~def3~ to ~def1~. If ~def →+ def~, then we say that ~def~ is self referential. Let
-~g :≡ graph(defs)~, then ~self-references(g)~ is the set of self referential definitions.
-If ~self-references(g) ≠ ∅~, then we say that ~g~ is impredicative. If ~g~ is not
-impredicative, then ~g#list-of-definition()~ is the list of definitions using
-topological order since it is a directed graph.
-
-
-- ~g :≡ Graph(defs)~
-  - ~g#self-references() : List(List(Definition))~
-  - ~g#impredicative-p() : Boolean :≡ g#self-references() ≠ '()~
-  - ~g#list-of-definition() : List(Definition)~
-  - ~g#list-of-ambiguities() : List(list(Definition))~ l is an ambiguity, d1,d2 ∈ l, d1#id() = d2#id()
-  - ~g#ambiguous-p() : Boolean :≡ ~g#list-of-ambiguities() ≠ '()~
-
-
-#+begin_src emacs-lisp
-;; Network
-
-(require 'json)
-
-(defun total-recall--Network-membrane (msg)
-  (pcase msg
-    ((or :self-references :impredicative-p :list-of-definition :list-of-ambiguities :ambiguous-p) t)
-    (_ nil)))
-
-(defun total-recall--Network-tx (state msg)
-  ""
-  (let ((self (gethash :self state))
-        (logger (gethash :logger state))
-        (defs (gethash :defs state))
-        (process (gethash :process state)))
-    (total-recall--debug logger (list "begin rcv" msg))
-    (pcase msg
-      (:self-references
-       (let ((msg (json-encode '((type . "Loops"))))
-             loops)
-         (setq loops (alist-get 'loops (json-read-from-string (total-recall--proc-send process msg))))
-
-         `(,state
-           ,(mapcar
-             (lambda (loop)
-               (pcase (total-recall--Network-tx state `(:ids-to-defs ,loop))
-                 (`(,state ,defs) defs)))
-             loops))))
-
-      (:impredicative-p
-       (pcase (total-recall--Network-tx state :self-references)
-         (`(,state ,self-refs)
-          `(,state ,(not (equal self-refs []))))))
-
-      (:list-of-definition
-       (let ((msg (json-encode '((type . "Sort"))))
-             reply)
-         (setq reply (alist-get 'nodes (json-read-from-string (total-recall--proc-send process msg))))
-         (total-recall--Network-tx state `(:ids-to-defs ,reply))))
-
-      (:list-of-ambiguities
-       `(,state ,'()))
-
-      (:ambiguous-p
-       (pcase (total-recall--Network-tx state :list-of-ambiguities)
-         (`(,state ,ambiguities)
-          `(,state ,(not (eq ambiguities '()))))))
-
-      (`(:ids-to-defs ,ids)
-       `(,state ,(mapcar (lambda (id) (gethash id defs)) ids))))))
-
-(defun total-recall--Network-init (defs)
-  ""
-  (let* ((state (total-recall--State-mk #'total-recall--Network-membrane #'total-recall--Network-tx))
-         (io (total-recall--IO total-recall-io-buffer-name))
-         (logger (total-recall--Logger (list io)))
-         (parent-dir (directory-file-name (file-name-directory load-file-name)))
-         (executable-path (file-name-concat parent-dir "network-server")))
-    (total-recall--debug logger (list "begin" "init"))
-    (pcase defs
-      (_
-       (puthash
-        :defs
-        (let ((hashtable (make-hash-table :test 'equal)))
-          (dolist (def defs hashtable)
-            (puthash (total-recall--id def) def hashtable)))
-        state)
-       (puthash :logger logger state)
-       (puthash :process (total-recall--proc-start executable-path) state)
-       (total-recall--proc-send (gethash :process state)
-                                (json-encode `((type . "Graph")
-                                               (nodes . ,(mapcar #'total-recall--id defs))
-                                               (refs . ,(mapcan #'total-recall--refs defs)))))
-       (total-recall--debug logger (list "end" "init"))
-       state)
-      (_ (error "Unexpected data: data = %s" data)))))
-
-(total-recall--Actor #'total-recall--Network-init total-recall--Network)
-#+end_src
-
-#+begin_src emacs-lisp :tangle "total-recall-test.el"
-(require 'total-recall)
-(require 'ert)
-
-(ert-deftest total-recall--Network ()
-  (let* ((def1 (total-recall--Definition (list "/tmp/test-file.org" "1" "subject1" "content")))
-         (def2 (total-recall--Definition (list "/tmp/test-file.org" "2" "subject2" "content")))
-         (def3 (total-recall--Definition (list "/tmp/test-file.org" "3" "subject3" "content")))
-         (defs (list def1 def2 def3))
-         (net (total-recall--Network defs)))
-    (should (eq (total-recall--self-references net) '()))
-    (should (not (total-recall--impredicative-p net)))
-    (should (eq (total-recall--list-of-definition net) defs))
-    (should (eq (total-recall--list-of-ambiguities net) '()))
-    (should (not (total-recall--ambiguous-p net)))))
-#+end_src
-
-** network-server
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:END:
-
-1. p : NetworkProcess :≡ ./network-server
-2. p#rcv '{ "type": "Hello" }' = '{"type": "World"}'
-3. p#rcv '{ "type": "Stop" }' : p is stopped.
-4. p#rcv '{ "type": "Graph", "nodes": nodes, "refs": refs }' = '{"type": "Ack"}'
-   - nodes : List(String)
-   - refs : List(String × String)
-5. p#rcv '{ "type": "Loops" }' = '{"type": "Loops", "loops": loops }'
-   - loops : List(List(String))
-6. p#rcv '{ "type": "Sort" }' = '{"type": "Sort", "nodes": nodes }'
-   - nodes : List(String)
-
-
-- echo string | p :≡
-  - rcv(string) : None :≡
-    1. msg    : Message :≡ transducer#msg string
-    2. reply  : Dict    :≡ interpreter#rcv msg
-    3. output : String  :≡ transducer#str reply
-    4. None   : None    :≡ io#stdout output
-
-#+begin_src python :tangle "network-server" :shebang "#!/usr/bin/env python3"
-import os
-from network_server import Logger, IO, Transducer, Interpreter, Error, Stop
-
-def main():
-    logger = Logger(log_level=os.environ["LOG_LEVEL"])
-    io = IO()
-    transducer = Transducer()
-    interpreter = Interpreter(io, logger)
-
-    for string in io.stdin():
-        logger.debug(f'string = {string}')
-
-        try:
-            msg = transducer.msg(string)
-        except Exception as e:
-            msg = Error(f'Error err occurred trying to transduce string. err = {e}. string = {string}')
-
-        logger.debug(f'msg = {msg}')
-
-        try:
-            reply = interpreter.rcv(msg)
-        except Exception as e:
-            reply = Error(f'Error err occurred trying to interpret msg. err = {e}. msg = {msg}')
-
-        logger.debug(f'reply = {reply}')
-
-        try:
-            output = transducer.str(reply)
-        except Exception as e:
-            output = Error(f'Error err occurred trying to transduce reply. err = {e}. reply = {reply}')
-
-        logger.debug(f'output = {output}')
-
-        io.stdout(output)
-
-    interpreter.rcv(Stop())
-
-if __name__ == "__main__":
-    main()
-#+end_src
-
-*** __init__.py
-:PROPERTIES:
-:header-args:python+: :tangle "__init__.py"
-:END:
-
-#+begin_src python
-#+end_src
-
-*** imports
-:PROPERTIES:
-:header-args:python+: :tangle "network_server.py"
-:END:
-
-#+begin_src python
-import os
-import sys
-import json
-import signal
-import logging
-import kuzu
-from typing import Self
-from dataclasses import dataclass, field
-import networkx as nx
-#+end_src
-
-*** Utils
-:PROPERTIES:
-:header-args:python+: :tangle "network_server.py"
-:END:
-
-#+begin_src python
-def flatten(input_tree):
-    output_list = []
-    stack = list(input_tree)
-    stack.reverse()
-    while stack:
-        item = stack.pop()
-        match item:
-            case list() as lst:
-                lst.reverse()
-                stack.extend(lst)
-            case _:
-                output_list.append(item)
-
-    return output_list
-#+end_src
-
-*** Message
-:PROPERTIES:
-:header-args:python+: :tangle "network_server.py"
-:ID:       49a7f2e7-e9e5-4455-a46e-9dd4928e0fe9
-:END:
-
-#+begin_src python
-@dataclass
-class Message:
-    type: str = "Message"
-
-    def dict(self):
-        return {"type": self.type}
-
-@dataclass
-class Hello(Message):
-    type: str = "Hello"
-
-@dataclass
-class World(Message):
-    type: str = "World"
-
-@dataclass
-class Ack(Message):
-    type: str = "Ack"
-
-@dataclass
-class Stop(Message):
-    type: str = "Stop"
-
-@dataclass
-class Error(Message):
-    type: str = "Error"
-    msg: str = ""
-
-    def dict(self):
-        d = super().dict()
-        d["msg"] = self.msg
-        return d
-
-@dataclass
-class Graph(Message):
-    type: str = "Graph"
-    nodes: list[str] = field(default_factory=list)
-    refs: list[list[str]] = field(default_factory=list)
-
-    def dict(self):
-        d = super().dict()
-        d["refs"] = self.refs
-        d["nodes"] = self.nodes
-        return d
-
-@dataclass
-class Loops(Message):
-    type: str = "Loops"
-    loops: list[list[str]] = field(default_factory=list)
-
-    def dict(self):
-        d = super().dict()
-        d["loops"] = self.loops
-        return d
-
-@dataclass
-class Sort(Message):
-    type: str = "Sort"
-    nodes: list[str] = field(default_factory=list)
-
-    def dict(self):
-        d = super().dict()
-        d["nodes"] = self.nodes
-        return d
-#+end_src
-
-*** Transducer
-:PROPERTIES:
-:header-args:python+: :tangle "network_server.py"
-:END:
-
-#+begin_src python
-class Transducer:
-    def msg(self, string: str) -> dict:
-        data = json.loads(string)
-        match data["type"]:
-            case "Hello":
-                return Hello()
-
-            case "Stop":
-                return Stop()
-
-            case "Graph":
-                return Graph(nodes=data["nodes"], refs=data["refs"])
-
-            case "Loops":
-                return Loops()
-
-            case "Sort":
-                return Sort()
-
-            case _:
-                raise AssertionError(f"Unexpected JSON object. json = {data}")
-
-    def str(self, msg: Message) -> str:
-        return json.dumps(msg.dict())
-#+end_src
-
-*** IO
-:PROPERTIES:
-:header-args:python+: :tangle "network_server.py"
-:END:
-
-#+begin_src python
-class IO:
-    def stdin(self):
-        return sys.stdin
-
-    def stdout(self, string):
-        line = string.strip() + '\n'
-        sys.stdout.buffer.write(bytes(line, 'utf-8', 'strict'))
-        sys.stdout.flush()
-
-    def close(self):
-        sys.stdin.close()
-        sys.stdout.close()
-#+end_src
-
-*** Logger
-:PROPERTIES:
-:header-args:python+: :tangle "network_server.py"
-:END:
-
-#+begin_src python
-class Logger:
-    def __init__(self,log_level="INFO") -> None:
-        formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
-        handler = logging.StreamHandler(sys.stderr)
-        handler.setFormatter(formatter)
-        self._logger = logging.getLogger('network_server')
-        self._logger.setLevel(getattr(logging, log_level))
-        self._logger.addHandler(handler)
-
-    def debug(self, msg: str) -> None:
-        self._logger.debug(msg)
-#+end_src
-
-*** Interpreter
-:PROPERTIES:
-:header-args:python+: :tangle "network_server.py"
-:END:
-
-#+begin_src python
-class Interpreter:
-    def __init__(self, io: IO, logger: Logger) -> None:
-        self._io = io
-        self._logger = logger
-        self._db = DB()
-
-    def rcv(self, msg: Message) -> dict | None:
-        logger = self._logger
-        logger.debug(f'interpreter.rcv(msg) where msg = {msg}')
-        match msg:
-            case Hello():
-                return World()
-
-            case Stop():
-                self._io.close()
-                sys.exit(0)
-
-            case Error():
-                return msg
-
-            case Graph(nodes=nodes,refs=refs):
-                self._db.add(nodes=nodes,refs=refs)
-                return Ack()
-
-            case Loops():
-                return Loops(loops=[])
-
-            case Sort():
-                return Sort(nodes=self._db.sort())
-
-            case _:
-                raise AssertionError(f"Unexpected msg. msg = {msg}.")
-#+end_src
-
-*** test
-:PROPERTIES:
-:header-args:bash+: :tangle "network-server-test" :shebang "#!/usr/bin/env bash"
-:END:
-
-#+begin_src bash
-set -euo pipefail
-IFS=$'\n\t'
-SERVER_RCV=/tmp/network-server-rcv.fifo
-SERVER_OUTPUT=/tmp/network-server-output.fifo
-rm -f ${SERVER_RCV} ${SERVER_OUTPUT}
-mkfifo ${SERVER_RCV} ${SERVER_OUTPUT}
-./network-server < ${SERVER_RCV} > ${SERVER_OUTPUT} &
-SERVER_PID=$!
-exec 3> ${SERVER_RCV}
-exec 4< ${SERVER_OUTPUT}
-function cleanup () {
-    rm -f ${SERVER_RCV} ${SERVER_OUTPUT}
-    exec 3>&-;
-    exec 4<&-;
-}
-trap 'cleanup' EXIT INT TERM
-messages=(
-    '{ "type": "Hello" }'
-    '{ "type": "Graph", "nodes": ["a","b","c"], "refs": [["a","b"]] }'
-    '{ "type": "Sort" }'
-    '{ "type": "Loops" }'
-)
-for msg in "${messages[@]}"; do
-    if ! kill -0 ${SERVER_PID} 2>/dev/null; then
-        echo "Error: Server is dead (PID: ${SERVER_PID})" >&2
-        exit 1
-    fi
-    echo "$msg" >&3
-    if ! read -t 2 -r reply <&4; then
-        echo "Error: Timeout waiting for reply to '$msg'" >&2
-        kill -HUP ${SERVER_PID} 2>/dev/null
-        exit 1
-    fi
-    echo "send $msg = $reply"
-done
-echo '{ "type": "Stop" }' >&3
-#+end_src
-
-* COMMENT Planner
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:END:
-
-~planner :≡ Planner#mk clock db~ is a planner. ~planner#select exercises~ is a list of
-exercises selected from ~exercises~ to be reviewed at the time of the call given data
-represented by the database ~db~. An exercise ~ex~ from ~exercises~ is selected if its
-~cutoff~ date comes before ~today :≡ clock#now()~ /i.e./ ~cutoff ≤ today~. Given the list of
-ratings ~ratings :≡ db#ratings ex#id()~, we define :
-
-
-#+begin_example
-cutoff :≡
-  match db#ratings ex#id()
-    [] → today
-    ratings →
-      - match ratings
-          el+ success_1 … success_n →
-            - Δt :≡ 2^(n-1) days
-            - date(success_n) + Δt
-          _ → today
-#+end_example
-
-
-#+begin_src emacs-lisp
-;; Planner
-
-(defun total-recall--Planner-membrane (msg)
-  "Process incoming MSG for the planner actor.
-MSG is a list like `(select EXERCISES)` where EXERCISES is a list.
-Returns a list containing the select instruction."
-  (pcase msg
-    (`(:select ,_exercises) t)
-    (_ nil)))
-
-(defun total-recall--Planner-tx (state msg)
-  "Handle transaction INST for the planner actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a list like `(select EXERCISES)` or `(is_scheduled EX)`.
-Updates MEMORY with the filtered exercises or scheduling decision."
-  (let ((db (gethash :db state))
-        (clock (gethash :clock state)))
-    (pcase msg
-      (`(:select ,exercises)
-       `(,state
-         ,(seq-filter
-           (lambda (ex)
-             (pcase (total-recall--Planner-tx state `(:is_scheduled ,ex))
-               (`(,state ,is_scheduled) is_scheduled)))
-           exercises)))
-
-      (`(:is_scheduled ,ex)
-       (let (today ratings last-failure-idx successes delta_t last-rating cutoff decision)
-         (setq today (total-recall--now clock))
-         (setq ratings (total-recall--ratings db (total-recall--id ex)))
-         (setq successes
-               (pcase ratings
-                 ('nil '())
-                 (_
-                  (setq last-failure-idx
-                        (total-recall--find-last-index
-                         ratings
-                         (lambda (rating) (eq (total-recall--value rating) 'failure))))
-
-                  (seq-filter (lambda (rating) (eq (total-recall--value rating) 'success))
-                              (pcase last-failure-idx
-                                ('nil ratings)
-                                ((pred (eq (- (length ratings) 1)) '()))
-                                (_ (nthcdr (+ last-failure-idx 1) ratings)))))))
-         (setq cutoff
-               (pcase successes
-                 ('nil today)
-                 (_
-                  (setq delta_t (* (expt 2 (- (length successes) 1)) total-recall--day))
-                  (setq last-rating (car (last successes)))
-                  (time-add (total-recall--date last-rating) delta_t))))
-         (setq decision (total-recall--timestamp-leq cutoff today))
-         `(,state ,decision))))))
-
-(defun total-recall--Planner-init (data)
-  "Initialize a planner actor with DATA.
-DATA is a list of (DB CLOCK), where DB is a database actor and
-CLOCK is a clock actor.
-Returns a state hash table for the planner actor."
-  (let ((state (total-recall--State-mk #'total-recall--Planner-membrane #'total-recall--Planner-tx)))
-    (pcase data
-      (`(,db ,clock)
-       (puthash :db db state)
-       (puthash :clock clock state)
-       state)
-      (_ (error "Unexpected data: data = %s" data)))))
-
-(total-recall--Actor #'total-recall--Planner-init total-recall--Planner)
-#+end_src
-
-* COMMENT total-recall
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:END:
-
-** proposition
-
-The objective of total-recall is to provide an interactive interface to the user such
-that after ~M-x total-recall~, the user has completed a review session, meaning:
-1. All exercises in the FS have been scheduled and reviewed.
-2. Review data has been recorded.
-3. The user has been informed of his performance.
-
-*** Exercise
-**** proposition
-
-exercise-protocol-p(x) = true means that x is an actor such that ex#question() :
-OrgContent, ex#answer() : OrgContent, ex#id() : UUID, ex#path() : List(String) and
-ex#string() represents the content of the exercise as an OrgContent.
-
-***** OrgContent
-
-An OrgContent is a Org formatted string.
-
-***** UUID
-
-A UUIDv4 formatted string.
-
-**** construction
-
-#+begin_src emacs-lisp
-(defun total-recall--exercise-protocol-p (x)
-  (let ((q (total-recall--question x))
-        (a (total-recall--answer x))
-        (s (total-recall--string x))
-        (id (total-recall--id x))
-        (p (total-recall--path x))))
-  (and (listp p)
-       (total-recall--string-uuid-p id)
-       (stringp q)
-       (stringp a)
-       (stringp s)
-       (and
-        (string-match-p (regexp-quote id) s)
-        (string-match-p (regexp-quote q) s)
-        (string-match-p (regexp-quote a) s)
-        (string-match-p (regexp-quote (string-join p " / ")) s))))
-#+end_src
-
-**** test
-**** discussion
-
-*** Reference
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 885d0860-25fa-4697-b9f4-7f150a047872
-:END:
-
-Let ex1, ex2 : Exercise, a reference(ex1 ex2) is introduced by adding a ref Org link
-in ex1#string() to ex2#id(), or making ex2 a direct sub-headline of ex1#string().
-
-*** < : Exercise Exercise → Prop
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: a28fd20f-ce68-4fc3-bc94-16d8d9cfb517
-:END:
-
-# What it means
-Let g :≡ ReferenceGraph#mk(exs), and ex1,ex2 ∈ exs, <(g ex1 ex2) means that there is
-a path(ex2 ex1) in g.
-
-# How to proove it
-<(g ex1 ex2) :≡ 🞎
-
-**** ReferenceGraph
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: df9bdab5-6395-4b0b-89a4-bedd5c57c829
-:END:
-
-# What it is
-ReferenceGraph#mk : Set(Exercise) → ReferenceGraph :≡ λexs.
-1. refs : Set(Reference) the set of references deduced from exs with starts and ends
-   in exs.
-2. g :≡ digraph(exs refs)
-3. g is a DAG
-4. g
-
-*** < : ReachableComponent ReachableComponent → Prop
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 10429f86-c3a5-49a0-9d6e-3ad9d5a29da8
-:END:
-
-# What it means
-Let c1 and c2 be ReachableComponents of a digraph(v e) ≡: g, then <(g c1 c2) means that
-there is a path(n2 n1) such that n2,n1 ∈ v.
-
-# How to prove it
-# …
-
-*** review
-
-review : Exercise Time → Result models a user trying to solve
-an exercise. review(ex t) = :success means that the user judged that his answer was
-satisfying /i.e./ close enough from ex#answer() according to him.
-
-*** Result :≡ :success | :failure | :skip
-*** predicted_recall_score
-
-predicted_recall_score : Set(Exercise) Time → interval(0 1) is an estimation of score.
-predicted_recall_score :≡ λexs,t.Σ(ex ∈ exs),predicted_recall_score(ex t) / card(exs)
-
-**** score
-
-score : Set(Exercise) Time → interval(0 1) :≡ λexs,t.
-1. number_of_success :≡ card({ x | ∀(ex ∈ exs),x : review(ex t) = :success })
-2. number_of_success / card(exs)
-
-** construction
-
-total-recall() :≡
-- root               : DirectoryPath                :≡ user defined
-- searcher           : Searcher                      :≡ Searcher#mk()
-- exs                : Set(Exercise)                 :≡ searcher#exercises(root)
-- clock              : Clock                         :≡ Clock#mk()
-- time               : Time                          :≡ clock#now()
-- db-path            : FilePath                      :≡ user defined
-- db                 : Database                      :≡ Database#mk(db-path)
-- curve-fitter       : CurveFitter                   :≡ CurveFitter#mk()
-- recall-probability : Exercise Time → interval(0 1) :≡ curve-fitter#fit(db)
-- scheduler          : Scheduler                     :≡ Scheduler#mk(recall-probability)
-- schedule           : List(Exercise)                :≡ scheduler#schedule(exs time)
-- ui                 : UI                            :≡ UI#mk(db)
-- report             : Report                        :≡ ui#start()
-- io                 : IO                            :≡ IO#mk()
-- io#buffer report#string()
-- io#minibuffer("Report written to …")
-- db#stop()
-
-
-#+begin_src emacs-lisp
-;; total-recall
-
-;;;###autoload
-(defun total-recall ()
-  "Run the Total Recall spaced repetition application.
-Initiates a TotalRecall actor, processes data, and displays the report."
-  (interactive)
-  (let* ((tr (total-recall--TotalRecall t))
-         (report (total-recall--start tr))
-         (io (total-recall--IO total-recall-io-buffer-name)))
-    (total-recall--buffer io (total-recall--string report))
-    (total-recall--minibuffer io (format "Total-recall execution finished. Report written to %s" (total-recall--buffer-name io)))))
-#+end_src
-
-**** predicted_recall_score
-
-predicted_recall_score : Exercise Time → interval(0 1)
-predicted_recall_score(ex t) is an estimation of the probability that review(ex t) = :success
-
-
-*** Element
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: b90e4015-0a31-477c-a3e4-a4b2c87a6fb9
-:END:
-
-An Element is either an [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercise]], [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinition]] or a [[ref:65946d4e-80da-4e2a-9db5-5b86db1f5989][Reference]].
-
-**** Reference
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 65946d4e-80da-4e2a-9db5-5b86db1f5989
-:END:
-
-A Reference is an [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] ~ast~ of the form ~['link …]~ and which ~:path~ property is a
-string that starts with ~"ref:"~ followed by a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]. Given an AST ast,
-~reference-p(ast) = true~ iff ast is a reference.
-
-
-#+begin_src emacs-lisp
-(defun total-recall--reference-p (ast)
-  ;; TODO
-  nil)
-#+end_src
-
-***** AST
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 6eae3f77-b4fd-4956-bb2b-de2b459b4fb3
-:END:
-
-An AST is a synonym for an "element or object" as described in the documentation of
-[[help:org-element-parse-buffer][org-element-parse-buffer]]. It is a list ~[…]~.
-
-
-*** DOING TotalRecall
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 1783fedc-7c77-4e5e-a73d-f4c93c4d5eb8
-:END:
-
-
-
-~tr#init()~ is a state that contains a [[ref:7c752724-7e3d-4529-bf1b-06482ca53b3e][ui]], a [[ref:aee4f045-f225-4e4c-a145-0cb2baad2186][db]], a [[ref:05a4ce8c-583a-43d2-9dde-af32164d1a97][report]], and ~els~, the list of
-elements to be presented to the user. To build ~els~, a [[ref:f1bbb813-e964-4687-994c-bda31c6ba27b][searcher]] is used to find all
-[[ref:b0c11bed-8c87-4c9b-b699-5d1c2230d0ad][OrgKnowledgeFiles]] under [[ref:5709bbc0-e7e6-4eba-90c9-1840b010f3b2][total-recall-root]]. For each file, a set of [[ref:7b449631-bbec-4cf2-ae86-247871af14fe][nodes]] and
-[[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][edges]] is built from its elements and added to a [[ref:6b1ab7c6-087a-4f2a-a317-cede19042a73][DAG]]. The DAG is used to derive a
-logical [[ref:696661be-ee3a-4f4d-9bf8-9b79e9edd9a7][order]] over the elements. The ordered list of elements is then pruned by a
-[[ref:b6e43048-cf5d-4540-aab4-6b282e78fbb2][selector]].
-
-~tr#start()~ presents each element of ~els~ to the user using the ui and records its
-rating in the db until there are no more elements to review or the user decides to end
-the review session.
-
-~tr#start()~ minimizes the review time per session because only elements with a low
-probability of success are presented for review. The elements are presented in an order
-that minimizes "context switches" from one element to another, thus minimizing the
-"mental energy" needed to complete the session.
-
-
-#+begin_src emacs-lisp
-;; TotalRecall
-
-(defun total-recall--TotalRecall-membrane (msg)
-  (pcase msg
-    (:start t)
-    (_ nil)))
-
-(defun total-recall--TotalRecall-tx (state msg)
-  (let ((self (gethash :self state))
-        (goal (gethash :goal state))
-        (root (gethash :root state))
-        (db-path (gethash :db-path state))
-        (searcher (gethash :searcher state))
-        (parser (gethash :parser state))
-        (db (gethash :db state))
-        (planner (gethash :planner state))
-        (ui (gethash :ui state))
-        (nbr-files (gethash :nbr-files state))
-        (nbr-exercises (gethash :nbr-exercises state))
-        (report (gethash :report state))
-        (files (gethash :files state))
-        (exercises (gethash :exercises state)))
-
-    (pcase msg
-      (:start
-       (let ((report (puthash :report (total-recall--Report t) state))
-             (nbr-files (puthash :nbr-files 0 state))
-             (nbr-exercises (puthash :nbr-exercises 0 state))
-             (goal (puthash :goal :continue state)))
-         (total-recall--add report "TotalRecall started.")
-         (total-recall--add report (format "Definitions and exercises under %s will be reviewed." root))
-         (total-recall--add report (format "Review results will be saved in %s." db-path))
-         (puthash :files (total-recall--files searcher) state)
-         (total-recall--add report (format "%s files have been found." (length (gethash :files state))))
-         (total-recall--TotalRecall-tx state :process-files)
-         (total-recall--add report "# End of TotalRecall execution. Report:")
-         (total-recall--add report (format "%s files have been reviewed." (gethash :nbr-files state)))
-         (total-recall--add report (format "%s exercises have been reviewed." (gethash :nbr-exercises state)))
-         (total-recall--TotalRecall-tx state :stop)
-         `(,state ,report)))
-
-      (:process-files
-       (pcase `(,goal ,files)
-         (`(:stop ,_) `(,state ,self))
-         ('(:continue ()) `(,state ,self))
-         (`(:continue (,file . ,files))
-          (total-recall--TotalRecall-tx state `(:process-file ,file))
-          (puthash :nbr-files (+ (gethash :nbr-files state) 1) state)
-          (puthash :files files state)
-          (total-recall--TotalRecall-tx state :process-files))))
-
-      (`(:process-file ,file)
-       (pcase goal
-         (:stop `(,state ,self))
-         (:continue
-          (total-recall--add report (format "file = %s" file))
-          (puthash :exercises (total-recall--select planner (total-recall--parse parser file)) state)
-          (total-recall--add report (format "%s exercises have been planned to be reviewed." (length (gethash :exercises state))))
-          (total-recall--TotalRecall-tx state :process-exercises))))
-
-      (:process-exercises
-       (pcase `(,goal ,exercises)
-         (`(:stop ,_) `(,state ,self))
-         (`(,_ ()) `(,state ,self))
-         (`(:continue (,exercise . ,exercises))
-          (total-recall--TotalRecall-tx state `(:process-exercise ,exercise))
-          (puthash :nbr-exercises (+ (gethash :nbr-exercises state) 1) state)
-          (puthash :exercises exercises state)
-          (total-recall--TotalRecall-tx state :process-exercises))))
-
-      (`(:process-exercise ,exercise)
-       (pcase goal
-         (:stop `(,state ,self))
-         (:continue
-          (pcase (total-recall--show-exercise ui exercise)
-            (:stop
-             (puthash :goal :stop state)
-             `(,state ,self))
-            (`(:rating ,rating)
-             (total-recall--add report (format "exercise = %s %s" (total-recall--id exercise) (total-recall--path exercise)))
-             (total-recall--save db rating)
-             (puthash :goal :continue state)
-             `(,state ,self))))))
-
-      (:stop
-       (total-recall--stop ui)
-       (total-recall--stop db)
-       `(,state ,self))
-
-      (_ (error "Unexpected instruction: msg = %s" msg)))))
-
-(defun total-recall--TotalRecall-init (_data)
-  (let ((state (total-recall--State-mk #'total-recall--TotalRecall-membrane #'total-recall--TotalRecall-tx)))
-    (puthash :clock (total-recall--Clock t) state)
-
-    (puthash :db-path total-recall-db-path state)
-    (puthash :db (total-recall--DB (gethash :db-path state)) state)
-
-    (puthash :root total-recall-root state)
-    (puthash :def-type total-recall-def-type state)
-    (puthash :ex-type total-recall-ex-type state)
-    (puthash :searcher (total-recall--Searcher (list (gethash :root state) (gethash :def-type state) (gethash :ex-type state))) state)
-
-    (puthash :parser (total-recall--Parser (list (gethash :def-type state) (gethash :ex-type state))) state)
-
-    (puthash :planner (total-recall--Planner (list (gethash :db state) (gethash :clock state))) state)
-
-    ;; TODO
-    ;; (puthash :network (total-recall--Network '()) state)
-
-    (puthash :ui (total-recall--UI (list "*TotalRecall UI*" total-recall-window-width total-recall-window-height (gethash :clock state))) state)
-
-    (puthash :nbr-files 0 state)
-
-    (puthash :nbr-exercises 0 state)
-
-    (puthash :files '() state)
-
-    (puthash :exercises '() state)
-
-    (puthash :goal :continue state)
-
-    state))
-
-(total-recall--Actor #'total-recall--TotalRecall-init total-recall--TotalRecall)
-#+end_src
-
-**** TODO Selector
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       b6e43048-cf5d-4540-aab4-6b282e78fbb2
-:END:
-
-Given a natural number named ~time~, ~selector : Selector :≡ Selector#mk time~ is a selector. It
-means that ~selector#read()~ is its current time and ~t :≡ selector#read();
-selector#tick()#read() = t + 1~. ~selector#now()~ is a lisp timestamp representing the UTC
-time at the call.
-
-
-#+begin_src emacs-lisp
-;; Selector
-
-(defun total-recall--Selector-membrane (msg)
-  "Process incoming MSG for the selector actor.
-MSG is a symbol or list representing a selector command.
-Returns a list of instructions to be executed."
-  (memq msg '(:read :tick :tick2 :now)))
-
-
-(defun total-recall--Selector-tx (state msg)
-  "Handle transaction INST for the selector actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a symbol representing a selector instruction.
-Updates MEMORY based on INST."
-  (let ((self (gethash :self state))
-        (time (gethash :time state)))
-    (pcase msg
-      (:read `(,state ,time))
-      (:now `(,state ,(time-convert (current-time) 'list)))
-      (:tick
-       (puthash :time (+ time 1) state)
-       `(,state ,self))
-      (:tick2
-       (total-recall--Selector-tx state :tick)
-       (total-recall--Selector-tx state :tick)
-       `(,state ,self)))))
-
-
-(defun total-recall--Selector-init (time)
-  "Initialize a selector actor with TIME.
-TIME is a natural number representing the initial selector time.
-Returns a state hash table for the selector actor."
-  (let ((state (total-recall--State-mk
-                #'total-recall--Selector-membrane
-                #'total-recall--Selector-tx)))
-    (puthash :time time state)
-    state))
-
-(total-recall--Actor #'total-recall--Selector-init total-recall--Selector)
-#+end_src
-
-
-#+begin_src emacs-lisp :tangle "total-recall-test.el"
-(require 'total-recall)
-(require 'ert)
-
-(ert-deftest total-recall--Selector ()
-  (let ((selector (total-recall--Selector 0)))
-    (should (= (total-recall--read selector) 0))
-    (should (= (total-recall--read (total-recall--tick selector)) 1))))
-#+end_src
-
-
-**** TODO Order
-:PROPERTIES:
-:ID:       696661be-ee3a-4f4d-9bf8-9b79e9edd9a7
-:END:
-
-**** DB
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       aee4f045-f225-4e4c-a145-0cb2baad2186
-:END:
-
-~db :≡ DB#mk db-path~ is a database that writes its data to the file denoted by the
-string ~db-path~. ~db#save rating~ saves the rating ~rating~. ~db#ratings id~ is the list of
-ratings associated with the given ~id~. ~db#stop()~ releases the resources associated
-with ~db~.
-
-
-#+begin_src emacs-lisp
-;; DB
-
-(defcustom total-recall-db-path
-  (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
-  "DOC"
-  :type 'string
-  :group 'total-recall)
-
-(defun total-recall--DB-membrane (msg)
-  "Process incoming MSG for the database actor.
-MSG is a list like `(save RATING)`, `(ratings ID)`, or `stop`.
-Returns a list containing the corresponding instruction."
-  (pcase msg
-    ((or :stop `(:save ,_rating) `(:ratings ,_id)) t)
-    (_ nil)))
-
-(defun total-recall--DB-tx (state msg)
-  "Handle transaction INST for the database actor using MEMORY.
-MEMORY is the actor’s state hash table.
-INST is a list or symbol like `(save RATING)`, `(ratings ID)`, or `stop`.
-Updates MEMORY based on INST."
-  (let ((self (gethash :self state))
-        (sqlite (gethash :sqlite state)))
-    (pcase msg
-      (`(:save ,rating)
-       (pcase (total-recall--struct rating)
-         (`(,date ,id ,value)
-          (let ((row nil))
-            (setq row
-                  (list
-                   (if (memq value '(success failure skip))
-                       (symbol-name value)
-                     (error "Unexpected value: value = %s" value))
-
-                   (if (total-recall--string-uuid-p id)
-                       id
-                     (error "ID is not a UUID string: id = %s" id))
-
-                   (format-time-string "%FT%TZ" (time-convert date 'list) t)))
-
-            (sqlite-execute
-             sqlite
-             "INSERT INTO exercise_log (type, id, time) VALUES (?, ?, ?)"
-             row)))
-
-         (struct (error "Unexpected struct: struct = %s" struct)))
-       `(,state ,self))
-
-      (`(:ratings ,id)
-       (unless (total-recall--string-uuid-p id)
-         (error "ID is not a UUID string: id = %s" id))
-
-       (let (rows ratings)
-         (setq rows
-               (sqlite-select
-                sqlite
-                "SELECT type, id, time FROM exercise_log WHERE id = ? ORDER BY time ASC"
-                (list id)))
-
-         (setq ratings
-               (mapcar
-                (lambda (row)
-                  (pcase row
-                    (`(,type ,id ,time)
-                     (total-recall--Rating
-                      `(,(parse-iso8601-time-string time)
-                        ,(if (total-recall--string-uuid-p id) id
-                           (error "ID is not a UUID string: id = %s" id))
-                        ,(if (member type '("success" "failure" "skip")) (intern type)
-                           (error "Unexpected type: id = %s, type = %s" type id)))))
-                    (_ (error "Unexpected row: row = %s" row))))
-                rows))
-
-         `(,state ,ratings)))
-
-      (:stop
-       (sqlite-close sqlite)
-       `(,state ,self)))))
-
-(defun total-recall--DB-init (db-path)
-  "Initialize a database actor with DB-PATH.
-DB-PATH is a string or nil for an in-memory SQLite database.
-Returns a state hash table for the database actor."
-  (let ((state (total-recall--State-mk #'total-recall--DB-membrane #'total-recall--DB-tx))
-        (sqlite nil))
-
-    (unless (sqlite-available-p)
-      (error "Emacs must be compiled with built-in support for SQLite databases"))
-
-    (setq sqlite (sqlite-open db-path))
-
-    (unless (sqlite-select sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
-      (sqlite-execute sqlite
-                      "CREATE TABLE exercise_log (
-                       type TEXT NOT NULL,
-                       id TEXT NOT NULL,
-                       time TEXT NOT NULL)"))
-    (puthash :sqlite sqlite state)
-    state))
-
-(total-recall--Actor #'total-recall--DB-init total-recall--DB)
-#+end_src
-
-
-#+begin_src emacs-lisp :tangle "total-recall-test.el"
-(require 'total-recall)
-(require 'ert)
-
-(ert-deftest total-recall--DB ()
-  "Test Total Recall database functionality using an in-memory database."
-  (let ((db (total-recall--DB nil))
-        (id "123e4567-e89b-12d3-a456-426614174000")
-        (time (parse-iso8601-time-string (format-time-string "%FT%TZ" (current-time) t)))
-        (rating nil))
-
-    (setq rating (total-recall--Rating (list time id 'success)))
-    (should (eq (total-recall--save db rating) db))
-    (should (total-recall--Rating-eq rating (car (total-recall--ratings db id))))))
-#+end_src
-
-**** Node
-:PROPERTIES:
-:ID:       7b449631-bbec-4cf2-ae86-247871af14fe
-:END:
-
-Node :≡ [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
-
-**** Edge
-:PROPERTIES:
-:ID:       061bc1d1-d892-4bac-bc04-e21f3593646f
-:END:
-
-Edge :≡ [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Node]] × Node
-
-**** DAG
-:PROPERTIES:
-:ID:       6b1ab7c6-087a-4f2a-a317-cede19042a73
-:END:
-
-A DAG(nodes edges) is a directed acyclic graph. nodes is a set of [[ref:7b449631-bbec-4cf2-ae86-247871af14fe][Node]] and edges is a
-set of [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Edge]].
-
-** Proof
-
-1. All exercises presented by a scheduler have be reviewed.
-2. The user has been informed of his performance.
-3. Data has been recorded.
-
-* total-recall
-:PROPERTIES:
-:ID:       9030fde9-f7fc-4c83-a54b-41fd1a9872d7
-:END:
-** context
-*** COMMENT Type
+* COMMENT Type
 :PROPERTIES:
 :ID:       0cacaedd-a6fc-4647-9d5a-848d40af691e
 :END:
-*** Keyword
+
+* Keyword
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 32932469-5c3a-4dfd-a116-04ea003acdcf
@@ -1849,7 +57,7 @@ set of [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Edge]].
 
 [[info:elisp#Constant Variables][elisp#Constant Variables]]
 
-*** Hashtable
+* Hashtable
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 20fa16f1-2e93-47bd-994e-c371b7ed90b4
@@ -1857,23 +65,99 @@ set of [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Edge]].
 
 [[help:make-hash-table]]
 
-*** Message
+* Buffer
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 58e40ccb-95ad-4aca-81c4-7be40372c901
+:END:
+
+[[info:elisp#Buffers][elisp#Buffers]]
+
+* OrgBuffer
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 3be131b5-2eb2-49f1-b2bc-2fd8cfb68dda
+:END:
+
+An OrgBuffer is a [[ref:58e40ccb-95ad-4aca-81c4-7be40372c901][Buffer]] that has [[help:org-mode]] activated.
+
+* CustomizationGroup
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 7d779b0d-a84d-4d44-acb9-74bd61e2a8d3
+:END:
+
+[[help:defgroup]]
+
+* total-recall : CustomizationGroup
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 0ceae2e1-6409-472d-baff-14d84a6566d4
+:END:
+** proposition
+
+total-recall is a [[ref:7d779b0d-a84d-4d44-acb9-74bd61e2a8d3][customization group]] such that custom variables of total-recall are
+added automatically. It belongs to the extensions of Emacs.
+
+** construction
+
+#+begin_src emacs-lisp
+(defgroup total-recall nil
+  "Customization options for Total Recall.
+This package provides `total-recall' for spaced repetition in Emacs."
+  :group 'extensions
+  :prefix "total-recall-")
+#+end_src
+
+* root
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 23407a57-4432-4ae9-8118-db96b2a731a0
+:END:
+** proposition
+
+** construction
+
+#+begin_src emacs-lisp
+(defcustom total-recall-root (expand-file-name "~")
+  "DOC"
+  :type 'string
+  :group 'total-recall)
+#+end_src
+
+* threshold
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 811dbd28-4838-451f-9972-011590103bea
+:END:
+** proposition
+
+** construction
+
+#+begin_src emacs-lisp
+(defcustom total-recall-threshold 0.8
+  "DOC"
+  :type 'string
+  :group 'total-recall)
+#+end_src
+
+* Message
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 17cf4de2-18d2-4e90-876e-a537a6ce0616
 :END:
-**** proposition
+** proposition
 
 Message :≡ [[ref:32932469-5c3a-4dfd-a116-04ea003acdcf][Keyword]] | cons(Keyword List)
 
-**** construction
+** construction
 
-*** State
+* State
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 81e52518-3370-4a36-a17b-853ce95af579
 :END:
-**** proposition
+** proposition
 
 Given membrane : Message → Message | Nil, tx : State [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]] → State Any, then let
 state : State :≡ State#mk(pred tx) be a [[ref:20fa16f1-2e93-47bd-994e-c371b7ed90b4][hashtable]] such that it has at least the
@@ -1881,7 +165,7 @@ following key/value pairs:
 - state[:membrane] :≡ λmsg.match membrane(msg): msg' : Message → msg'; nil → | ⊥
 - state[:tx] :≡ tx
 
-**** construction
+** construction
 
 #+begin_src emacs-lisp
 (defun total-recall--State-mk (membrane transfer)
@@ -1891,12 +175,12 @@ following key/value pairs:
     state))
 #+end_src
 
-*** Actor
+* Actor
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       d1295024-a8aa-4dd7-a2a1-1ef4d64781db
 :END:
-**** proposition
+** proposition
 
 Given init : Any → [[ref:81e52518-3370-4a36-a17b-853ce95af579][State]], then TypeOfActor : [[ref:0cacaedd-a6fc-4647-9d5a-848d40af691e][Type]] :≡ Actor#mk(init) is the type of actors
 that are initialized by init. actor : TypeOfActor :≡ TypeOfActor#mk(any) is an actor
@@ -1913,7 +197,7 @@ actor : [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]] → Any :≡
 3. state[:self] = self
 5. self
 
-**** construction
+** construction
 
 #+begin_src emacs-lisp
 ;; Actor
@@ -1933,7 +217,7 @@ actor : [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]] → Any :≡
            ,@init-body
            state))
 
-       (defun ,(intern constructor-name) (any)
+       (defun ,(intern constructor-name) (&optional any)
          (let* ((state (funcall #',(intern init-name) any))
                 (actor (lambda (msg)
                          (let ((check (gethash :membrane state))
@@ -1956,16 +240,69 @@ actor : [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]] → Any :≡
            actor)))))
 #+end_src
 
-*** send
+** test
+:PROPERTIES:
+:header-args:emacs-lisp+: :tangle total-recall-test.el
+:END:
+
+*** Clock
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 3ca40a21-019b-4bba-b18b-bcec7282b445
+:END:
+**** proposition
+
+Clock is used to illustrate how to define and use a type of actors. Given time : ℕ,
+let clock : Clock :≡ Clock#mk(time) be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that represents a clock initialized
+at time. clock#read() gives the clock time. ~t :≡ clock#read(); clock#tick()#read() =
+t + 1~. In order to serve some purpose to the program, ~clock#now()~ gives the system
+time /i.e./ a lisp timestamp representing the UTC time at the call.
+
+**** construction
+
+#+begin_src emacs-lisp
+;; Clock
+
+(defun total-recall--Clock-membrane (msg)
+  (if (memq msg '(:read :tick :now)) msg nil))
+
+(defun total-recall--Clock-tx (state msg)
+  (let ((self (gethash :self state))
+        (time (gethash :time state)))
+    (pcase msg
+      (:read `(,state ,time))
+      (:now `(,state ,(time-convert (current-time) 'list)))
+      (:tick (puthash :time (+ time 1) state) `(,state ,self)))))
+
+(total-recall--Actor Clock
+                     (pcase any
+                       ((and time (pred integerp) (guard (>= time 0)))
+                        (puthash :time time state))
+                       (_ (error "Unexpected init data. data = %s" any))))
+#+end_src
+
+**** test
+
+#+begin_src emacs-lisp :tangle "total-recall-test.el"
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Clock ()
+  (let ((clock (total-recall--Clock-mk 0)))
+    (should (= (total-recall--read clock) 0))
+    (should (= (total-recall--read (total-recall--tick clock)) 1))))
+#+end_src
+
+* send
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: eaae96be-a72b-424c-9165-8141f5944ba6
 :END:
-**** proposition
+** proposition
 
 Let actor : [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][Actor]] and msg : [[ref:17cf4de2-18d2-4e90-876e-a537a6ce0616][Message]], then send(actor msg) :≡ actor(msg).
 
-**** construction
+** construction
 
 #+begin_src emacs-lisp
 (defun total-recall--send (actor msg)
@@ -2021,60 +358,12 @@ The function sends a message to an actor with optional arguments."
 (total-recall--message value)
 #+end_src
 
-*** Clock
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       3ca40a21-019b-4bba-b18b-bcec7282b445
-:END:
-**** proposition
-
-Clock is used to illustrate how to define and use a type of actors. Given time : ℕ,
-let clock : Clock :≡ Clock#mk(time) be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that represents a clock initialized
-at time. clock#read() gives the clock time. ~t :≡ clock#read(); clock#tick()#read() =
-t + 1~. In order to serve some purpose to the program, ~clock#now()~ gives the system
-time /i.e./ a lisp timestamp representing the UTC time at the call.
-
-**** construction
-
-#+begin_src emacs-lisp
-;; Clock
-
-(defun total-recall--Clock-membrane (msg)
-  (if (memq msg '(:read :tick :now)) msg nil))
-
-(defun total-recall--Clock-tx (state msg)
-  (let ((self (gethash :self state))
-        (time (gethash :time state)))
-    (pcase msg
-      (:read `(,state ,time))
-      (:now `(,state ,(time-convert (current-time) 'list)))
-      (:tick (puthash :time (+ time 1) state) `(,state ,self)))))
-
-(total-recall--Actor Clock
-                     (pcase any
-                       ((and time (pred integerp) (guard (>= time 0)))
-                        (puthash :time time state))
-                       (_ (error "Unexpected init data. data = %s" any))))
-#+end_src
-
-**** test
-
-#+begin_src emacs-lisp :tangle "total-recall-test.el"
-(require 'total-recall)
-(require 'ert)
-
-(ert-deftest total-recall--Clock ()
-  (let ((clock (total-recall--Clock-mk 0)))
-    (should (= (total-recall--read clock) 0))
-    (should (= (total-recall--read (total-recall--tick clock)) 1))))
-#+end_src
-
-*** Report
+* Report-mk
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       05a4ce8c-583a-43d2-9dde-af32164d1a97
 :END:
-**** proposition
+** proposition
 
 Let report : Report :≡ Report#mk() be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that accumulates lines. Given line :
 Line, report#add line adds line after the last one, if any. report#string() is a
@@ -2082,15 +371,15 @@ string built from the lines of the report. Given report2 : Report, report#add
 report2 : Report such that the lines of report2 are added after the lines of report
 in report.
 
-**** construction
+** construction
 
 #+begin_src emacs-lisp
 ;; Report
 
 (defun total-recall--Report-membrane (msg)
   (pcase msg
-    ((and `(:add ,line) (guard (stringp line))) `(:add :line ,line))
-    (`(:add ,report) `(:add :report ,report))
+    ((and `(:add ,obj) (guard (stringp obj))) `(:add ,obj :line))
+    (`(:add ,obj) `(:add ,obj :report))
     (:string msg)
     (:lines msg)
     (_ nil)))
@@ -2100,11 +389,11 @@ in report.
         (lines (gethash :lines state)))
 
     (pcase msg
-      (`(:add :line ,line)
+      (`(:add ,line :line)
        (puthash :lines (cons line lines) state)
        `(,state ,self))
 
-      (`(:add :report ,report)
+      (`(:add ,report :report)
        (let ((result lines)
              (report-lines (total-recall--lines report)))
          (dolist (line report-lines result)
@@ -2121,7 +410,7 @@ in report.
 (total-recall--Actor Report (puthash :lines '() state))
 #+end_src
 
-**** test
+** test
 
 #+begin_src emacs-lisp :tangle "total-recall-test.el"
 (require 'total-recall)
@@ -2138,18 +427,18 @@ in report.
     (should (string= (total-recall--string report) "line1\nline2\nline1"))))
 #+end_src
 
-*** Logger
+* Logger-mk
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :END:
-**** proposition
+** proposition
 
 Given mode : Set(:silent :info :debug), let logger : Logger :≡ Logger#mk(mode) be an
 [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that aims at providing a logging interface. Given a line msg and mode ∈
 Set(:info :debug), logger#info msg writes msg to Emacs minibuffer. Given mode ∈
 Set(:debug), logger#debug msg writes msg to Emacs minibuffer.
 
-**** construction
+** construction
 
 #+begin_src emacs-lisp
 ;; Logger
@@ -2180,17 +469,17 @@ Set(:debug), logger#debug msg writes msg to Emacs minibuffer.
                        (_ (error "Unexpected init data. data = %s" any))))
 #+end_src
 
-*** UUID
+* UUID
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 9ed6dfab-89aa-4bfb-8bff-d7a357546f2f
 :END:
-**** proposition
+** proposition
 
 Let UUID be the type of strings that satify the [[https://en.wikipedia.org/wiki/Universally_unique_identifier#Version_4_(random)][UUIDv4 format]]. ~string-uuid-p(s) =
 true~ iff s is a UUID.
 
-**** construction
+** construction
 
 #+begin_src emacs-lisp
 (defun total-recall--string-uuid-p (str)
@@ -2200,61 +489,69 @@ true~ iff s is a UUID.
         str)))
 #+end_src
 
-*** Headline
+* Headline
 :PROPERTIES:
 :TYPE: 27895409-4970-4941-95e6-ea6cf7f1d0fc
 :ID: a8bbf2b3-cdbd-4e12-affc-64496268e54b
 :END:
-**** proposition
+** proposition
 
 Headline is a synonym for what is defined in [[info:org#Headlines][org#Headlines]].
 
-*** OrgExercise
+* OrgExercise
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       a474c4de-9bd2-4c2b-8189-c91eb0ab9014
 :END:
-**** proposition
+** proposition
 
 A OrgExercise is a [[ref:a8bbf2b3-cdbd-4e12-affc-64496268e54b][Headline]] such that it has a TYPE property of value
 org-exercise-type-uuid : [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]] and an ID propety that is a UUID and two sub headlines.
 
-**** construction
+** construction
 
 #+begin_src emacs-lisp
-(defconst total-recall--exercise-type-uuid "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8")
+(defcustom total-recall-ex-type-uuid "b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8"
+  "Specifies the UUID for identifying exercise headlines in Org files.
+This is a string used to mark headlines as exercises in Total Recall."
+  :type 'string
+  :group 'total-recall)
 #+end_src
 
-*** OrgDefinition
+* OrgDefinition
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       83056aa9-1b7a-4678-a29e-7389db7f885f
 :END:
-**** proposition
+** proposition
 
 A OrgDefinition is a [[ref:a8bbf2b3-cdbd-4e12-affc-64496268e54b][Headline]] such that it has a TYPE property of value
 org-exercise-type-uuid : [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]] and an id propety that is a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]. The content of the
 definition extends up to the first sub-definition or [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][sub-exercise]] if any.
 
-**** construction
+** construction
 
 #+begin_src emacs-lisp
-(defconst total-recall--definition-type-uuid "f590edb9-5fa3-4a07-8f3d-f513950d5663")
+(defcustom total-recall-def-type-uuid "f590edb9-5fa3-4a07-8f3d-f513950d5663"
+  "Specifies the UUID for identifying definition headlines in Org files.
+This is a string used to mark headlines as definitions in Total Recall."
+  :type 'string
+  :group 'total-recall)
 #+end_src
 
-*** Searcher
+* search
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       f1bbb813-e964-4687-994c-bda31c6ba27b
 :END:
-**** proposition
+** proposition
 
 Given root : Path to a directory in the current file system, let searcher : Searcher
 :≡ Searcher#mk(root) be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] such that searcher#files() : List(Path) is the list
 of absolute file paths under root which extension is =.org= and that contain at least
 one [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercise]] or one [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinition]].
 
-**** construction
+** construction
 
 #+begin_src emacs-lisp
 ;; Searcher
@@ -2265,54 +562,43 @@ This is a string used to locate the Ripgrep command for file searching."
   :type 'string
   :group 'total-recall)
 
-(defun total-recall--Searcher-membrane (msg)
-  (if (eq msg :files) msg nil))
-
-(defun total-recall--Searcher-tx (state msg)
-  (let ((self (gethash :self state))
-        (root (gethash :root state))
-        (ripgrep (gethash :ripgrep state))
-        (def-type (gethash :def-type state))
-        (ex-type (gethash :ex-type state)))
-    (pcase msg
-      (:files
-       (let* ((command (format "%s -g '*.org' -i --no-heading -n --color=never -m 1 '%s' %s"
-                               ripgrep
-                               (format "%s|%s" def-type ex-type)
-                               (shell-quote-argument root)))
-              (output (split-string (shell-command-to-string command) "\n" t))
-              (files (mapcar (lambda (line) (car (split-string line ":"))) output)))
-         `(,state ,files))))))
-
-(total-recall--Actor Searcher
-                     (pcase any
-                       ((and root (pred file-directory-p))
-                        (let ((rg total-recall-ripgrep-cmd))
-                          (puthash :root (expand-file-name root) state)
-                          (if (not (executable-find rg))
-                              (error "ripgrep executable not found in PATH. executable = %s" rg)
-                            (puthash :ripgrep rg state))
-                          (puthash :def-type total-recall--definition-type-uuid state)
-                          (puthash :ex-type total-recall--exercise-type-uuid state)))
-                       (_ (error "Unexpected init data. data = %s" any))))
+(defun total-recall--search (root)
+  (let* ((ripgrep
+          (if (not (executable-find total-recall-ripgrep-cmd))
+              (error "ripgrep executable not found in PATH. executable = %s" total-recall-ripgrep-cmd)
+            total-recall-ripgrep-cmd))
+         (def-type total-recall-def-type-uuid)
+         (ex-type total-recall-ex-type-uuid)
+         (command (format "%s -g '*.org' -i --no-heading -n --color=never -m 1 '%s' %s"
+                            ripgrep
+                            (format "%s|%s" def-type ex-type)
+                            (shell-quote-argument root)))
+         (output (split-string (shell-command-to-string command) "\n" t)))
+    (mapcar (lambda (line) (car (split-string line ":"))) output)))
 #+end_src
 
-*** IO
+* IO-mk
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: 2076d556-ee35-4db7-bd58-887bc5a1c254
 :END:
-**** proposition
+** proposition
 
 Given buffer-name : String, let io : IO :≡ IO#mk buffer-name be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] that
 represents Emacs IO. Given a string s, io#buffer(s) writes s to buffer named
 buffer-name. io#minibuffer(s) writes s to Emacs minibuffer. io#buffer-name() =
 buffer-name.
 
-**** construction
+** construction
 
 #+begin_src emacs-lisp
 ;; IO
+
+(defcustom total-recall-io-buffer-name "*TotalRecall*"
+  "Specifies the name of the Total Recall output buffer.
+This is a string used for the buffer where reports are written."
+  :type 'string
+  :group 'total-recall)
 
 (defun total-recall--IO-membrane (msg)
   (pcase msg
@@ -2340,284 +626,158 @@ buffer-name.
       (:buffer-name
        `(,state ,buffer-name)))))
 
-(total-recall--Actor IO
-                     (pcase any
-                       ((and buffer-name (pred stringp))
-                        (puthash :buffer-name buffer-name state))
-                       (_ (error "Unexpected init data. data = %s" any))))
+(total-recall--Actor
+ IO
+ (puthash :buffer-name total-recall-io-buffer-name state))
 #+end_src
 
-*** COMMENT Graph
-:PROPERTIES:
-:ID:       69b93da1-d17a-49a5-99ef-363a44c33f41
-:END:
-
-**** proposition
-
-- db : DB :≡ DB()
-- db#add : List(String) List(String × String) → DB
-- db#sort() : List(String)
-- db#loops() : List(List(String))
-
-**** construction
-:PROPERTIES:
-:header-args:python+: :tangle "network_server.py"
-:END:
-
-***** TODO loops is implemented
-
-***** ■
-
-#+begin_src python
-class DB:
-    def __init__(self,_data={}) -> None:
-        self._db = db = kuzu.Database(":memory:")
-        self._con = con = kuzu.Connection(db)
-        con.execute("CREATE NODE TABLE Node(id STRING, PRIMARY KEY(id))")
-        con.execute("CREATE REL TABLE References(FROM Node TO Node)")
-
-    def add(self, nodes: list[str] = [], refs: list[list] = []) -> Self:
-        con = self._con
-        if nodes:
-            nodes_list = ", ".join(f"'{node}'" for node in nodes)
-            con.execute(f"UNWIND [{nodes_list}] AS node CREATE (n:Node {{id: node}})")
-        if refs:
-            refs_list = ", ".join(f"['{ref[0]}', '{ref[1]}']" for ref in refs)
-            con.execute(f"UNWIND [{refs_list}] AS rel MATCH (a:Node {{id: rel[1]}}), (b:Node {{id: rel[2]}}) CREATE (a)-[:References]->(b)")
-        return self
-
-    def sort(self) -> list[str]:
-        con = self._con
-        res = self._con.execute("""
-        MATCH (n:Node)
-        OPTIONAL MATCH (n) -[r:References]-> (m:Node)
-        RETURN n, r;
-        """)
-        graph = res.get_as_networkx(directed=True)
-        relabel_mapping = {node: node.replace('Node_', '') for node in graph.nodes()}
-        nx.relabel_nodes(graph, relabel_mapping, copy=False)
-        components = sorted(nx.weakly_connected_components(graph), key=len, reverse=False)
-        subgraphs = map(lambda component: graph.subgraph(component), components)
-        ids = flatten(map(lambda graph: list(reversed(list(nx.topological_sort(graph)))), subgraphs))
-        return ids
-
-    def loops(self) -> list[list[str]]:
-        raise NotImplementedError()
-        return []
-#+end_src
-
-**** test
-:PROPERTIES:
-:header-args:python+: :tangle "network_server_test.py"
-:END:
-
-#+begin_src python
-import pytest
-from .network_server import DB
-
-class TestDB:
-    def test_db(self):
-        db = DB()
-        db.add(nodes=["a","b","c", "d"],refs=[["a","b"], ["a","c"], ["b","c"]])
-        assert db.sort() == ["d", "c", "b", "a"]
-#+end_src
-
-*** COMMENT CurveFitter
-:PROPERTIES:
-:ID:       6d544af8-f5f7-464c-a86a-4f6ab5173c42
-:END:
-*** COMMENT ReferenceGraph
+* Record-mk
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: df9bdab5-6395-4b0b-89a4-bedd5c57c829
+:ID:       4187a5b0-15c1-49fc-9962-7dd5802e4f25
 :END:
 
-# What it is
-ReferenceGraph#mk : Set(Exercise) → ReferenceGraph :≡ λexs.
-1. refs : Set(Reference) the set of references deduced from exs with starts and ends
-   in exs.
-2. g :≡ digraph(exs refs)
-3. g is a DAG
-4. g
+** proposition
 
-*** COMMENT < : Exercise Exercise → Prop
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: a28fd20f-ce68-4fc3-bc94-16d8d9cfb517
-:END:
+~record :≡ Record#mk date id value~ is a record of the entity denoted by the string ~id~ at
+date ~date~, lisp timestamp, with the value ~value~, a symbol. ~record#struct()~ is the
+list ~date, id, value~.
 
-# What it means
-Let g :≡ ReferenceGraph#mk(exs), and ex1,ex2 ∈ exs, <(g ex1 ex2) means that there is
-a path(ex2 ex1) in g.
-
-# How to proove it
-<(g ex1 ex2) :≡ 🞎
-
-*** COMMENT < : ReachableComponent ReachableComponent → Prop
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 10429f86-c3a5-49a0-9d6e-3ad9d5a29da8
-:END:
-
-# What it means
-Let c1 and c2 be ReachableComponents of a digraph(v e) ≡: g, then <(g c1 c2) means that
-there is a path(n2 n1) such that n2,n1 ∈ v.
-
-# How to prove it
-# …
-
-*** COMMENT review
-
-review : Exercise Time → Result models a user trying to solve
-an exercise. review(ex t) = :success means that the user judged that his answer was
-satisfying /i.e./ close enough from ex#answer() according to him.
-*** COMMENT Result :≡ :success | :failure | :skip
-*** COMMENT score
-
-score : Set(Exercise) Time → interval(0 1) :≡ λexs,t.
-1. number_of_success :≡ card({ x | ∀(ex ∈ exs),x : review(ex t) = :success })
-2. number_of_success / card(exs)
-*** COMMENT predicted_recall_score
-
-predicted_recall_score : Set(Exercise) Time → interval(0 1) is an estimation of score.
-predicted_recall_score :≡ λexs,t.Σ(ex ∈ exs),predicted_recall_score(ex t) / card(exs)
-
-*** COMMENT Reference
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 885d0860-25fa-4697-b9f4-7f150a047872
-:END:
-
-Let ex1, ex2 : Exercise, a reference(ex1 ex2) is introduced by adding a ref Org link
-in ex1#string() to ex2#id(), or making ex2 a direct sub-headline of ex1#string().
-
-*** COMMENT UUID
-
-A UUIDv4 formatted string.
-
-*** COMMENT OrgContent
-
-An OrgContent is a Org formatted string.
-
-*** COMMENT Exercise
-:PROPERTIES:
-:ID:       2ade1c31-ced1-4673-a7f2-b63b7a20ab26
-:END:
-**** proposition
-
-exercise-protocol-p(x) = true means that x is an actor such that ex#question() :
-OrgContent, ex#answer() : OrgContent, ex#id() : UUID, ex#path() : List(String) and
-ex#string() represents the content of the exercise as an OrgContent.
-
-**** construction
+** construction
 
 #+begin_src emacs-lisp
-(defun total-recall--exercise-protocol-p (x)
-  (let ((q (total-recall--question x))
-        (a (total-recall--answer x))
-        (s (total-recall--string x))
-        (id (total-recall--id x))
-        (p (total-recall--path x))))
-  (and (listp p)
-       (total-recall--string-uuid-p id)
-       (stringp q)
-       (stringp a)
-       (stringp s)
-       (and
-        (string-match-p (regexp-quote id) s)
-        (string-match-p (regexp-quote q) s)
-        (string-match-p (regexp-quote a) s)
-        (string-match-p (regexp-quote (string-join p " / ")) s))))
-#+end_src
+;; Record
 
-**** test
-**** discussion
-
-*** COMMENT Scheduler
-:PROPERTIES:
-:ID:       76f234fc-5f51-4626-80a5-23e8dfcc50e2
-:END:
-**** proposition
-
-# Informal
-The objective of a scheduler is to schedule reviewing content so that the most
-impactful content is always reviewed first /i.e./ the one that improves the most on
-your overall predicted recall score. The predicted recall score is an approximation
-of the recall score. If your recall score is 1, it means that you can recall all your
-content.
-
-# Formal
-Define Sheduler such that for s : Scheduler, we have:
-1. s#schedule : Set(Exercise) Time → List(Exercise)
-2. set s#schedule(exs t) = exs
-3. ∀k, exercises in s#schedule(exs t)[0:k] are chosen from exs to:
-   1. ∨ maximize the improvement on predicted_recall_score(exs t)
-   2. ∨ maximise the number of reviews per session.
-
-**** construction
-
-1. Scheduler#mk : (Exercise Time → interval(0 1)) → Scheduler
-2. s :≡ Scheduler#mk(recall_probability)
-   - self#schedule : List(Exercise) Time → List(Exercise) :≡ λexs,t.
-     1. graph                         : ReferenceGraph                  :≡ ReferenceGraph#mk(exs)
-     2. roots                         : Set(exs)                        :≡ the set of all roots in graph.
-     3. components                    : List(ReachableComponent)        :≡ sort (map λr.ReachableComponent#mk(graph r) roots) <
-     4. schedule                      : List(Exercise)                  :≡ fold [] (map components (λc.sort c <)) concat
-     5. threshold                     : interval(0 1)                   :≡ 0.8
-     6. high_low                      : Exercise → Exercise + Exercise  :≡ λex.(recall_probability(ex t) ≤ threshold) ? left(ex) right(ex)
-     7. <high_priority, low_priority> : List(Exercise) × List(Exercise) :≡ triage schedule high_low
-     8. schedule                      : List(Exercise)                  :≡ high_priority + low_priority
-
-#+begin_src emacs-lisp
-;; Scheduler
-
-(defun total-recall--Scheduler-init (recall-probability)
-  (let ((state (total-recall--State-mk
-                #'total-recall--Scheduler-membrane
-                #'total-recall--Scheduler-tx)))
-    (puthash :recall-probability recall-probability state)
-    state))
-
-(defun total-recall--Scheduler-membrane (msg)
+(defun total-recall--Record-membrane (msg)
+  "Process incoming MSG for the record actor.
+MSG is a symbol like `struct`, `date`, or `value`.
+Returns a list containing the corresponding instruction."
   (pcase msg
-    (`(:schedule ,exs ,time) t)
+    ((or :struct :date :value) t)
     (_ nil)))
 
-(defun total-recall--Scheduler-tx (state msg)
-  (let ((self (gethash :self state))
-        (recall-probability (gethash :recall-probability state)))
+(defun total-recall--Record-tx (state msg)
+  "Handle transaction INST for the record actor using MEMORY.
+MEMORY is the actor’s state hash table.
+INST is a symbol like `struct`, `date`, or `value`.
+Updates MEMORY with the requested data."
+  (let ((date (gethash :date state))
+        (id (gethash :id state))
+        (value (gethash :value state)))
     (pcase msg
-      ((:schedule `(,exs ,time))
-       ;; TODO
-       exs))))
+      (:struct `(,state ,`(,date ,id ,value)))
+      (:date `(,state ,date))
+      (:value `(,state ,value)))))
 
-(total-recall--Actor #'total-recall--Scheduler-init total-recall--Scheduler)
+(defun total-recall--Record-eq (r1 r2)
+  "Check if record actors R1 and R2 are equal.
+R1 and R2 are record actors.
+Returns t if their structures are equal, nil otherwise."
+  (equal (total-recall--struct r1)
+         (total-recall--struct r2)))
+
+(defun total-recall--Record-init (data)
+  "Initialize a record actor with DATA.
+DATA is a list of (DATE ID VALUE), where DATE is a timestamp,
+ID is a UUID string, and VALUE is a symbol.
+Returns a state hash table for the record actor."
+  (let ((state (total-recall--State-mk #'total-recall--Record-membrane #'total-recall--Record-tx)))
+    (pcase data
+      (`(,date ,id ,value)
+       (puthash :date date state)
+       (puthash :id id state)
+       (puthash :value value state)))
+
+    state))
+
+(total-recall--Actor Record)
 #+end_src
 
-**** proof
 
-1. obvious by construction.
-2. proof :≡
-   1. exercises are presented in a logical order → minimize context switches →
-      minimize mental energy spent per review → maximize number of reviews per
-      session → ■
-   2. exercises are presented by components → minimize context switches → ■
-   3. high priority exercises are reviewed first → maximize next probability of recall where needed the most → ■
+#+begin_src emacs-lisp :tangle "total-recall-test.el"
+(require 'total-recall)
+(require 'ert)
 
-*** COMMENT UI
+(ert-deftest total-recall--Record ()
+  (should (eq t t)))
+#+end_src
+
+* db-path
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: ab9a414e-8896-45dd-ac72-6dfb90c8487c
+:END:
+** proposition
+
+** construction
+
+#+begin_src emacs-lisp
+(defcustom total-recall-db-path
+  (file-name-concat (expand-file-name user-emacs-directory) "total-recall-test.sqlite3")
+  "DOC"
+  :type 'string
+  :group 'total-recall)
+#+end_src
+
+* UI-mk
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID:       7c752724-7e3d-4529-bf1b-06482ca53b3e
 :END:
+
+** proposition
 
 Given a buffer name ~name~, ~width~ and ~height~ of the frame in numbers of characters and
 a clock ~clock~, then ~ui :≡ UI#mk name width height clock~ is the UI. ~ui#show-exercise
 exercise~ shows the exercise ~exercise~ to the user and return either ~'stop~ or a rating.
 ~ui#show-report report~ shows the report ~report~ to the user and returns itself.
 
+** construction
 
 #+begin_src emacs-lisp
 ;; UI
+
+(defcustom total-recall-frame-width 160
+  "Specifies the width of the Total Recall UI frame in characters.
+This is an integer defining the frame width for the UI."
+  :type 'integer
+  :group 'total-recall)
+
+(defcustom total-recall-frame-height 90
+  "Specifies the height of the Total Recall UI frame in characters.
+This is an integer defining the frame height for the UI."
+  :type 'integer
+  :group 'total-recall)
+
+(defcustom total-recall-key-skip ?k
+  "Specifies the key to skip an exercise in the Total Recall UI.
+This is a character used to skip the current exercise."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-quit ?q
+  "Specifies the key to quit the Total Recall session.
+This is a character used to exit the UI session."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-success ?s
+  "Specifies the key to mark an exercise as successful in the Total Recall UI.
+This is a character used to record a successful review."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-failure ?f
+  "Specifies the key to mark an exercise as failed in the Total Recall UI.
+This is a character used to record a failed review."
+  :type 'character
+  :group 'total-recall)
+
+(defcustom total-recall-key-reveal ?r
+  "Specifies the key to reveal the answer in the Total Recall UI.
+This is a character used to show the exercise answer."
+  :type 'character
+  :group 'total-recall)
 
 (defun total-recall--UI-membrane (msg)
   "Process incoming MSG for the UI actor.
@@ -2739,7 +899,7 @@ Updates MEMORY with the result of the operation."
        `(,state
          ,`(:rating
             ,(total-recall--Rating
-              (list (total-recall--now clock)
+              (list (total-recall--now-mk)
                     (total-recall--id exercise)
                     'skip)))))
 
@@ -2747,7 +907,7 @@ Updates MEMORY with the result of the operation."
        `(,state
          ,`(:rating
             ,(total-recall--Rating
-              (list (total-recall--now clock)
+              (list (total-recall--now-mk)
                     (total-recall--id exercise)
                     'success)))))
 
@@ -2755,172 +915,431 @@ Updates MEMORY with the result of the operation."
        `(,state
          ,`(:rating
             ,(total-recall--Rating
-              (list (total-recall--now clock)
+              (list (total-recall--now-mk)
                     (total-recall--id exercise)
                     'failure))))))))
 
-(defun total-recall--UI-init (data)
-  "Initialize a UI actor with DATA.
-DATA is a list of (NAME WIDTH HEIGHT CLOCK), where NAME is a buffer name,
-WIDTH and HEIGHT are integers, and CLOCK is a clock actor.
-Returns a state hash table for the UI actor."
-  (let ((state (total-recall--State-mk #'total-recall--UI-membrane #'total-recall--UI-tx)))
-    (pcase data
-      (`(,name ,width ,height ,clock)
-       (puthash :buffer (get-buffer-create name) state)
-       (with-current-buffer (gethash :buffer state) (setq buffer-read-only t))
-       (puthash :name (buffer-name (gethash :buffer state)) state)
-       (puthash :width width state)
-       (puthash :height height state)
-       (puthash :frame (make-frame `((width . ,width) (height . ,height))) state)
-       (puthash :clock clock state)
-       (puthash :reviewed-nbr 0 state)
-       state)
-      (_ (error "Unexpected data: data = %s" data)))))
-
-(total-recall--Actor #'total-recall--UI-init total-recall--UI)
+(total-recall--Actor
+ UI
+ (puthash :buffer (get-buffer-create "*TotalRecall UI*") state)
+ (with-current-buffer (gethash :buffer state) (setq buffer-read-only t))
+ (puthash :name (buffer-name (gethash :buffer state)) state)
+ (puthash :width total-recall-frame-width state)
+ (puthash :height total-recall-frame-height state)
+ (puthash :frame (make-frame `((width . ,(gethash :width state)) (height . ,(gethash :height state)))) state)
+ (puthash :reviewed-nbr 0 state))
 #+end_src
 
-*** COMMENT Record
+* DB-mk
 :PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID:       4187a5b0-15c1-49fc-9962-7dd5802e4f25
+:ID:       f55fac90-c922-4653-bfb0-10f83a68d53c
 :END:
+** proposition
 
-**** proposition
+Let db : DB :≡ DB#mk(db-file) be an [[ref:d1295024-a8aa-4dd7-a2a1-1ef4d64781db][actor]] such that db#save([[ref:4187a5b0-15c1-49fc-9962-7dd5802e4f25][record]]) saves record in
+db-file.
 
-~record :≡ Record#mk date id value~ is a record of the entity denoted by the string ~id~ at
-date ~date~, lisp timestamp, with the value ~value~, a symbol. ~record#struct()~ is the
-list ~date, id, value~.
-
-**** construction
+** construction
 
 #+begin_src emacs-lisp
-;; Record
+;; DB
 
-(defun total-recall--Record-membrane (msg)
-  "Process incoming MSG for the record actor.
-MSG is a symbol like `struct`, `date`, or `value`.
+(defun total-recall--DB-membrane (msg)
+  "Process incoming MSG for the database actor.
+MSG is a list like `(save RATING)`, `(ratings ID)`, or `stop`.
 Returns a list containing the corresponding instruction."
   (pcase msg
-    ((or :struct :date :value) t)
+    ((or :stop `(:save ,_rating) `(:ratings ,_id)) t)
     (_ nil)))
 
-(defun total-recall--Record-tx (state msg)
-  "Handle transaction INST for the record actor using MEMORY.
+(defun total-recall--DB-tx (state msg)
+  "Handle transaction INST for the database actor using MEMORY.
 MEMORY is the actor’s state hash table.
-INST is a symbol like `struct`, `date`, or `value`.
-Updates MEMORY with the requested data."
-  (let ((date (gethash :date state))
-        (id (gethash :id state))
-        (value (gethash :value state)))
+INST is a list or symbol like `(save RATING)`, `(ratings ID)`, or `stop`.
+Updates MEMORY based on INST."
+  (let ((self (gethash :self state))
+        (sqlite (gethash :sqlite state)))
     (pcase msg
-      (:struct `(,state ,`(,date ,id ,value)))
-      (:date `(,state ,date))
-      (:value `(,state ,value)))))
+      (`(:save ,rating)
+       (pcase (total-recall--struct rating)
+         (`(,date ,id ,value)
+          (let ((row nil))
+            (setq row
+                  (list
+                   (if (memq value '(success failure skip))
+                       (symbol-name value)
+                     (error "Unexpected value: value = %s" value))
 
-(defun total-recall--Record-eq (r1 r2)
-  "Check if record actors R1 and R2 are equal.
-R1 and R2 are record actors.
-Returns t if their structures are equal, nil otherwise."
-  (equal (total-recall--struct r1)
-         (total-recall--struct r2)))
+                   (if (total-recall--string-uuid-p id)
+                       id
+                     (error "ID is not a UUID string: id = %s" id))
 
-(defun total-recall--Record-init (data)
-  "Initialize a record actor with DATA.
-DATA is a list of (DATE ID VALUE), where DATE is a timestamp,
-ID is a UUID string, and VALUE is a symbol.
-Returns a state hash table for the record actor."
-  (let ((state (total-recall--State-mk #'total-recall--Record-membrane #'total-recall--Record-tx)))
-    (pcase data
-      (`(,date ,id ,value)
-       (puthash :date date state)
-       (puthash :id id state)
-       (puthash :value value state)))
+                   (format-time-string "%FT%TZ" (time-convert date 'list) t)))
 
-    state))
+            (sqlite-execute
+             sqlite
+             "INSERT INTO exercise_log (type, id, time) VALUES (?, ?, ?)"
+             row)))
 
-(total-recall--Actor #'total-recall--Record-init total-recall--Record)
+         (struct (error "Unexpected struct: struct = %s" struct)))
+       `(,state ,self))
+
+      (`(:ratings ,id)
+       (unless (total-recall--string-uuid-p id)
+         (error "ID is not a UUID string: id = %s" id))
+
+       (let (rows ratings)
+         (setq rows
+               (sqlite-select
+                sqlite
+                "SELECT type, id, time FROM exercise_log WHERE id = ? ORDER BY time ASC"
+                (list id)))
+
+         (setq ratings
+               (mapcar
+                (lambda (row)
+                  (pcase row
+                    (`(,type ,id ,time)
+                     (total-recall--Rating
+                      `(,(parse-iso8601-time-string time)
+                        ,(if (total-recall--string-uuid-p id) id
+                           (error "ID is not a UUID string: id = %s" id))
+                        ,(if (member type '("success" "failure" "skip")) (intern type)
+                           (error "Unexpected type: id = %s, type = %s" type id)))))
+                    (_ (error "Unexpected row: row = %s" row))))
+                rows))
+
+         `(,state ,ratings)))
+
+      (:stop
+       (sqlite-close sqlite)
+       `(,state ,self)))))
+
+(total-recall--Actor
+ DB
+ (pcase any
+   (db-path
+    (unless (sqlite-available-p)
+      (error "Emacs must be compiled with built-in support for SQLite databases"))
+
+    (let ((sqlite (sqlite-open db-path)))
+      (unless (sqlite-select sqlite "SELECT name FROM sqlite_master WHERE type='table' AND name='exercise_log'")
+        (sqlite-execute sqlite
+                        "CREATE TABLE exercise_log (
+                       type TEXT NOT NULL,
+                       id TEXT NOT NULL,
+                       time TEXT NOT NULL)"))
+      (puthash :sqlite sqlite state)))))
 #+end_src
 
+** test
 
 #+begin_src emacs-lisp :tangle "total-recall-test.el"
 (require 'total-recall)
 (require 'ert)
 
-(ert-deftest total-recall--Record ()
-  (should (eq t t)))
+(ert-deftest total-recall--DB ()
+  "Test Total Recall database functionality using an in-memory database."
+  (let ((db (total-recall--DB nil))
+        (id "123e4567-e89b-12d3-a456-426614174000")
+        (time (parse-iso8601-time-string (format-time-string "%FT%TZ" (current-time) t)))
+        (rating nil))
+
+    (setq rating (total-recall--Rating (list time id 'success)))
+    (should (eq (total-recall--save db rating) db))
+    (should (total-recall--Rating-eq rating (car (total-recall--ratings db id))))))
 #+end_src
 
-*** COMMENT DB
-:PROPERTIES:
-:ID:       f55fac90-c922-4653-bfb0-10f83a68d53c
-:END:
-
-**** context
-**** proposition
-
-Let db : DB :≡ DB#mk db-file be an actor such that it records data in the file which
-path is db-file. db#save [[ref:4187a5b0-15c1-49fc-9962-7dd5802e4f25][record]]
-
-**** construction
-
-*** COMMENT OrgKnowledgeFile
+* parser
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: b0c11bed-8c87-4c9b-b699-5d1c2230d0ad
 :END:
+** proposition
 
-A OrgKnowledgeFile is a path to a OrgFile such that:
-- Its content contains a string ~# :ID: <uuid>~ such that ~<uuid>~ is equal to the [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
-  ~org-knowledge-file-type-id~.
-- All headlines of its associated associated [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] are either [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinitions]] or
-  [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercises]].
+~parser :≡ Parser#mk def-id ex-id~ is a parser such that ~parser#parse file~ is a list of
+[[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][definitions]] and [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][exercises]] found in ~file~ content in a depth first order relative to
+the tree of headlines. ~file~ is a path to an Org Mode file. ~def-id~ and ~ex-id~ are
+strings that identify headlines that are considered to be definitions or exercises
+/i.e./ the ~:TYPE:~ property has a value equal to one of these values.
 
-
-Given a path ~path~, ~org-knowledge-file-p(path) = true~ iff ~path~ is an
-OrgKnowledgeFile.
-
+** construction
 
 #+begin_src emacs-lisp
-(defcustom total-recall-org-knowledge-file-type-id "066ef595-0505-48b5-930a-74a4242e9d0d"
-  :type 'string
-  :group 'total-recall)
+;; Parser
+
+(defun total-recall--parser (obj)
+  (pcase obj
+    ((and file
+          (pred stringp)
+          (pred file-regular-p)
+          (guard (equal (file-name-extension file) "org")))
+     (total-recall--parser-file file))
+    ((and files (pred listp))
+     (mapcan #'total-recall--parser-file files))
+    (_ (error "Unexpected obj. obj = %s" obj))))
+
+(defun total-recall--parser-file (file)
+  (message "total-recall--parser-file")
+  nil)
+
+(defun total-recall--Parser-membrane (msg)
+  "Process incoming MSG for the parser actor.
+MSG is a list like `(parse FILE)` where FILE is a file path.
+Returns a list containing the parse instruction."
+  (pcase msg
+    (`(:parse ,_file) t)
+    (_ nil)))
+
+(defun total-recall--Parser-tx (state msg)
+  "Handle transaction INST for the parser actor using MEMORY.
+MEMORY is the actor’s state hash table.
+INST is a list like `(parse FILE)` where FILE is a file path.
+Updates MEMORY with the parsed elements."
+  (pcase msg
+    (`(:parse ,file)
+
+     (list
+      state
+      (with-temp-buffer
+        (insert-file-contents file)
+        (org-mode)
+        (org-fold-show-all)
+        (let ((org-element-use-cache nil))
+          (total-recall--node-depth-first
+           (org-element-parse-buffer 'greater-element)
+           (lambda (node) (total-recall--node-to-element file node)))))))))
+
+(defun total-recall--node-depth-first (node func)
+  "Traverse NODE depth-first and apply FUNC to each node.
+NODE is an Org element, and FUNC is a function taking a node.
+Returns a list of non-error results from FUNC."
+  (let ((head
+         (mapcan
+          (lambda (node) (total-recall--node-depth-first node func))
+          (org-element-contents node)))
+        (last (funcall func node)))
+    (pcase last
+      (:err head)
+      (_ (append head (list last))))))
+
+(defun total-recall--node-to-element (file node)
+  "Convert NODE to an exercise or definition element from FILE.
+FILE is the path to the Org file, and NODE is an Org element.
+Returns an exercise or definition actor, or `:err` if not applicable."
+  (let ((exercise-result (total-recall--node-to-exercise file node)))
+    (if (eq exercise-result :err)
+        (total-recall--node-to-definition file node)
+      exercise-result)))
+
+(defun total-recall--node-to-exercise (file node)
+  "Convert NODE to an exercise actor from FILE.
+FILE is the path to the Org file, and NODE is an Org element.
+Returns an exercise actor or `:err` if NODE is not an exercise."
+  (let (should-be-exercise id list-headline question answer)
+
+    (setq should-be-exercise
+          (and (eq (org-element-type node) 'headline)
+               (string= (org-element-property :TYPE node) total-recall-ex-type-uuid)))
+
+    (if should-be-exercise
+        (progn
+          (setq id (org-element-property :ID node))
+          (unless (stringp id) (error "Exercise has no ID property"))
+          (setq list-headline
+                (seq-filter
+                 (lambda (child) (eq (org-element-type child) 'headline))
+                 (org-element-contents node)))
+          (pcase (length list-headline)
+            (0 (error "Exercise has no question nor answer: id = %s" id))
+            (1 (error "Exercise has no answer: id = %s" id))
+            (_
+             (setq question (total-recall--node-to-string (car list-headline)))
+             (setq answer (total-recall--node-to-string (cadr list-headline)))))
+
+          (total-recall--Exercise
+           (list
+            file
+            id
+            (total-recall--node-subject node)
+            question
+            answer)))
+      :err)))
+
+(defun total-recall--node-to-definition (file node)
+  "Convert NODE to a definition actor from FILE.
+FILE is the path to the Org file, and NODE is an Org element.
+Returns a definition actor or `:err` if NODE is not a definition."
+  (let (should-be-definition id subject content)
+
+    (setq should-be-definition
+          (and (eq (org-element-type node) 'headline)
+               (string= (org-element-property :TYPE node) total-recall-def-type-uuid)))
+
+    (if should-be-definition
+        (progn
+          (setq id (org-element-property :ID node))
+          (setq subject (total-recall--node-subject node))
+          (unless (stringp id) (error "Definition has no ID property: file = %s" file))
+          (setq content (total-recall--node-to-string node))
+          (total-recall--Definition
+           (list
+            file
+            id
+            subject
+            content)))
+      :err)))
+
+(defun total-recall--node-to-string (node)
+  "Convert NODE to a string with headline leveled to level 1.
+NODE is an Org element.
+Returns the trimmed string representation."
+  (replace-regexp-in-string
+   "\\`\\*+" "*"
+   (string-trim
+    (buffer-substring-no-properties
+     (org-element-property :begin node)
+     (org-element-property :end node)))))
+
+(defun total-recall--node-subject (node)
+  "Extract the subject of NODE as a list of strings.
+NODE is an Org headline element.
+Returns a list of strings like (list A B C), where C is NODE’s title and A, B are ancestors."
+  (reverse
+   (total-recall--org-element-lineage-map
+    (lambda (parent) (org-element-property :raw-value parent))
+    node '(headline) t)))
+
+(defun total-recall--Parser-init (data)
+  "Initialize a parser actor with DATA.
+DATA is a list of (DEF-ID EX-ID), where DEF-ID and EX-ID are strings
+identifying definition and exercise headlines.
+Returns a state hash table for the parser actor."
+  (let ((state (total-recall--State-mk
+                #'total-recall--Parser-membrane
+                #'total-recall--Parser-tx)))
+    (pcase data
+      (`(,def-id ,ex-id)
+       (puthash :def-id def-id state)
+       (puthash :ex-id ex-id state)
+       state)
+      (_
+       (error "Unexpected data: data = %s" data)))))
+
+(total-recall--Actor Parser)
 #+end_src
 
-
-#+begin_src emacs-lisp
-(defun total-recall--org-knowledge-file-p (path)
-  ;; TODO
-  )
-#+end_src
-
-*** COMMENT AST
+* now-mk
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: 8be264dc-9c8e-42b8-b919-98f2afa97f91
+:ID: 18b4680e-3d77-453a-aaf4-06f5b3cb841c
 :END:
+** proposition
 
-Let AST be the type of values returned by [[help:org-element-parse-buffer]].
-
-*** COMMENT HeadlineAST
-:PROPERTIES:
-:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
-:ID: c5fbf85e-e846-4a44-b590-23aaebe2c40e
-:END:
-
-**** proposition
-
-Given ast : [[ref:8be264dc-9c8e-42b8-b919-98f2afa97f91][AST]], let headline-ast : HeadlineAST :≡ HeadlineAST#mk ast be an AST that
-starts with the symbol 'headline. HeadlineAST#p ast = true iff ast is a HeadlineAST.
-
-**** construction
+** construction
 
 #+begin_src emacs-lisp
-(defun total-recall--headline-p (ast)
-  (eq (car ast) 'headline))
+(defun total-recall--now-mk ()
+  (time-convert (current-time) 'list))
 #+end_src
 
+* schedule-mk
+:PROPERTIES:
+:ID:       76f234fc-5f51-4626-80a5-23e8dfcc50e2
+:END:
+** proposition
+
+# Informal
+The objective of a scheduler is to schedule reviewing content so that the most
+impactful content is always reviewed first /i.e./ the one that improves the most on
+your overall predicted recall score. The predicted recall score is an approximation
+of the recall score. If your recall score is 1, it means that you can recall all your
+content.
+
+# Formal
+Define Sheduler such that for s : Scheduler, we have:
+1. s#schedule : Set(Exercise) Time → List(Exercise)
+2. set s#schedule(exs t) = exs
+3. ∀k, exercises in s#schedule(exs t)[0:k] are chosen from exs to:
+   1. ∨ maximize the improvement on predicted_recall_score(exs t)
+   2. ∨ maximise the number of reviews per session.
+
+** construction
+
+1. Scheduler#mk : (Exercise Time → interval(0 1)) → Scheduler
+2. s :≡ Scheduler#mk(recall_probability)
+   - self#schedule : List(Exercise) Time → List(Exercise) :≡ λexs,t.
+     1. graph                         : ReferenceGraph                  :≡ ReferenceGraph#mk(exs)
+     2. roots                         : Set(exs)                        :≡ the set of all roots in graph.
+     3. components                    : List(ReachableComponent)        :≡ sort (map λr.ReachableComponent#mk(graph r) roots) <
+     4. schedule                      : List(Exercise)                  :≡ fold [] (map components (λc.sort c <)) concat
+     5. threshold                     : interval(0 1)                   :≡ 0.8
+     6. high_low                      : Exercise → Exercise + Exercise  :≡ λex.(recall_probability(ex t) ≤ threshold) ? left(ex) right(ex)
+     7. <high_priority, low_priority> : List(Exercise) × List(Exercise) :≡ triage schedule high_low
+     8. schedule                      : List(Exercise)                  :≡ high_priority + low_priority
+
+#+begin_src emacs-lisp
+;; Scheduler
+
+(defun total-recall--schedule-mk (files exercises threshold now)
+  (message "total-recall--schedule-mk")
+  nil)
+
+(defun total-recall--Scheduler-init (recall-probability)
+  (let ((state (total-recall--State-mk
+                #'total-recall--Scheduler-membrane
+                #'total-recall--Scheduler-tx)))
+    (puthash :recall-probability recall-probability state)
+    state))
+
+(defun total-recall--Scheduler-membrane (msg)
+  (pcase msg
+    (`(:schedule ,exs ,time) t)
+    (_ nil)))
+
+(defun total-recall--Scheduler-tx (state msg)
+  (let ((self (gethash :self state))
+        (recall-probability (gethash :recall-probability state)))
+    (pcase msg
+      (`(:schedule ,exs ,time)
+       ;; TODO
+       exs))))
+
+(total-recall--Actor Scheduler)
+#+end_src
+
+** proof
+
+1. obvious by construction.
+2. proof :≡
+   1. exercises are presented in a logical order → minimize context switches →
+      minimize mental energy spent per review → maximize number of reviews per
+      session → ■
+   2. exercises are presented by components → minimize context switches → ■
+   3. high priority exercises are reviewed first → maximize next probability of recall where needed the most → ■
+
+* review
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 44ed650c-6302-416e-89ce-0e328548b72d
+:END:
+** proposition
+
+review : Exercise Time → Result models a user trying to solve
+an exercise. review(ex t) = :success means that the user judged that his answer was
+satisfying /i.e./ close enough from ex#answer() according to him.
+
+** construction
+
+#+begin_src emacs-lisp
+(defun total-recall--review (db ui io report schedule)
+  (message "total-recall--review")
+  nil)
+#+end_src
+
+* total-recall
+:PROPERTIES:
+:ID:       9030fde9-f7fc-4c83-a54b-41fd1a9872d7
+:END:
 ** proposition
 
 Let total-recall be an interactive function such that after execution, the user has
@@ -2933,126 +1352,25 @@ completed a review session, meaning:
 
 ** construction
 
-#+begin_src org
-,* db-path
-,** File
-,** user defined
-,* DB#mk
-,** File → DB
-,*** λ file.db
-,** db#save
-,*** Rating → DB
-,* db
-,** type = DB
-,** value = DB#mk(db-path)
-,* root
-,** type = Directory
-,** value = user defined
-,* search
-,** Directory → List(File)
-,** λ directory.🞎
-,* files : List(File)
-,** search(root)
-,* parser : List(File) → Set(Exercise) :≡ λ files.🞎
-,* exercises
-,** parser(files)
-,* now
-,* thd
-,* dag-mk
-,** λ reference-graph forest-graph.🞎
-,* order-mk
-,** λ dag.🞎
-,* ordered-exercises-mk
-,** λ files exercises.
-,*** forest-graph :≡ forest-graph-mk(files)
-,*** reference-graph :≡ reference-graph-mk(exercises)
-,*** dag :≡ dag-mk(reference-graph forest-graph)
-,*** order :≡ order-mk(dag)
-,*** sort exercises order
-,* prioritized-exercises-mk
-,* schedule-mk
-,** λ files exercises thd now.
-,*** ordered-exercises
-,**** ordered-exercises-mk(files exercises)
-,*** prioritized-exercises
-,**** prioritized-exercises-mk(ordered-exercises db thd now)
-,* schedule
-,** schedule-mk(files exercises thd now)
-,*** ordered-exercises
-,**** ordered-exercises-mk()
-,*** prioritized-exercises
-,**** recall
-,****
-,* schedule
-,*** files exercises ↦ list-exercise
-,**** exercises ↦ reference-graph
-,***** reference-graph-mk(exercises)
-,**** files ↦ forest-graph
-,**** reference-graph forest-graph ↦ dag
-,**** dag ↦ order
-,**** exercises order ↦ ■
-,*** db ↦ recall
-,*** list-exercise recall now thd ↦ <high, low>
-,**** recall now thd ↦ triage : Exercise ↦ Boolean
-,***** exercise
-,***** exercise recall now ↦ p : Probability
-,***** p < thd
-,***** ■
-,**** list-exercise triage ↦ ■
-
-,*** high low ↦ ■
-is the concatenation of high and low.
-
-,* ui
-,* io
-,* report
-,* ui io db report ↦ (next : Schedule ↦ ∅)
-,*** (schedule = []) ui io db report ↦ (stop : User ↦ ∅)
-,**** user
-,**** io#buffer report#string()
-,**** io#mini-buffer "Report written to …"
-,**** db#stop()
-,**** ui#stop()
-,**** ∅
-,**** ■
-,*** (schedule = [exercise] + rest) ui io db report stop ↦ ■
-,**** user
-,**** user exercise ui ↦ reply
-,**** user stop reply db rest ↦ ∅
-,***** (reply : Stop) ↦ stop(user)
-,***** (reply : Rating) db rest ↦ ∅
-,****** db#save(reply)
-,******
-,**** ■
-,**** rating db ↦ ∅
-,**** rest ui io db report ↦ ■
-,*** ■
-,* user (user ↦ ∅) ↦ ∅
-
-,* next : Schedule ↦ ∅ :≡ λ schedule.
-,*** match schedule
-,**** [] ↦
-,***** db#stop()
-,***** ui#stop()
-,***** io#buffer report#string()
-,***** io#mini-buffer "Report written to …"
-,**** [exercise] + rest ↦
-,***** reply : Rating | Stop :≡ ui#show exercise
-,***** match reply
-,****** Rating ↦
-,******* db#save reply
-,******* next rest
-,****** Stop ↦ next []
-#+end_src
-
-
 #+begin_src emacs-lisp
 ;; total-recall
 
-(defcustom total-recall-root (expand-file-name "~")
-  "DOC"
-  :type 'string
-  :group 'total-recall)
+;;;###autoload
+(defun total-recall ()
+  (interactive)
+  (let* ((db (total-recall--DB-mk total-recall-db-path))
+         (ui (total-recall--UI-mk))
+         (io (total-recall--IO-mk))
+         (report (total-recall--Report-mk))
+         (files (total-recall--search total-recall-root))
+         (exercises (total-recall--parser files))
+         (now (total-recall--now-mk))
+         (schedule (total-recall--schedule-mk files exercises total-recall-threshold now)))
+    (total-recall--review db ui io report schedule)))
+#+end_src
+
+#+begin_src emacs-lisp :tangle no
+;; total-recall
 
 ;;;###autoload
 (defun total-recall ()
@@ -3071,6 +1389,9 @@ is the concatenation of high and low.
 ** discussion
 
 *** DONE loop: above the code; code;
+:PROPERTIES:
+:ID:       5b50d0ad-eccf-447e-9e3f-45dba7ff1bb9
+:END:
 
 #+begin_src org
 ,* Actor#mk
@@ -3281,4 +1602,1654 @@ bridges. use report and io.
 ;; sentence-end-double-space: nil
 ;; indent-tabs-mode: nil
 ;; End:
+#+end_src
+
+* COMMENT discussion
+** buffer->org-ast
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       666d8740-7b4c-4bd3-a03f-90760eee176b
+:END:
+
+*** proposition
+
+~buffer->org-ast(buffer)~ is the [[ref:8be264dc-9c8e-42b8-b919-98f2afa97f91][OrgAST]] derived from the [[ref:3be131b5-2eb2-49f1-b2bc-2fd8cfb68dda][OrgBuffer]] ~buffer~.
+
+*** construction
+
+#+begin_src emacs-lisp
+(defun total-recall--buffer->org-ast (buffer)
+  (with-current-buffer buffer
+    (unless (derived-mode-p 'org-mode)
+      (error "org-mode is not activated in the current buffer."))
+    (org-element-parse-buffer)))
+#+end_src
+
+** org-knowledge-file->dag
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:END:
+
+~org-knowledge-file->dag(path)~ is a DAG([[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]) derived from the [[ref:b0c11bed-8c87-4c9b-b699-5d1c2230d0ad][OrgKnowledgeFile]]
+~file~. The set of nodes is the union of the set of [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUIDs]] of the [[ref:b90e4015-0a31-477c-a3e4-a4b2c87a6fb9][Elements]] of the
+matching [[ref:8be264dc-9c8e-42b8-b919-98f2afa97f91][OrgAST]]. The set of edges is formed by the union of hierarchical edges and
+referencial edges.
+
+Let a,b : [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinition]] | [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercise]]. If ~a~ and ~b~ have the same level and ~b~
+comes juste after ~a~, then ~<b a>~ is an edge of hierarchical edges. If the level of ~b~
+is the level of ~a~ + 1, and ~b~ is the first child of ~a~, then ~<a b>~ is an edge of
+hierarchical edges. If ~b~ content has a reference ~a~, then ~<b a>~ is an edge of
+referancial edges.
+
+*** TODO
+Given a OrgKnowledgeFile named ~file.org~, ~kg :≡ ~ is
+
+
+org-knowledge-file->dag : OrgKnowledgeFile → DAG :≡
+1. file.org : [[ref:b0c11bed-8c87-4c9b-b699-5d1c2230d0ad][OrgKnowledgeFile]]
+2. els : Set(ReviewElement) :≡
+   1. list-el : List([[ref:278f886b-8fa5-487d-91a7-e2e27b90ab3f][Definition]] | [[ref:1793e4fa-1c89-4b92-9e26-6ca1c4441067][Exercise]]) :≡ λ file.org
+   2. match duplicates(map λe.e#id() list-el)
+      - { } → set(list-el)
+      - _ → ⊥
+3. dag :≡
+   1. rels : Set(Id × Id) :≡
+      1. rels-hierarchy :≡
+         1. rels :≡ {}
+         2. ∀a:Headline ∈ file.org
+            1. ∃b:headline ∈ file.org
+               1. ∧ level(b) = level(a)
+               2. ∧ b comes just after a
+               3. → rels :≡ rels ∪ { <b#id() a#id()> }
+            2. ∃b:headline ∈ file.org
+               1. ∧ level(b) = level(a) + 1
+               2. ∧ b first child of a
+               3. → rels :≡ rels ∪ { <a#id() b#id()> }
+         3. rels
+      2. rels-reference :≡
+         1. rels :≡ {}
+         2. ∀e ∈ els, ∀id ∈ e#refs(), rels :≡ rels ∪ { <e#id() id> }
+         3. rels
+      3. rels-hierarchy ∪ rels-reference
+   2. nodes :≡ set(map(λe.e#id() els)) ∪ set(flatten(rels))
+   3. g :≡ Graph nodes rels
+   4. g is a DAG ? g : ⊥
+4. < : els els → Boolean :≡
+   - λa,b.∃path(b#id() a#id()) ∈ dag
+5. p : [[ref:1e7ac163-18a7-44cd-bba9-97ed8029f319][TotalStrictOrder(<)]] :≡
+   1. p1 : ∀(a,b:ids), a < b or a = b or a > b :≡
+      - a,b:ids
+      - cond
+        1. a = b → ■
+        2. a ≠ b → ■
+   2. p2 : [[ref:bc98f978-3347-4ad8-8520-9b9c38c5b932][Transitive(<)]] :≡
+      1. assume a < b ∧ b < c
+      2. then there is a path from c to b and b to a
+      3. then there is a path from c to a
+      4. then a < c
+      5. ■
+   3. p3 : [[ref:4c9aeebc-00fe-4bd3-8fa3-b61838260e57][Irreflexive(<)]]
+      1. a < a
+      2. then there is a path from a to a in dag
+      3. then ⊥
+      4. ■
+   4. ■
+6. ■
+
+
+#+begin_src emacs-lisp
+
+#+end_src
+
+** TODO dag->order
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 98acbc5a-3630-4297-b8af-3344c0909033
+:END:
+
+** utils
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:END:
+
+#+begin_src emacs-lisp
+;; Utils
+
+(defun total-recall--truncate-str (str)
+  "Truncates STR to 25 characters, replacing newlines with spaces.
+Returns the truncated string with an ellipsis if necessary."
+  (truncate-string-to-width
+   (replace-regexp-in-string "\n" " " (string-trim str))
+   25
+   0
+   nil
+   "…"))
+
+(defun total-recall--not-implemented-error ()
+  "Signals an error indicating the function is not implemented.
+Throws an error with the message \"NotImplemented\"."
+  (error "NotImplemented"))
+
+(defun total-recall--not-implemented-warning ()
+  "Displays a warning indicating the function is not implemented.
+Shows a message \"WARNING: NotImplemented\" in the echo area."
+  (message "WARNING: NotImplemented"))
+
+(defun total-recall--timestamp-leq (t1 t2)
+  "Check if timestamp T1 is less than or equal to T2.
+Returns t if T1 is less than or equal to T2, nil otherwise."
+  (or (time-less-p t1 t2)
+      (equal t1 t2)))
+
+(defconst total-recall--day (* 24 60 60)
+  "Number of seconds in a day.")
+
+(defun total-recall--find-last-index (lst pred)
+  "Find the last index in LST where PRED return non-nil.
+LST is a list, and PRED is a function taking a list element.
+Returns the index of the last matching element or nil if none."
+  (let ((index -1)
+        (last-index nil))
+    (dolist (item lst)
+      (setq index (1+ index))
+      (when (funcall pred item)
+        (setq last-index index)))
+    last-index))
+
+(defun total-recall--org-element-lineage-map (fun datum &optional types with-self first-match)
+  "Apply FUN to each ancestor of DATUM, from closest to farthest.
+DATUM is an Org element or object.
+TYPES, if non-nil, is a list of symbols to restrict ancestors.
+WITH-SELF, if non-nil, includes DATUM if it matches TYPES.
+FIRST-MATCH, if non-nil, stops at the first non-nil result from FUN.
+Returns a list of non-nil results in reverse order or the first match."
+  (let ((lineage (if with-self
+                     (cons datum (org-element-lineage datum))
+                   (org-element-lineage datum)))
+        results)
+    (catch 'first-match
+      (dolist (element lineage)
+        (when (or (not types)
+                  (memq (org-element-type element) types))
+          (let ((result (funcall fun element)))
+            (when result
+              (if first-match
+                  (throw 'first-match result)
+                (push result results)))))))
+    (if first-match
+        nil  ; If we reach here with first-match, no match was found
+      (nreverse results))))
+
+(defun total-recall--proc-start (path &optional args name)
+  (let* ((name (or name (file-name-base path)))
+         (process
+          (apply #'start-process
+                 (concat name "-process")
+                 (concat "*" name "-buffer*")
+                 path
+                 args)))
+    (set-process-query-on-exit-flag process nil)
+    process))
+
+(defun total-recall--proc-send (proc data &optional timeout)
+  (if (not (process-live-p proc))
+      (error "Process is not alive")
+    (let ((output "")
+          (timeout (or timeout 1)))
+      (set-process-filter
+       proc
+       (lambda (process line)
+         (setq output (concat output line))))
+      (process-send-string proc (concat data "\n"))
+      (accept-process-output proc timeout)
+      output)))
+
+(defun total-recall--proc-stop (proc)
+  (when (and proc (process-live-p proc))
+    (kill-process proc)
+    (let ((buffer (process-buffer proc)))
+      (when (buffer-live-p buffer)
+        (kill-buffer buffer)))))
+#+end_src
+
+#+begin_src emacs-lisp
+(defun total-recall--print-org-structure ()
+  (interactive)
+  (let ((print-length nil))
+    (pp-eval-expression
+     '(with-current-buffer (current-buffer)
+        (org-element-parse-buffer)))))
+#+end_src
+
+** Exercise
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       1793e4fa-1c89-4b92-9e26-6ca1c4441067
+:END:
+
+~exercise :≡ Exercise#mk id path question answer~ represents an [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][exercise]] in ELisp. ~exercise#id()~
+is a UUID string. ~exercise#question()~, ~exercise#answer()~ are strings. ~exercise#path()~
+is a string of the form ~A/B/…/Z~ that locates the exercise relative to its context
+/i.e./ The exercise is about ~Z~ which parent headline is ~…~ up until ~A~. ~exercise#string()~
+is a one line string representation of the exercise for debugging purposes.
+~exercise#file()~ is the absolute path to the file it has been extracted from.
+
+
+#+begin_src emacs-lisp
+;; Exercise
+
+(defun total-recall--Exercise-membrane (msg)
+  "Process incoming MSG for the exercise actor.
+MSG is a symbol like `file`, `id`, `path`, `question`, `answer`, or `string`.
+Returns a list containing the corresponding instruction."
+  (pcase msg
+    ((or :file :id :path :question :answer :string) t)
+    (_ nil)))
+
+(defun total-recall--Exercise-tx (state msg)
+  "Handle transaction INST for the exercise actor using MEMORY.
+MEMORY is the actor’s state hash table.
+INST is a symbol like `file`, `id`, `path`, `question`, `answer`, or `string`.
+Updates MEMORY with the requested data."
+  (let ((file (gethash :file state))
+        (id (gethash :id state))
+        (path (gethash :path state))
+        (question (gethash :question state))
+        (answer (gethash :answer state)))
+
+    (pcase msg
+      (:file `(,state ,file))
+      (:id `(,state ,id))
+      (:path `(,state ,path))
+      (:question `(,state ,question))
+      (:answer `(,state ,answer))
+      (:string
+       `(,state
+         ,(string-join
+           `("Exercise("
+             ,id
+             ,(format "%s" path)
+             ,(total-recall--truncate-str question)
+             ,(total-recall--truncate-str answer) ")")
+           " "))))))
+
+(defun total-recall--Exercise-init (data)
+  "Initialize an exercise actor with DATA.
+DATA is a list of (FILE ID PATH QUESTION ANSWER), where FILE is a path,
+ID is a UUID string, PATH, QUESTION, and ANSWER are strings.
+Returns a state hash table for the exercise actor."
+  (let ((state (total-recall--State-mk #'total-recall--Exercise-membrane #'total-recall--Exercise-tx)))
+    (pcase data
+      (`(,file ,id ,path ,question ,answer)
+       (puthash :file file state)
+       (puthash :id id state)
+       (puthash :path path state)
+       (puthash :question question state)
+       (puthash :answer answer state)
+       state)
+      (_
+       (error "Unexpected data: data = %s" data)))))
+
+(total-recall--Actor Exercise)
+#+end_src
+
+** Definition
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       278f886b-8fa5-487d-91a7-e2e27b90ab3f
+:END:
+
+~definition :≡ Definition#mk id path content~ represents a [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][definition]] in ELisp.
+~definition#id()~ is a UUID string that identifies the definition. ~def1 = def2 ⇔
+def1#id() = def2#id()~. ~definition#content()~ is a string that represents the content
+of the definition. ~definition#path()~ is a string of the form ~A/B/…/Z~ that locates the
+definition relative to its context /i.e./ the definition is about ~Z~ which parent
+headline is ~…~ up until ~A~. ~definition~ satisfies the ~Exercise~ protocol.
+~definition#refs()~ is a list of UUID, each one identifies a definition mentioned in
+~definition#content()~.
+
+
+#+begin_src emacs-lisp
+;; Definition
+
+(defun total-recall--Definition-membrane (msg)
+  "Process incoming MSG for the definition actor.
+MSG is a symbol like `file`, `id`, `path`, `content`, `question`,
+`answer`, or `string`.  Returns a list containing the corresponding
+instruction."
+  (pcase msg
+    ((or :file :id :path :content :question :answer :string :refs) t)
+    (_ nil)))
+
+(defun total-recall--Definition-tx (state msg)
+  "Handle transaction INST for the definition actor using MEMORY.
+MEMORY is the actor’s state hash table.
+INST is a symbol like `file`, `id`, `path`, `content`, `question`, or `string`.
+Updates MEMORY with the requested data."
+  (let ((file (gethash :file state))
+        (id (gethash :id state))
+        (path (gethash :path state))
+        (content (gethash :content state)))
+
+    (pcase msg
+      (:file `(,state ,file))
+      (:id `(,state ,id))
+      (:path `(,state ,path))
+      (:content `(,state ,content))
+      (:question `(,state ,"* Definition?"))
+      (:string `(,state
+                 ,(string-join
+                   `("Definition("
+                     ,id
+                     ,(format "%s" path)
+                     ,(total-recall--truncate-str content)
+                     ")")
+                   " ")))
+      ;; TODO
+      (:refs `(,state ,'())))))
+
+(defun total-recall--Definition-init (data)
+  "Initialize a definition actor with DATA.
+DATA is a list of (FILE ID PATH CONTENT), where FILE is a path,
+ID is a UUID string, PATH and CONTENT are strings.
+Returns a state hash table for the definition actor."
+  (let ((state (total-recall--State-mk
+                 #'total-recall--Definition-membrane
+                 #'total-recall--Definition-tx)))
+    (pcase data
+      (`(,file ,id ,path ,content)
+       (puthash :file file state)
+       (puthash :id id state)
+       (puthash :path path state)
+       (puthash :content content state)
+       state)
+      (_
+       (error "Unexpected data: data = %s" data)))))
+
+(total-recall--Actor Definition)
+#+end_src
+
+*** TODO refs implemented
+
+** ReviewElement
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 6082d5e5-2249-4da0-aff9-dbb09b0ee064
+:END:
+
+ReviewElement :≡ [[ref:278f886b-8fa5-487d-91a7-e2e27b90ab3f][Definition]] | [[ref:1793e4fa-1c89-4b92-9e26-6ca1c4441067][Exercise]]
+
+** TODO Gnosis
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:END:
+
+** TODO set-kermos-gnoseos->gnosis
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:END:
+
+set-kermos-gnoseos->gnosis : Set(DAG) → Gnosis :≡ 🞎
+
+** TODO org-file->org-knowledge-file
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:END:
+
+org-file->org-knowledge-file : OrgFile → OrgKnowledgeFile :≡
+
+** Network
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       0863bc67-a376-4d52-9f71-88416477339f
+:END:
+
+Let ~def1,def2,def3 : Definition~. If ~def2~ contains a reference to ~def1~, then we write
+~def2 → def1 : Reference({ def1 def2 })~. Let ~defs : { Definition }~, then we may build
+~refs(defs) : { Reference(defs) }~, the set of references over ~defs~. We call
+~graph(defs) : Graph(defs) :≡ <defs, refs(defs)>~. If ~def3 → def2~ and ~def2 → def1~, then
+we write ~def3 →+ def1 : Path(graph(defs)) :≡ <def3 def2 def1>~ meaning that there is a
+path from ~def3~ to ~def1~. If ~def →+ def~, then we say that ~def~ is self referential. Let
+~g :≡ graph(defs)~, then ~self-references(g)~ is the set of self referential definitions.
+If ~self-references(g) ≠ ∅~, then we say that ~g~ is impredicative. If ~g~ is not
+impredicative, then ~g#list-of-definition()~ is the list of definitions using
+topological order since it is a directed graph.
+
+
+- ~g :≡ Graph(defs)~
+  - ~g#self-references() : List(List(Definition))~
+  - ~g#impredicative-p() : Boolean :≡ g#self-references() ≠ '()~
+  - ~g#list-of-definition() : List(Definition)~
+  - ~g#list-of-ambiguities() : List(list(Definition))~ l is an ambiguity, d1,d2 ∈ l, d1#id() = d2#id()
+  - ~g#ambiguous-p() : Boolean :≡ ~g#list-of-ambiguities() ≠ '()~
+
+
+#+begin_src emacs-lisp
+;; Network
+
+(require 'json)
+
+(defun total-recall--Network-membrane (msg)
+  (pcase msg
+    ((or :self-references :impredicative-p :list-of-definition :list-of-ambiguities :ambiguous-p) t)
+    (_ nil)))
+
+(defun total-recall--Network-tx (state msg)
+  ""
+  (let ((self (gethash :self state))
+        (logger (gethash :logger state))
+        (defs (gethash :defs state))
+        (process (gethash :process state)))
+    (total-recall--debug logger (list "begin rcv" msg))
+    (pcase msg
+      (:self-references
+       (let ((msg (json-encode '((type . "Loops"))))
+             loops)
+         (setq loops (alist-get 'loops (json-read-from-string (total-recall--proc-send process msg))))
+
+         `(,state
+           ,(mapcar
+             (lambda (loop)
+               (pcase (total-recall--Network-tx state `(:ids-to-defs ,loop))
+                 (`(,state ,defs) defs)))
+             loops))))
+
+      (:impredicative-p
+       (pcase (total-recall--Network-tx state :self-references)
+         (`(,state ,self-refs)
+          `(,state ,(not (equal self-refs []))))))
+
+      (:list-of-definition
+       (let ((msg (json-encode '((type . "Sort"))))
+             reply)
+         (setq reply (alist-get 'nodes (json-read-from-string (total-recall--proc-send process msg))))
+         (total-recall--Network-tx state `(:ids-to-defs ,reply))))
+
+      (:list-of-ambiguities
+       `(,state ,'()))
+
+      (:ambiguous-p
+       (pcase (total-recall--Network-tx state :list-of-ambiguities)
+         (`(,state ,ambiguities)
+          `(,state ,(not (eq ambiguities '()))))))
+
+      (`(:ids-to-defs ,ids)
+       `(,state ,(mapcar (lambda (id) (gethash id defs)) ids))))))
+
+(defun total-recall--Network-init (defs)
+  ""
+  (let* ((state (total-recall--State-mk #'total-recall--Network-membrane #'total-recall--Network-tx))
+         (io (total-recall--IO total-recall-io-buffer-name))
+         (logger (total-recall--Logger (list io)))
+         (parent-dir (directory-file-name (file-name-directory load-file-name)))
+         (executable-path (file-name-concat parent-dir "network-server")))
+    (total-recall--debug logger (list "begin" "init"))
+    (pcase defs
+      (_
+       (puthash
+        :defs
+        (let ((hashtable (make-hash-table :test 'equal)))
+          (dolist (def defs hashtable)
+            (puthash (total-recall--id def) def hashtable)))
+        state)
+       (puthash :logger logger state)
+       (puthash :process (total-recall--proc-start executable-path) state)
+       (total-recall--proc-send (gethash :process state)
+                                (json-encode `((type . "Graph")
+                                               (nodes . ,(mapcar #'total-recall--id defs))
+                                               (refs . ,(mapcan #'total-recall--refs defs)))))
+       (total-recall--debug logger (list "end" "init"))
+       state)
+      (_ (error "Unexpected data: data = %s" data)))))
+
+(total-recall--Actor Network)
+#+end_src
+
+#+begin_src emacs-lisp :tangle "total-recall-test.el"
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Network ()
+  (let* ((def1 (total-recall--Definition (list "/tmp/test-file.org" "1" "subject1" "content")))
+         (def2 (total-recall--Definition (list "/tmp/test-file.org" "2" "subject2" "content")))
+         (def3 (total-recall--Definition (list "/tmp/test-file.org" "3" "subject3" "content")))
+         (defs (list def1 def2 def3))
+         (net (total-recall--Network defs)))
+    (should (eq (total-recall--self-references net) '()))
+    (should (not (total-recall--impredicative-p net)))
+    (should (eq (total-recall--list-of-definition net) defs))
+    (should (eq (total-recall--list-of-ambiguities net) '()))
+    (should (not (total-recall--ambiguous-p net)))))
+#+end_src
+
+*** network-server
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:END:
+
+1. p : NetworkProcess :≡ ./network-server
+2. p#rcv '{ "type": "Hello" }' = '{"type": "World"}'
+3. p#rcv '{ "type": "Stop" }' : p is stopped.
+4. p#rcv '{ "type": "Graph", "nodes": nodes, "refs": refs }' = '{"type": "Ack"}'
+   - nodes : List(String)
+   - refs : List(String × String)
+5. p#rcv '{ "type": "Loops" }' = '{"type": "Loops", "loops": loops }'
+   - loops : List(List(String))
+6. p#rcv '{ "type": "Sort" }' = '{"type": "Sort", "nodes": nodes }'
+   - nodes : List(String)
+
+
+- echo string | p :≡
+  - rcv(string) : None :≡
+    1. msg    : Message :≡ transducer#msg string
+    2. reply  : Dict    :≡ interpreter#rcv msg
+    3. output : String  :≡ transducer#str reply
+    4. None   : None    :≡ io#stdout output
+
+#+begin_src python :tangle "network-server" :shebang "#!/usr/bin/env python3"
+import os
+from network_server import Logger, IO, Transducer, Interpreter, Error, Stop
+
+def main():
+    logger = Logger(log_level=os.environ["LOG_LEVEL"])
+    io = IO()
+    transducer = Transducer()
+    interpreter = Interpreter(io, logger)
+
+    for string in io.stdin():
+        logger.debug(f'string = {string}')
+
+        try:
+            msg = transducer.msg(string)
+        except Exception as e:
+            msg = Error(f'Error err occurred trying to transduce string. err = {e}. string = {string}')
+
+        logger.debug(f'msg = {msg}')
+
+        try:
+            reply = interpreter.rcv(msg)
+        except Exception as e:
+            reply = Error(f'Error err occurred trying to interpret msg. err = {e}. msg = {msg}')
+
+        logger.debug(f'reply = {reply}')
+
+        try:
+            output = transducer.str(reply)
+        except Exception as e:
+            output = Error(f'Error err occurred trying to transduce reply. err = {e}. reply = {reply}')
+
+        logger.debug(f'output = {output}')
+
+        io.stdout(output)
+
+    interpreter.rcv(Stop())
+
+if __name__ == "__main__":
+    main()
+#+end_src
+
+**** __init__.py
+:PROPERTIES:
+:header-args:python+: :tangle "__init__.py"
+:END:
+
+#+begin_src python
+#+end_src
+
+**** imports
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
+
+#+begin_src python
+import os
+import sys
+import json
+import signal
+import logging
+import kuzu
+from typing import Self
+from dataclasses import dataclass, field
+import networkx as nx
+#+end_src
+
+**** Utils
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
+
+#+begin_src python
+def flatten(input_tree):
+    output_list = []
+    stack = list(input_tree)
+    stack.reverse()
+    while stack:
+        item = stack.pop()
+        match item:
+            case list() as lst:
+                lst.reverse()
+                stack.extend(lst)
+            case _:
+                output_list.append(item)
+
+    return output_list
+#+end_src
+
+**** Message
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:ID:       49a7f2e7-e9e5-4455-a46e-9dd4928e0fe9
+:END:
+
+#+begin_src python
+@dataclass
+class Message:
+    type: str = "Message"
+
+    def dict(self):
+        return {"type": self.type}
+
+@dataclass
+class Hello(Message):
+    type: str = "Hello"
+
+@dataclass
+class World(Message):
+    type: str = "World"
+
+@dataclass
+class Ack(Message):
+    type: str = "Ack"
+
+@dataclass
+class Stop(Message):
+    type: str = "Stop"
+
+@dataclass
+class Error(Message):
+    type: str = "Error"
+    msg: str = ""
+
+    def dict(self):
+        d = super().dict()
+        d["msg"] = self.msg
+        return d
+
+@dataclass
+class Graph(Message):
+    type: str = "Graph"
+    nodes: list[str] = field(default_factory=list)
+    refs: list[list[str]] = field(default_factory=list)
+
+    def dict(self):
+        d = super().dict()
+        d["refs"] = self.refs
+        d["nodes"] = self.nodes
+        return d
+
+@dataclass
+class Loops(Message):
+    type: str = "Loops"
+    loops: list[list[str]] = field(default_factory=list)
+
+    def dict(self):
+        d = super().dict()
+        d["loops"] = self.loops
+        return d
+
+@dataclass
+class Sort(Message):
+    type: str = "Sort"
+    nodes: list[str] = field(default_factory=list)
+
+    def dict(self):
+        d = super().dict()
+        d["nodes"] = self.nodes
+        return d
+#+end_src
+
+**** Transducer
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
+
+#+begin_src python
+class Transducer:
+    def msg(self, string: str) -> dict:
+        data = json.loads(string)
+        match data["type"]:
+            case "Hello":
+                return Hello()
+
+            case "Stop":
+                return Stop()
+
+            case "Graph":
+                return Graph(nodes=data["nodes"], refs=data["refs"])
+
+            case "Loops":
+                return Loops()
+
+            case "Sort":
+                return Sort()
+
+            case _:
+                raise AssertionError(f"Unexpected JSON object. json = {data}")
+
+    def str(self, msg: Message) -> str:
+        return json.dumps(msg.dict())
+#+end_src
+
+**** IO
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
+
+#+begin_src python
+class IO:
+    def stdin(self):
+        return sys.stdin
+
+    def stdout(self, string):
+        line = string.strip() + '\n'
+        sys.stdout.buffer.write(bytes(line, 'utf-8', 'strict'))
+        sys.stdout.flush()
+
+    def close(self):
+        sys.stdin.close()
+        sys.stdout.close()
+#+end_src
+
+**** Logger
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
+
+#+begin_src python
+class Logger:
+    def __init__(self,log_level="INFO") -> None:
+        formatter = logging.Formatter('%(asctime)s | %(levelname)s | %(message)s')
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(formatter)
+        self._logger = logging.getLogger('network_server')
+        self._logger.setLevel(getattr(logging, log_level))
+        self._logger.addHandler(handler)
+
+    def debug(self, msg: str) -> None:
+        self._logger.debug(msg)
+#+end_src
+
+**** Interpreter
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
+
+#+begin_src python
+class Interpreter:
+    def __init__(self, io: IO, logger: Logger) -> None:
+        self._io = io
+        self._logger = logger
+        self._db = DB()
+
+    def rcv(self, msg: Message) -> dict | None:
+        logger = self._logger
+        logger.debug(f'interpreter.rcv(msg) where msg = {msg}')
+        match msg:
+            case Hello():
+                return World()
+
+            case Stop():
+                self._io.close()
+                sys.exit(0)
+
+            case Error():
+                return msg
+
+            case Graph(nodes=nodes,refs=refs):
+                self._db.add(nodes=nodes,refs=refs)
+                return Ack()
+
+            case Loops():
+                return Loops(loops=[])
+
+            case Sort():
+                return Sort(nodes=self._db.sort())
+
+            case _:
+                raise AssertionError(f"Unexpected msg. msg = {msg}.")
+#+end_src
+
+**** test
+:PROPERTIES:
+:header-args:bash+: :tangle "network-server-test" :shebang "#!/usr/bin/env bash"
+:END:
+
+#+begin_src bash
+set -euo pipefail
+IFS=$'\n\t'
+SERVER_RCV=/tmp/network-server-rcv.fifo
+SERVER_OUTPUT=/tmp/network-server-output.fifo
+rm -f ${SERVER_RCV} ${SERVER_OUTPUT}
+mkfifo ${SERVER_RCV} ${SERVER_OUTPUT}
+./network-server < ${SERVER_RCV} > ${SERVER_OUTPUT} &
+SERVER_PID=$!
+exec 3> ${SERVER_RCV}
+exec 4< ${SERVER_OUTPUT}
+function cleanup () {
+    rm -f ${SERVER_RCV} ${SERVER_OUTPUT}
+    exec 3>&-;
+    exec 4<&-;
+}
+trap 'cleanup' EXIT INT TERM
+messages=(
+    '{ "type": "Hello" }'
+    '{ "type": "Graph", "nodes": ["a","b","c"], "refs": [["a","b"]] }'
+    '{ "type": "Sort" }'
+    '{ "type": "Loops" }'
+)
+for msg in "${messages[@]}"; do
+    if ! kill -0 ${SERVER_PID} 2>/dev/null; then
+        echo "Error: Server is dead (PID: ${SERVER_PID})" >&2
+        exit 1
+    fi
+    echo "$msg" >&3
+    if ! read -t 2 -r reply <&4; then
+        echo "Error: Timeout waiting for reply to '$msg'" >&2
+        kill -HUP ${SERVER_PID} 2>/dev/null
+        exit 1
+    fi
+    echo "send $msg = $reply"
+done
+echo '{ "type": "Stop" }' >&3
+#+end_src
+
+** Planner
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:END:
+
+~planner :≡ Planner#mk clock db~ is a planner. ~planner#select exercises~ is a list of
+exercises selected from ~exercises~ to be reviewed at the time of the call given data
+represented by the database ~db~. An exercise ~ex~ from ~exercises~ is selected if its
+~cutoff~ date comes before ~today :≡ clock#now()~ /i.e./ ~cutoff ≤ today~. Given the list of
+ratings ~ratings :≡ db#ratings ex#id()~, we define :
+
+
+#+begin_example
+cutoff :≡
+  match db#ratings ex#id()
+    [] → today
+    ratings →
+      - match ratings
+          el+ success_1 … success_n →
+            - Δt :≡ 2^(n-1) days
+            - date(success_n) + Δt
+          _ → today
+#+end_example
+
+
+#+begin_src emacs-lisp
+;; Planner
+
+(defun total-recall--Planner-membrane (msg)
+  "Process incoming MSG for the planner actor.
+MSG is a list like `(select EXERCISES)` where EXERCISES is a list.
+Returns a list containing the select instruction."
+  (pcase msg
+    (`(:select ,_exercises) t)
+    (_ nil)))
+
+(defun total-recall--Planner-tx (state msg)
+  "Handle transaction INST for the planner actor using MEMORY.
+MEMORY is the actor’s state hash table.
+INST is a list like `(select EXERCISES)` or `(is_scheduled EX)`.
+Updates MEMORY with the filtered exercises or scheduling decision."
+  (let ((db (gethash :db state))
+        (clock (gethash :clock state)))
+    (pcase msg
+      (`(:select ,exercises)
+       `(,state
+         ,(seq-filter
+           (lambda (ex)
+             (pcase (total-recall--Planner-tx state `(:is_scheduled ,ex))
+               (`(,state ,is_scheduled) is_scheduled)))
+           exercises)))
+
+      (`(:is_scheduled ,ex)
+       (let (today ratings last-failure-idx successes delta_t last-rating cutoff decision)
+         (setq today (total-recall--now-mk))
+         (setq ratings (total-recall--ratings db (total-recall--id ex)))
+         (setq successes
+               (pcase ratings
+                 ('nil '())
+                 (_
+                  (setq last-failure-idx
+                        (total-recall--find-last-index
+                         ratings
+                         (lambda (rating) (eq (total-recall--value rating) 'failure))))
+
+                  (seq-filter (lambda (rating) (eq (total-recall--value rating) 'success))
+                              (pcase last-failure-idx
+                                ('nil ratings)
+                                ((pred (eq (- (length ratings) 1)) '()))
+                                (_ (nthcdr (+ last-failure-idx 1) ratings)))))))
+         (setq cutoff
+               (pcase successes
+                 ('nil today)
+                 (_
+                  (setq delta_t (* (expt 2 (- (length successes) 1)) total-recall--day))
+                  (setq last-rating (car (last successes)))
+                  (time-add (total-recall--date last-rating) delta_t))))
+         (setq decision (total-recall--timestamp-leq cutoff today))
+         `(,state ,decision))))))
+
+(defun total-recall--Planner-init (data)
+  "Initialize a planner actor with DATA.
+DATA is a list of (DB CLOCK), where DB is a database actor and
+CLOCK is a clock actor.
+Returns a state hash table for the planner actor."
+  (let ((state (total-recall--State-mk #'total-recall--Planner-membrane #'total-recall--Planner-tx)))
+    (pcase data
+      (`(,db ,clock)
+       (puthash :db db state)
+       (puthash :clock clock state)
+       state)
+      (_ (error "Unexpected data: data = %s" data)))))
+
+(total-recall--Actor Planner)
+#+end_src
+
+** total-recall
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:END:
+
+*** proposition
+
+The objective of total-recall is to provide an interactive interface to the user such
+that after ~M-x total-recall~, the user has completed a review session, meaning:
+1. All exercises in the FS have been scheduled and reviewed.
+2. Review data has been recorded.
+3. The user has been informed of his performance.
+
+**** Exercise
+***** proposition
+
+exercise-protocol-p(x) = true means that x is an actor such that ex#question() :
+OrgContent, ex#answer() : OrgContent, ex#id() : UUID, ex#path() : List(String) and
+ex#string() represents the content of the exercise as an OrgContent.
+
+****** OrgContent
+
+An OrgContent is a Org formatted string.
+
+****** UUID
+
+A UUIDv4 formatted string.
+
+***** construction
+
+#+begin_src emacs-lisp
+(defun total-recall--exercise-protocol-p (x)
+  (let ((q (total-recall--question x))
+        (a (total-recall--answer x))
+        (s (total-recall--string x))
+        (id (total-recall--id x))
+        (p (total-recall--path x))))
+  (and (listp p)
+       (total-recall--string-uuid-p id)
+       (stringp q)
+       (stringp a)
+       (stringp s)
+       (and
+        (string-match-p (regexp-quote id) s)
+        (string-match-p (regexp-quote q) s)
+        (string-match-p (regexp-quote a) s)
+        (string-match-p (regexp-quote (string-join p " / ")) s))))
+#+end_src
+
+***** test
+***** discussion
+
+**** Reference
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 885d0860-25fa-4697-b9f4-7f150a047872
+:END:
+
+Let ex1, ex2 : Exercise, a reference(ex1 ex2) is introduced by adding a ref Org link
+in ex1#string() to ex2#id(), or making ex2 a direct sub-headline of ex1#string().
+
+**** < : Exercise Exercise → Prop
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: a28fd20f-ce68-4fc3-bc94-16d8d9cfb517
+:END:
+
+# What it means
+Let g :≡ ReferenceGraph#mk(exs), and ex1,ex2 ∈ exs, <(g ex1 ex2) means that there is
+a path(ex2 ex1) in g.
+
+# How to proove it
+<(g ex1 ex2) :≡ 🞎
+
+***** ReferenceGraph
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: df9bdab5-6395-4b0b-89a4-bedd5c57c829
+:END:
+
+# What it is
+ReferenceGraph#mk : Set(Exercise) → ReferenceGraph :≡ λexs.
+1. refs : Set(Reference) the set of references deduced from exs with starts and ends
+   in exs.
+2. g :≡ digraph(exs refs)
+3. g is a DAG
+4. g
+
+**** < : ReachableComponent ReachableComponent → Prop
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 10429f86-c3a5-49a0-9d6e-3ad9d5a29da8
+:END:
+
+# What it means
+Let c1 and c2 be ReachableComponents of a digraph(v e) ≡: g, then <(g c1 c2) means that
+there is a path(n2 n1) such that n2,n1 ∈ v.
+
+# How to prove it
+# …
+
+**** review
+
+review : Exercise Time → Result models a user trying to solve
+an exercise. review(ex t) = :success means that the user judged that his answer was
+satisfying /i.e./ close enough from ex#answer() according to him.
+
+**** Result :≡ :success | :failure | :skip
+**** predicted_recall_score
+
+predicted_recall_score : Set(Exercise) Time → interval(0 1) is an estimation of score.
+predicted_recall_score :≡ λexs,t.Σ(ex ∈ exs),predicted_recall_score(ex t) / card(exs)
+
+***** score
+
+score : Set(Exercise) Time → interval(0 1) :≡ λexs,t.
+1. number_of_success :≡ card({ x | ∀(ex ∈ exs),x : review(ex t) = :success })
+2. number_of_success / card(exs)
+
+*** construction
+
+total-recall() :≡
+- root               : DirectoryPath                :≡ user defined
+- searcher           : Searcher                      :≡ Searcher#mk()
+- exs                : Set(Exercise)                 :≡ searcher#exercises(root)
+- clock              : Clock                         :≡ Clock#mk()
+- time               : Time                          :≡ clock#now()
+- db-path            : FilePath                      :≡ user defined
+- db                 : Database                      :≡ Database#mk(db-path)
+- curve-fitter       : CurveFitter                   :≡ CurveFitter#mk()
+- recall-probability : Exercise Time → interval(0 1) :≡ curve-fitter#fit(db)
+- scheduler          : Scheduler                     :≡ Scheduler#mk(recall-probability)
+- schedule           : List(Exercise)                :≡ scheduler#schedule(exs time)
+- ui                 : UI                            :≡ UI#mk(db)
+- report             : Report                        :≡ ui#start()
+- io                 : IO                            :≡ IO#mk()
+- io#buffer report#string()
+- io#minibuffer("Report written to …")
+- db#stop()
+
+
+#+begin_src emacs-lisp
+;; total-recall
+
+;;;###autoload
+(defun total-recall ()
+  "Run the Total Recall spaced repetition application.
+Initiates a TotalRecall actor, processes data, and displays the report."
+  (interactive)
+  (let* ((tr (total-recall--TotalRecall t))
+         (report (total-recall--start tr))
+         (io (total-recall--IO total-recall-io-buffer-name)))
+    (total-recall--buffer io (total-recall--string report))
+    (total-recall--minibuffer io (format "Total-recall execution finished. Report written to %s" (total-recall--buffer-name io)))))
+#+end_src
+
+***** predicted_recall_score
+
+predicted_recall_score : Exercise Time → interval(0 1)
+predicted_recall_score(ex t) is an estimation of the probability that review(ex t) = :success
+
+
+**** Element
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: b90e4015-0a31-477c-a3e4-a4b2c87a6fb9
+:END:
+
+An Element is either an [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercise]], [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinition]] or a [[ref:65946d4e-80da-4e2a-9db5-5b86db1f5989][Reference]].
+
+***** Reference
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 65946d4e-80da-4e2a-9db5-5b86db1f5989
+:END:
+
+A Reference is an [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] ~ast~ of the form ~['link …]~ and which ~:path~ property is a
+string that starts with ~"ref:"~ followed by a [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]. Given an AST ast,
+~reference-p(ast) = true~ iff ast is a reference.
+
+
+#+begin_src emacs-lisp
+(defun total-recall--reference-p (ast)
+  ;; TODO
+  nil)
+#+end_src
+
+****** AST
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 6eae3f77-b4fd-4956-bb2b-de2b459b4fb3
+:END:
+
+An AST is a synonym for an "element or object" as described in the documentation of
+[[help:org-element-parse-buffer][org-element-parse-buffer]]. It is a list ~[…]~.
+
+
+**** DOING TotalRecall
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 1783fedc-7c77-4e5e-a73d-f4c93c4d5eb8
+:END:
+
+~tr#init()~ is a state that contains a [[ref:7c752724-7e3d-4529-bf1b-06482ca53b3e][ui]], a [[ref:aee4f045-f225-4e4c-a145-0cb2baad2186][db]], a [[ref:05a4ce8c-583a-43d2-9dde-af32164d1a97][report]], and ~els~, the list of
+elements to be presented to the user. To build ~els~, a [[ref:f1bbb813-e964-4687-994c-bda31c6ba27b][searcher]] is used to find all
+[[ref:b0c11bed-8c87-4c9b-b699-5d1c2230d0ad][OrgKnowledgeFiles]] under [[ref:5709bbc0-e7e6-4eba-90c9-1840b010f3b2][total-recall-root]]. For each file, a set of [[ref:7b449631-bbec-4cf2-ae86-247871af14fe][nodes]] and
+[[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][edges]] is built from its elements and added to a [[ref:6b1ab7c6-087a-4f2a-a317-cede19042a73][DAG]]. The DAG is used to derive a
+logical [[ref:696661be-ee3a-4f4d-9bf8-9b79e9edd9a7][order]] over the elements. The ordered list of elements is then pruned by a
+[[ref:b6e43048-cf5d-4540-aab4-6b282e78fbb2][selector]].
+
+~tr#start()~ presents each element of ~els~ to the user using the ui and records its
+rating in the db until there are no more elements to review or the user decides to end
+the review session.
+
+~tr#start()~ minimizes the review time per session because only elements with a low
+probability of success are presented for review. The elements are presented in an order
+that minimizes "context switches" from one element to another, thus minimizing the
+"mental energy" needed to complete the session.
+
+
+#+begin_src emacs-lisp
+;; TotalRecall
+
+(defun total-recall--TotalRecall-membrane (msg)
+  (pcase msg
+    (:start t)
+    (_ nil)))
+
+(defun total-recall--TotalRecall-tx (state msg)
+  (let ((self (gethash :self state))
+        (goal (gethash :goal state))
+        (root (gethash :root state))
+        (db-path (gethash :db-path state))
+        (searcher (gethash :searcher state))
+        (parser (gethash :parser state))
+        (db (gethash :db state))
+        (planner (gethash :planner state))
+        (ui (gethash :ui state))
+        (nbr-files (gethash :nbr-files state))
+        (nbr-exercises (gethash :nbr-exercises state))
+        (report (gethash :report state))
+        (files (gethash :files state))
+        (exercises (gethash :exercises state)))
+
+    (pcase msg
+      (:start
+       (let ((report (puthash :report (total-recall--Report t) state))
+             (nbr-files (puthash :nbr-files 0 state))
+             (nbr-exercises (puthash :nbr-exercises 0 state))
+             (goal (puthash :goal :continue state)))
+         (total-recall--add report "TotalRecall started.")
+         (total-recall--add report (format "Definitions and exercises under %s will be reviewed." root))
+         (total-recall--add report (format "Review results will be saved in %s." db-path))
+         (puthash :files (total-recall--files searcher) state)
+         (total-recall--add report (format "%s files have been found." (length (gethash :files state))))
+         (total-recall--TotalRecall-tx state :process-files)
+         (total-recall--add report "# End of TotalRecall execution. Report:")
+         (total-recall--add report (format "%s files have been reviewed." (gethash :nbr-files state)))
+         (total-recall--add report (format "%s exercises have been reviewed." (gethash :nbr-exercises state)))
+         (total-recall--TotalRecall-tx state :stop)
+         `(,state ,report)))
+
+      (:process-files
+       (pcase `(,goal ,files)
+         (`(:stop ,_) `(,state ,self))
+         ('(:continue ()) `(,state ,self))
+         (`(:continue (,file . ,files))
+          (total-recall--TotalRecall-tx state `(:process-file ,file))
+          (puthash :nbr-files (+ (gethash :nbr-files state) 1) state)
+          (puthash :files files state)
+          (total-recall--TotalRecall-tx state :process-files))))
+
+      (`(:process-file ,file)
+       (pcase goal
+         (:stop `(,state ,self))
+         (:continue
+          (total-recall--add report (format "file = %s" file))
+          (puthash :exercises (total-recall--select planner (total-recall--parse parser file)) state)
+          (total-recall--add report (format "%s exercises have been planned to be reviewed." (length (gethash :exercises state))))
+          (total-recall--TotalRecall-tx state :process-exercises))))
+
+      (:process-exercises
+       (pcase `(,goal ,exercises)
+         (`(:stop ,_) `(,state ,self))
+         (`(,_ ()) `(,state ,self))
+         (`(:continue (,exercise . ,exercises))
+          (total-recall--TotalRecall-tx state `(:process-exercise ,exercise))
+          (puthash :nbr-exercises (+ (gethash :nbr-exercises state) 1) state)
+          (puthash :exercises exercises state)
+          (total-recall--TotalRecall-tx state :process-exercises))))
+
+      (`(:process-exercise ,exercise)
+       (pcase goal
+         (:stop `(,state ,self))
+         (:continue
+          (pcase (total-recall--show-exercise ui exercise)
+            (:stop
+             (puthash :goal :stop state)
+             `(,state ,self))
+            (`(:rating ,rating)
+             (total-recall--add report (format "exercise = %s %s" (total-recall--id exercise) (total-recall--path exercise)))
+             (total-recall--save db rating)
+             (puthash :goal :continue state)
+             `(,state ,self))))))
+
+      (:stop
+       (total-recall--stop ui)
+       (total-recall--stop db)
+       `(,state ,self))
+
+      (_ (error "Unexpected instruction: msg = %s" msg)))))
+
+(defun total-recall--TotalRecall-init (_data)
+  (let ((state (total-recall--State-mk #'total-recall--TotalRecall-membrane #'total-recall--TotalRecall-tx)))
+    (puthash :clock (total-recall--Clock t) state)
+
+    (puthash :db-path total-recall-db-path state)
+    (puthash :db (total-recall--DB (gethash :db-path state)) state)
+
+    (puthash :root total-recall-root state)
+    (puthash :def-type total-recall-def-type-uuid state)
+    (puthash :ex-type total-recall-ex-type-uuid state)
+    (puthash :searcher (total-recall--Searcher (list (gethash :root state) (gethash :def-type state) (gethash :ex-type state))) state)
+
+    (puthash :parser (total-recall--Parser (list (gethash :def-type state) (gethash :ex-type state))) state)
+
+    (puthash :planner (total-recall--Planner (list (gethash :db state) (gethash :clock state))) state)
+
+    ;; TODO
+    ;; (puthash :network (total-recall--Network '()) state)
+
+    (puthash :ui (total-recall--UI (list "*TotalRecall UI*" total-recall-frame-width total-recall-frame-height (gethash :clock state))) state)
+
+    (puthash :nbr-files 0 state)
+
+    (puthash :nbr-exercises 0 state)
+
+    (puthash :files '() state)
+
+    (puthash :exercises '() state)
+
+    (puthash :goal :continue state)
+
+    state))
+
+(total-recall--Actor TotalRecall)
+#+end_src
+
+***** TODO Selector
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       b6e43048-cf5d-4540-aab4-6b282e78fbb2
+:END:
+
+Given a natural number named ~time~, ~selector : Selector :≡ Selector#mk time~ is a selector. It
+means that ~selector#read()~ is its current time and ~t :≡ selector#read();
+selector#tick()#read() = t + 1~. ~selector#now()~ is a lisp timestamp representing the UTC
+time at the call.
+
+
+#+begin_src emacs-lisp
+;; Selector
+
+(defun total-recall--Selector-membrane (msg)
+  "Process incoming MSG for the selector actor.
+MSG is a symbol or list representing a selector command.
+Returns a list of instructions to be executed."
+  (memq msg '(:read :tick :tick2 :now)))
+
+
+(defun total-recall--Selector-tx (state msg)
+  "Handle transaction INST for the selector actor using MEMORY.
+MEMORY is the actor’s state hash table.
+INST is a symbol representing a selector instruction.
+Updates MEMORY based on INST."
+  (let ((self (gethash :self state))
+        (time (gethash :time state)))
+    (pcase msg
+      (:read `(,state ,time))
+      (:now `(,state ,(time-convert (current-time) 'list)))
+      (:tick
+       (puthash :time (+ time 1) state)
+       `(,state ,self))
+      (:tick2
+       (total-recall--Selector-tx state :tick)
+       (total-recall--Selector-tx state :tick)
+       `(,state ,self)))))
+
+
+(defun total-recall--Selector-init (time)
+  "Initialize a selector actor with TIME.
+TIME is a natural number representing the initial selector time.
+Returns a state hash table for the selector actor."
+  (let ((state (total-recall--State-mk
+                #'total-recall--Selector-membrane
+                #'total-recall--Selector-tx)))
+    (puthash :time time state)
+    state))
+
+(total-recall--Actor Selector)
+#+end_src
+
+
+#+begin_src emacs-lisp :tangle "total-recall-test.el"
+(require 'total-recall)
+(require 'ert)
+
+(ert-deftest total-recall--Selector ()
+  (let ((selector (total-recall--Selector 0)))
+    (should (= (total-recall--read selector) 0))
+    (should (= (total-recall--read (total-recall--tick selector)) 1))))
+#+end_src
+
+***** TODO Order
+:PROPERTIES:
+:ID:       696661be-ee3a-4f4d-9bf8-9b79e9edd9a7
+:END:
+
+***** DB
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID:       aee4f045-f225-4e4c-a145-0cb2baad2186
+:END:
+
+~db :≡ DB#mk db-path~ is a database that writes its data to the file denoted by the
+string ~db-path~. ~db#save rating~ saves the rating ~rating~. ~db#ratings id~ is the list of
+ratings associated with the given ~id~. ~db#stop()~ releases the resources associated
+with ~db~.
+
+***** Node
+:PROPERTIES:
+:ID:       7b449631-bbec-4cf2-ae86-247871af14fe
+:END:
+
+Node :≡ [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
+
+***** Edge
+:PROPERTIES:
+:ID:       061bc1d1-d892-4bac-bc04-e21f3593646f
+:END:
+
+Edge :≡ [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Node]] × Node
+
+***** DAG
+:PROPERTIES:
+:ID:       6b1ab7c6-087a-4f2a-a317-cede19042a73
+:END:
+
+A DAG(nodes edges) is a directed acyclic graph. nodes is a set of [[ref:7b449631-bbec-4cf2-ae86-247871af14fe][Node]] and edges is a
+set of [[ref:061bc1d1-d892-4bac-bc04-e21f3593646f][Edge]].
+
+*** Proof
+
+1. All exercises presented by a scheduler have be reviewed.
+2. The user has been informed of his performance.
+3. Data has been recorded.
+
+** context
+*** COMMENT Graph
+:PROPERTIES:
+:ID:       69b93da1-d17a-49a5-99ef-363a44c33f41
+:END:
+
+**** proposition
+
+- db : DB :≡ DB()
+- db#add : List(String) List(String × String) → DB
+- db#sort() : List(String)
+- db#loops() : List(List(String))
+
+**** construction
+:PROPERTIES:
+:header-args:python+: :tangle "network_server.py"
+:END:
+
+***** TODO loops is implemented
+
+***** ■
+
+#+begin_src python
+class DB:
+    def __init__(self,_data={}) -> None:
+        self._db = db = kuzu.Database(":memory:")
+        self._con = con = kuzu.Connection(db)
+        con.execute("CREATE NODE TABLE Node(id STRING, PRIMARY KEY(id))")
+        con.execute("CREATE REL TABLE References(FROM Node TO Node)")
+
+    def add(self, nodes: list[str] = [], refs: list[list] = []) -> Self:
+        con = self._con
+        if nodes:
+            nodes_list = ", ".join(f"'{node}'" for node in nodes)
+            con.execute(f"UNWIND [{nodes_list}] AS node CREATE (n:Node {{id: node}})")
+        if refs:
+            refs_list = ", ".join(f"['{ref[0]}', '{ref[1]}']" for ref in refs)
+            con.execute(f"UNWIND [{refs_list}] AS rel MATCH (a:Node {{id: rel[1]}}), (b:Node {{id: rel[2]}}) CREATE (a)-[:References]->(b)")
+        return self
+
+    def sort(self) -> list[str]:
+        con = self._con
+        res = self._con.execute("""
+        MATCH (n:Node)
+        OPTIONAL MATCH (n) -[r:References]-> (m:Node)
+        RETURN n, r;
+        """)
+        graph = res.get_as_networkx(directed=True)
+        relabel_mapping = {node: node.replace('Node_', '') for node in graph.nodes()}
+        nx.relabel_nodes(graph, relabel_mapping, copy=False)
+        components = sorted(nx.weakly_connected_components(graph), key=len, reverse=False)
+        subgraphs = map(lambda component: graph.subgraph(component), components)
+        ids = flatten(map(lambda graph: list(reversed(list(nx.topological_sort(graph)))), subgraphs))
+        return ids
+
+    def loops(self) -> list[list[str]]:
+        raise NotImplementedError()
+        return []
+#+end_src
+
+**** test
+:PROPERTIES:
+:header-args:python+: :tangle "network_server_test.py"
+:END:
+
+#+begin_src python
+import pytest
+from .network_server import DB
+
+class TestDB:
+    def test_db(self):
+        db = DB()
+        db.add(nodes=["a","b","c", "d"],refs=[["a","b"], ["a","c"], ["b","c"]])
+        assert db.sort() == ["d", "c", "b", "a"]
+#+end_src
+
+*** COMMENT CurveFitter
+:PROPERTIES:
+:ID:       6d544af8-f5f7-464c-a86a-4f6ab5173c42
+:END:
+*** COMMENT ReferenceGraph
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: df9bdab5-6395-4b0b-89a4-bedd5c57c829
+:END:
+
+# What it is
+ReferenceGraph#mk : Set(Exercise) → ReferenceGraph :≡ λexs.
+1. refs : Set(Reference) the set of references deduced from exs with starts and ends
+   in exs.
+2. g :≡ digraph(exs refs)
+3. g is a DAG
+4. g
+
+*** COMMENT < : Exercise Exercise → Prop
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: a28fd20f-ce68-4fc3-bc94-16d8d9cfb517
+:END:
+
+# What it means
+Let g :≡ ReferenceGraph#mk(exs), and ex1,ex2 ∈ exs, <(g ex1 ex2) means that there is
+a path(ex2 ex1) in g.
+
+# How to proove it
+<(g ex1 ex2) :≡ 🞎
+
+*** COMMENT < : ReachableComponent ReachableComponent → Prop
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 10429f86-c3a5-49a0-9d6e-3ad9d5a29da8
+:END:
+
+# What it means
+Let c1 and c2 be ReachableComponents of a digraph(v e) ≡: g, then <(g c1 c2) means that
+there is a path(n2 n1) such that n2,n1 ∈ v.
+
+# How to prove it
+# …
+
+*** COMMENT Result :≡ :success | :failure | :skip
+*** COMMENT score
+
+score : Set(Exercise) Time → interval(0 1) :≡ λexs,t.
+1. number_of_success :≡ card({ x | ∀(ex ∈ exs),x : review(ex t) = :success })
+2. number_of_success / card(exs)
+*** COMMENT predicted_recall_score
+
+predicted_recall_score : Set(Exercise) Time → interval(0 1) is an estimation of score.
+predicted_recall_score :≡ λexs,t.Σ(ex ∈ exs),predicted_recall_score(ex t) / card(exs)
+
+*** COMMENT Reference
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 885d0860-25fa-4697-b9f4-7f150a047872
+:END:
+
+Let ex1, ex2 : Exercise, a reference(ex1 ex2) is introduced by adding a ref Org link
+in ex1#string() to ex2#id(), or making ex2 a direct sub-headline of ex1#string().
+
+*** COMMENT UUID
+
+A UUIDv4 formatted string.
+
+*** COMMENT OrgContent
+
+An OrgContent is a Org formatted string.
+
+*** COMMENT Exercise
+:PROPERTIES:
+:ID:       2ade1c31-ced1-4673-a7f2-b63b7a20ab26
+:END:
+**** proposition
+
+exercise-protocol-p(x) = true means that x is an actor such that ex#question() :
+OrgContent, ex#answer() : OrgContent, ex#id() : UUID, ex#path() : List(String) and
+ex#string() represents the content of the exercise as an OrgContent.
+
+**** construction
+
+#+begin_src emacs-lisp
+(defun total-recall--exercise-protocol-p (x)
+  (let ((q (total-recall--question x))
+        (a (total-recall--answer x))
+        (s (total-recall--string x))
+        (id (total-recall--id x))
+        (p (total-recall--path x))))
+  (and (listp p)
+       (total-recall--string-uuid-p id)
+       (stringp q)
+       (stringp a)
+       (stringp s)
+       (and
+        (string-match-p (regexp-quote id) s)
+        (string-match-p (regexp-quote q) s)
+        (string-match-p (regexp-quote a) s)
+        (string-match-p (regexp-quote (string-join p " / ")) s))))
+#+end_src
+
+**** test
+**** discussion
+
+*** COMMENT OrgKnowledgeFile
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: b0c11bed-8c87-4c9b-b699-5d1c2230d0ad
+:END:
+
+A OrgKnowledgeFile is a path to a OrgFile such that:
+- Its content contains a string ~# :ID: <uuid>~ such that ~<uuid>~ is equal to the [[ref:9ed6dfab-89aa-4bfb-8bff-d7a357546f2f][UUID]]
+  ~org-knowledge-file-type-id~.
+- All headlines of its associated associated [[ref:6eae3f77-b4fd-4956-bb2b-de2b459b4fb3][AST]] are either [[ref:83056aa9-1b7a-4678-a29e-7389db7f885f][OrgDefinitions]] or
+  [[ref:a474c4de-9bd2-4c2b-8189-c91eb0ab9014][OrgExercises]].
+
+
+Given a path ~path~, ~org-knowledge-file-p(path) = true~ iff ~path~ is an
+OrgKnowledgeFile.
+
+
+#+begin_src emacs-lisp
+(defcustom total-recall-org-knowledge-file-type-id "066ef595-0505-48b5-930a-74a4242e9d0d"
+  :type 'string
+  :group 'total-recall)
+#+end_src
+
+
+#+begin_src emacs-lisp
+(defun total-recall--org-knowledge-file-p (path)
+  ;; TODO
+  )
+#+end_src
+
+*** COMMENT AST
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 8be264dc-9c8e-42b8-b919-98f2afa97f91
+:END:
+
+Let AST be the type of values returned by [[help:org-element-parse-buffer]].
+
+*** COMMENT HeadlineAST
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: c5fbf85e-e846-4a44-b590-23aaebe2c40e
+:END:
+
+**** proposition
+
+Given ast : [[ref:8be264dc-9c8e-42b8-b919-98f2afa97f91][AST]], let headline-ast : HeadlineAST :≡ HeadlineAST#mk ast be an AST that
+starts with the symbol 'headline. HeadlineAST#p ast = true iff ast is a HeadlineAST.
+
+**** construction
+
+#+begin_src emacs-lisp
+(defun total-recall--headline-p (ast)
+  (eq (car ast) 'headline))
 #+end_src
