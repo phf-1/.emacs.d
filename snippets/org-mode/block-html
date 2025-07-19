@@ -1,8 +1,7 @@
 # -*- mode: snippet -*-
 # name: block-html
-# key: <html
+# key: html
 # --
-#+ATTR_LATEX: :options style=dlstyle
-#+begin_src html :tangle "${1:data/xxx.html}"
-  $0
+#+begin_src html
+$0
 #+end_src

@@ -746,6 +746,12 @@ be limited." bash-ls-cmd)))
   :preface
   (unless (treesit-language-available-p 'heex)
     (heex-ts-install-grammar)))
+
+(require 'eglot)
+(add-hook 'elixir-mode-hook 'eglot-ensure)
+(add-to-list 'eglot-server-programs
+             `(elixir-mode
+               ,(file-name-concat (expand-file-name "~") "bin" "elixir-ls" "language_server.sh")))
 #+end_src
 
 * project
@@ -1011,9 +1017,16 @@ and return an error indicator."
    ("C-c o" . org-clock-out))
 
   :custom
+  (org-cite-global-bibliography (list (expand-file-name "~/src/bibliography/reference.bib")))
+  (org-cite-csl-styles-dir (expand-file-name "~/.emacs.d/csl"))
+  (org-cite-export-processors
+        '((latex biblatex)
+          (t csl)))
+
   ;; TODO Org Mode maintainer.
   ;(org-element--cache-self-verify nil)
   ;(org-element--cache-self-verify-frequency 1.0)
+  (org-emphasis-alist (delete '("+" (:strike-through t)) org-emphasis-alist))
   (org-fontify-emphasized-text t)
   (org-babel-python-command-nonsession "python3")
   (org-startup-folded 'show2levels)
@@ -1027,7 +1040,7 @@ and return an error indicator."
   (org-src-preserve-indentation t)
   (org-hide-emphasis-markers t)
   (org-todo-keywords
-   '((sequence "TODO(t)" "WAITING(w)" "DOING(g)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
+   '((sequence "TODO(t)" "WAITING(w)" "DOING(o)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
   (org-todo-keyword-faces
    '(("TODO" . (:foreground "red" :family "JetBrains Mono" :height 0.9))
      ("WAITING" . (:foreground "orange" :family "JetBrains Mono" :height 0.9))
@@ -1058,6 +1071,10 @@ and return an error indicator."
      (python . t)
      (js . t)))
 
+  ;; For whatever reason, this is not defined.
+  (defun citeproc-style-cite-superscript-p (x)
+    t)
+
   (defun org-for-all-headings-add-id ()
     "Generate ID for any headings that are missing one"
     (interactive)
@@ -1073,6 +1090,13 @@ and return an error indicator."
     (let ((path (org-format-outline-path (org-get-outline-path t) 10000)))
       (kill-new path)
       (message "Outline path copied to kill ring: %s" path)))
+
+  (defun org-show-all-drawers ()
+    "Show all drawers in the current Org buffer."
+    (interactive)
+    (org-element-map (org-element-parse-buffer) 'property-drawer
+      (lambda (drawer)
+        (org-fold-hide-drawer-toggle 'off nil drawer))))
 
   (require 'org-patches))
 #+end_src
@@ -1190,14 +1214,26 @@ and return an error indicator."
   (beacon-mode 1))
 #+end_src
 
+* graphviz-dot
+
+#+begin_src emacs-lisp
+(use-package graphviz-dot-mode
+  :custom
+  (graphviz-dot-indent-width 2))
+#+end_src
+
 * total-recall
 
 #+begin_src emacs-lisp
-(add-to-list 'load-path (file-name-concat user--packages "total-recall/_dist"))
+(add-to-list
+ 'load-path
+ (expand-file-name "~/src/total-recall-next/total-recall-0.11/elisp"))
 (use-package total-recall
   :demand
   :custom
-  (total-recall-database (file-name-concat (expand-file-name user-emacs-directory) "total-recall.sqlite3")))
+  (total-recall-database
+   (file-name-concat
+    (expand-file-name user-emacs-directory) "total-recall.sqlite3")))
 #+end_src
 
 * reformatter
@@ -1259,6 +1295,60 @@ and return an error indicator."
                 (add-to-list 'completion-at-point-functions #'cape-dabbrev t)))))
 #+end_src
 
+* citeproc
+
+#+begin_src emacs-lisp
+(use-package citeproc
+  :after org)
+#+end_src
+
+* auto replace characters
+
+#+begin_src emacs-lisp
+;;; Replace "->" with "→" as you type (works inside words and in all major modes)
+
+(defcustom arrow-replace-include-minibuffer nil
+  "If non-nil, perform arrow replacement in the minibuffer too.
+Default nil because changing text in the minibuffer can interfere with
+completions and special minibuffer behavior."
+  :type 'boolean
+  :group 'convenience)
+
+(defun arrow-replace--post-self-insert ()
+  "Replace the two characters \"-\" and \">\" before point with the single char \"→\".
+Intended to be added to `post-self-insert-hook'."
+  (when (and
+         ;; optionally skip minibuffer
+         (or arrow-replace-include-minibuffer (not (minibufferp)))
+         ;; don't touch read-only buffers
+         (not buffer-read-only)
+         ;; need at least two chars
+         (>= (point) 2)
+         ;; last typed char is '>' and the one before that is '-'
+         (eq (char-before) ?>)
+         (eq (char-before (1- (point))) ?-))
+    (atomic-change-group
+      (delete-region (- (point) 2) (point))
+      (insert "→"))))
+
+(define-minor-mode arrow-replace-mode
+  "Buffer-local minor mode: replace \"->\" with \"→\" as you type."
+  :lighter " →"
+  :global nil
+  (if arrow-replace-mode
+      (add-hook 'post-self-insert-hook #'arrow-replace--post-self-insert nil t)
+    (remove-hook 'post-self-insert-hook #'arrow-replace--post-self-insert t)))
+
+(define-globalized-minor-mode global-arrow-replace-mode arrow-replace-mode
+  ;; Init function: enable arrow-replace-mode in new buffers (respect minibuffer setting)
+  (lambda ()
+    (when (or arrow-replace-include-minibuffer (not (minibufferp)))
+      (arrow-replace-mode 1))))
+
+;; Enable it globally:
+(global-arrow-replace-mode 1)
+#+end_src
+
 * local extension
 
 #+begin_src emacs-lisp
@@ -1274,8 +1364,9 @@ Set %s to a local elisp file to run it after init.el"
 #+end_src
 
 * Local Variables  :noexport:
-
-# Local Variables:
-# org-confirm-babel-evaluate: nil
-# fill-column: 85
-# End:
+Local Variables:
+eval: (add-hook 'before-save-hook #'whitespace-cleanup)
+eval: (add-hook 'after-save-hook #'org-babel-tangle)
+eval: (indent-tabs-mode 0)
+fill-column: 85
+End:

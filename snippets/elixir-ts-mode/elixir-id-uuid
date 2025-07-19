@@ -1,8 +1,6 @@
 # -*- mode: snippet -*-
-# name: elixir-function
-# key: func
+# name: elixir-id-uuid
+# key: exid
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-def $1($0) do
-
-end
+# :ID: `(org-id-new)`

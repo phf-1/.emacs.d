@@ -4,5 +4,14 @@
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
 defmodule $0 do
+  # :ID: `(org-id-new)`
+
+  # Context
+
+  # Constructors
+
+  # Interface
+
+  # Implementation
 
 end

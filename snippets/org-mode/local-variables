@@ -3,8 +3,9 @@
 # key: lv
 # --
 * Local Variables  :noexport:
-# Local Variables:
-# eval: (setq before-save-hook '(org-fold-hide-drawer-all whitespace-cleanup))
-# eval: (indent-tabs-mode 1)
-# fill-column: 85
-# End:
+Local Variables:
+eval: (add-hook 'before-save-hook #'whitespace-cleanup nil t)
+eval: (add-hook 'after-save-hook #'org-babel-tangle nil t)
+indent-tabs-mode: nil
+fill-column: 85
+End:

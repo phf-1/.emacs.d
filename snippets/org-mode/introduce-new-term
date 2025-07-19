@@ -1,5 +1,6 @@
-# key: lf
-# name: lambda-function
+# -*- mode: snippet -*-
+# name: introduce-new-term
+# key: var
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-λ${1:x}.${2:🞎}
+$1 :≡ $0

@@ -1,0 +1,28 @@
+# -*- mode: snippet -*-
+# name: module-test
+# key: module-test
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+defmodule $0Test do
+  # :ID: `(org-id-new)`
+
+  # Context
+
+  use ExUnit.Case
+
+  # Constructors
+
+  setup_all do
+    [setup_all: :ok]
+  end
+
+  setup do
+    [setup: :ok]
+  end
+
+  # Interface
+
+  test "test", context do
+    assert true
+  end
+end

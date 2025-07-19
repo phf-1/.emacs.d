@@ -1,5 +1,6 @@
-# key: lf
-# name: lambda-function
+# -*- mode: snippet -*-
+# name: math-not-in
+# key: ∈
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-λ${1:x}.${2:🞎}
+∉

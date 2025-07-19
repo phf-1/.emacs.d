@@ -1,5 +1,5 @@
-# key: lf
-# name: lambda-function
+# key: info
+# name: python-log-info
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-λ${1:x}.${2:🞎}
+logger.info(f'${1:name} = {$1}')

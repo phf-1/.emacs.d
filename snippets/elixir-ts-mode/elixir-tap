@@ -1,8 +1,6 @@
 # -*- mode: snippet -*-
-# name: elixir-function
-# key: func
+# name: elixir-tap
+# key: tap
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-def $1($0) do
-
-end
+tap(& IO.inspect(&1, label: "${1:name}"))$0

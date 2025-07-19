@@ -1,8 +1,8 @@
 # -*- mode: snippet -*-
-# name: elixir-function
-# key: func
+# name: heex-code
+# key: hcode
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-def $1($0) do
+<%= $0 do %>
 
-end
+<% end %>

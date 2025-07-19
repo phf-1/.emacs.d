@@ -1,5 +1,9 @@
-# key: lf
-# name: lambda-function
+# key: if
+# name: elixir-if
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-λ${1:x}.${2:🞎}
+if $0 do
+
+else
+
+end

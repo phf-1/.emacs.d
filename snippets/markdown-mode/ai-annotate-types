@@ -1,15 +1,21 @@
-# key: synth
-# name: ai-code-synthesizer
+# key: infer-types
+# name: ai-annotate-types
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
 Given the following context:
 \`\`\`
-${1:context}
+
 \`\`\`
 
-Correct and complete this content:
+Then, update the following proposition so that type names reference the matching type
+definition using \`[[ref:<uuid> …]\` where \`uuid\` is the uuid that identifies the
+matching type. Do not repeat references, for instance it is sufficient to annotate
+the type name String only once. Note that the name of the type being defined should
+not be annotated with a reference, since we are defining it in its very proposition
+headline.
+
 \`\`\`
-${2:proposition}
+
 \`\`\`
 
 Satisfy the following constraints:

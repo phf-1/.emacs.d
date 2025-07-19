@@ -1,0 +1,9 @@
+# key: impl
+# name: elixir-protocol-implementation
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+defimpl ${1:protocol} do
+  def func(obj = %${2:Module}\{\}) do
+    $0
+  end
+end

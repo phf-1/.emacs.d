@@ -5,44 +5,53 @@
 # --
 `(let ((level (org-current-level)))
    (pcase (org-current-level)
-     ('nil "* Object")     
-     (1 (error "Not implemented"))     
-     (level (concat (make-string (- level 1) ?*) " Object"))))`
+     ('nil "* Object")
+     (1 "** Object")
+     (level (concat (make-string level ?*) " Object"))))`
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
 :ID: `(org-id-new)`
 :END:
 `(let ((level (org-current-level)))
-   (let ((name "context"))
+   (let ((name "specify"))
      (pcase (org-current-level)
-       ('nil (format "** %s" name))       
-       (1 (error "Not implemented"))       
-       (level (concat (make-string level ?*) (format " %s" name))))))`
+       ('nil (format "** %s" name))
+       (1 (format "*** %s" name))
+       (level (concat (make-string (+ level 1) ?*) (format " %s" name))))))`
+
+$0
 
 `(let ((level (org-current-level)))
-   (let ((name "proposition"))
+   (let ((name "example"))
      (pcase (org-current-level)
-       ('nil (format "** %s" name))       
-       (1 (error "Not implemented"))       
-       (level (concat (make-string level ?*) (format " %s" name))))))`
+       ('nil (format "** %s" name))
+       (1 (format "*** %s" name))
+       (level (concat (make-string (+ level 1) ?*) (format " %s" name))))))`
 
 `(let ((level (org-current-level)))
-   (let ((name "construction"))
+   (let ((name "build"))
      (pcase (org-current-level)
-       ('nil (format "** %s" name))       
-       (1 (error "Not implemented"))       
-       (level (concat (make-string level ?*) (format " %s" name))))))`
+       ('nil (format "** %s" name))
+       (1 (format "*** %s" name))
+       (level (concat (make-string (+ level 1) ?*) (format " %s" name))))))`
+
+`(let ((level (org-current-level)))
+   (let ((name "prove"))
+     (pcase (org-current-level)
+       ('nil (format "** %s" name))
+       (1 (format "*** %s" name))
+       (level (concat (make-string (+ level 1) ?*) (format " %s" name))))))`
 
 `(let ((level (org-current-level)))
    (let ((name "test"))
      (pcase (org-current-level)
-       ('nil (format "** %s" name))       
-       (1 (error "Not implemented"))       
-       (level (concat (make-string level ?*) (format " %s" name))))))`
+       ('nil (format "** %s" name))
+       (1 (format "*** %s" name))
+       (level (concat (make-string (+ level 1) ?*) (format " %s" name))))))`
 
 `(let ((level (org-current-level)))
-   (let ((name "discussion"))
+   (let ((name "discuss"))
      (pcase (org-current-level)
-       ('nil (format "** %s" name))       
-       (1 (error "Not implemented"))       
-       (level (concat (make-string level ?*) (format " %s" name))))))`
+       ('nil (format "** %s" name))
+       (1 (format "*** %s" name))
+       (level (concat (make-string (+ level 1) ?*) (format " %s" name))))))`

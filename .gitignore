@@ -1,3 +1,5 @@
+tramp
+venv
 *.elc
 .cache/
 .mc-lists.el

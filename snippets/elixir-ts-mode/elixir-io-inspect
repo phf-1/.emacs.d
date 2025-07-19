@@ -1,5 +1,5 @@
-# key: lf
-# name: lambda-function
+# key: ioi
+# name: elixir-io-inspect
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-λ${1:x}.${2:🞎}
+IO.inspect(${1:name}, label: ~S"$1")$0
