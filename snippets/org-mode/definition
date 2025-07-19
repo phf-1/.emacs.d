@@ -1,6 +1,6 @@
 # -*- mode: snippet -*-
 # name: definition
-# key: def
+# key: definition
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
 `(let ((level (org-current-level)))

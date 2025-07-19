@@ -2934,37 +2934,115 @@ completed a review session, meaning:
 ** construction
 
 #+begin_src org
-,* total-rcecall : ∅ → ∅ :≡ λ.
-,** root : AbsoluteDirectoryPath :≡ user defined.
-,** files : List(AbsoluteOrgPath) :≡ files root
-,** exercises : Set(Exercise) :≡ exercises files
-,** time : Time :≡ time()
-,** db-path : AbsoluteFilePath :≡ user-defined
-,** db : Database :≡ db db-path
-,** schedule : List(Exercise) :≡ schedule files exercises db time.
-,*** reference-graph : ReferenceGraph :≡ reference-graph exercises
-,*** forest-graph : ForestGraph :≡ forest-graph files
-,*** dag : DAG(UUID) :≡ dag reference-graph forest-graph
-,*** order : Exercise Exercise → Boolean :≡ order dag
-,*** recall-probability : Exercise Time → interval(0 1) :≡ recall-probability db
-,*** 🞎(order recall-probability)
-,** ui : UI :≡ UI#mk()
-,** io : IO :≡ IO#mk()
-,** next : Schedule → ∅ :≡ λ schedule.
+,* db-path
+,** File
+,** user defined
+,* DB#mk
+,** File → DB
+,*** λ file.db
+,** db#save
+,*** Rating → DB
+,* db
+,** type = DB
+,** value = DB#mk(db-path)
+,* root
+,** type = Directory
+,** value = user defined
+,* search
+,** Directory → List(File)
+,** λ directory.🞎
+,* files : List(File)
+,** search(root)
+,* parser : List(File) → Set(Exercise) :≡ λ files.🞎
+,* exercises
+,** parser(files)
+,* now
+,* thd
+,* dag-mk
+,** λ reference-graph forest-graph.🞎
+,* order-mk
+,** λ dag.🞎
+,* ordered-exercises-mk
+,** λ files exercises.
+,*** forest-graph :≡ forest-graph-mk(files)
+,*** reference-graph :≡ reference-graph-mk(exercises)
+,*** dag :≡ dag-mk(reference-graph forest-graph)
+,*** order :≡ order-mk(dag)
+,*** sort exercises order
+,* prioritized-exercises-mk
+,* schedule-mk
+,** λ files exercises thd now.
+,*** ordered-exercises
+,**** ordered-exercises-mk(files exercises)
+,*** prioritized-exercises
+,**** prioritized-exercises-mk(ordered-exercises db thd now)
+,* schedule
+,** schedule-mk(files exercises thd now)
+,*** ordered-exercises
+,**** ordered-exercises-mk()
+,*** prioritized-exercises
+,**** recall
+,****
+,* schedule
+,*** files exercises ↦ list-exercise
+,**** exercises ↦ reference-graph
+,***** reference-graph-mk(exercises)
+,**** files ↦ forest-graph
+,**** reference-graph forest-graph ↦ dag
+,**** dag ↦ order
+,**** exercises order ↦ ■
+,*** db ↦ recall
+,*** list-exercise recall now thd ↦ <high, low>
+,**** recall now thd ↦ triage : Exercise ↦ Boolean
+,***** exercise
+,***** exercise recall now ↦ p : Probability
+,***** p < thd
+,***** ■
+,**** list-exercise triage ↦ ■
+
+,*** high low ↦ ■
+is the concatenation of high and low.
+
+,* ui
+,* io
+,* report
+,* ui io db report ↦ (next : Schedule ↦ ∅)
+,*** (schedule = []) ui io db report ↦ (stop : User ↦ ∅)
+,**** user
+,**** io#buffer report#string()
+,**** io#mini-buffer "Report written to …"
+,**** db#stop()
+,**** ui#stop()
+,**** ∅
+,**** ■
+,*** (schedule = [exercise] + rest) ui io db report stop ↦ ■
+,**** user
+,**** user exercise ui ↦ reply
+,**** user stop reply db rest ↦ ∅
+,***** (reply : Stop) ↦ stop(user)
+,***** (reply : Rating) db rest ↦ ∅
+,****** db#save(reply)
+,******
+,**** ■
+,**** rating db ↦ ∅
+,**** rest ui io db report ↦ ■
+,*** ■
+,* user (user ↦ ∅) ↦ ∅
+
+,* next : Schedule ↦ ∅ :≡ λ schedule.
 ,*** match schedule
-,**** [] →
+,**** [] ↦
 ,***** db#stop()
 ,***** ui#stop()
 ,***** io#buffer report#string()
 ,***** io#mini-buffer "Report written to …"
-,**** [exercise] + rest →
+,**** [exercise] + rest ↦
 ,***** reply : Rating | Stop :≡ ui#show exercise
 ,***** match reply
-,****** Rating →
+,****** Rating ↦
 ,******* db#save reply
 ,******* next rest
-,****** Stop → next []
-,** next schedule
+,****** Stop ↦ next []
 #+end_src
 
 
@@ -2991,6 +3069,198 @@ completed a review session, meaning:
 #+end_src
 
 ** discussion
+
+*** DONE loop: above the code; code;
+
+#+begin_src org
+,* Actor#mk
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: aac61a8b-7d58-4234-a05a-140eb48d79a5
+:END:
+,** proposition
+
+,** construction
+
+,* db-path
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: ab9a414e-8896-45dd-ac72-6dfb90c8487c
+:END:
+,** proposition
+
+,** construction
+
+,* DB#mk
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: eeb3eaa3-269c-4661-9857-e3463bb2d715
+:END:
+,** proposition
+
+,** construction
+
+,* dag-mk
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 871d9af9-b61c-404b-a456-24e3f32222b3
+:END:
+,** proposition
+
+,** construction
+
+,* order-mk
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: adc71031-aecf-43d3-95f7-436fc0629996
+:END:
+,** proposition
+
+,** construction
+
+,* ordered-exercises-mk
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 262fbb75-e1a4-462f-b870-f54d03f2b82b
+:END:
+,** proposition
+
+,** construction
+,*** λ files exercises.
+,**** forest-graph :≡ forest-graph-mk(files)
+,**** reference-graph :≡ reference-graph-mk(exercises)
+,**** dag :≡ dag-mk(reference-graph forest-graph)
+,**** order :≡ order-mk(dag)
+,**** sort exercises order
+,* prioritized-exercises-mk
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: b7dc9d9f-fced-4a48-9edc-dad5f81b8c31
+:END:
+,** proposition
+
+,** construction
+
+,* UI#mk
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 20202583-327d-4308-bc31-b1b92c1cf964
+:END:
+,** proposition
+
+,** construction
+
+,* IO#mk
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 447ecded-292b-4f68-aa3c-5431694c2b6c
+:END:
+,** proposition
+
+,** construction
+
+,* Report#mk
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 303972aa-dda0-446c-905e-17e8c5e6e42e
+:END:
+,** proposition
+
+,** construction
+
+,* root
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 23407a57-4432-4ae9-8118-db96b2a731a0
+:END:
+,** proposition
+
+,** construction
+,*** user defined
+
+,* search
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: ecd13dfa-aa62-4f1c-a8bf-fa7f0453081a
+:END:
+,** proposition
+
+,** construction
+,*** λ directory.🞎
+
+,* parser
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 32e2a644-9084-4ea2-b135-ab369a501431
+:END:
+,** proposition
+
+,** construction
+,*** λ files.🞎
+
+,* threshold
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 16481e73-6d90-4f79-81a1-29f13e5f1505
+:END:
+,** proposition
+
+,** construction
+,*** user defined
+
+,* schedule-mk
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: 4f932cb1-821b-4c8a-8a4e-9d63d44f4e1f
+:END:
+,** proposition
+
+,** construction
+,*** λ files exercises thd now.
+,**** ordered-exercises
+,***** ordered-exercises-mk(files exercises)
+,**** prioritized-exercises
+,***** prioritized-exercises-mk(ordered-exercises db thd now)
+,* review
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: c91f949b-d737-4c22-b8e9-5bd6f4e37ec6
+:END:
+,** proposition
+
+,** construction
+,*** λ db ui io report [].
+,**** db#stop()
+,**** ui#stop()
+,**** io#buffer report#string()
+,**** io#mini-buffer "Report written to …"
+,*** λ db ui io report ([exercise] + rest).
+,**** match ui#show exercise
+,***** rating : Rating →
+,****** db#save reply
+,****** review db ui io report rest
+,***** Stop → review db ui io report []
+,* total-recall
+:PROPERTIES:
+:TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663
+:ID: b4bcd10a-5d69-4489-9f0d-8516f68f651f
+:END:
+,** proposition
+
+,** construction
+,*** λ.
+,**** db = DB#mk(db-path)
+,**** ui = UI#mk()
+,**** io = IO#mk()
+,**** report = Report#mk()
+,**** files :≡ search(root)
+,**** exercises :≡ parser(files)
+,**** now :≡ now-mk()
+,**** schedule = schedule-mk(files exercises threshold now)
+,**** review(db ui io report schedule)
+#+end_src
+
+
 *** TODO Reporting to the user and logging for the dev are ≠.
 *** TODO total-recall is mocked up
 

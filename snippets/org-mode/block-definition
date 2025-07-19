@@ -1,4 +1,4 @@
-# key: def
+# key: texdef
 # name: block-definition
 # --
 #+ATTR_LATEX: :options [${1:0}]

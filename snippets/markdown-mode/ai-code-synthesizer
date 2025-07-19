@@ -7,19 +7,17 @@ Given the following context:
 ${1:context}
 \`\`\`
 
-Then, given:
+Correct and complete this content:
 \`\`\`
 ${2:proposition}
 \`\`\`
 
-Generate or correct the associated construction section:
-\`\`\`
-**** construction
-
-#+begin_src ${3:code}
-;; TODO
-#+end_src
-\`\`\`
-
-Such that it satisfies the following contraints:
--
+Satisfy the following constraints:
+- Behave as a world class programmer.
+- Behave as a world class engineer.
+- Behave as a world class computer scientist.
+- Your code is elegant.
+- Your code is consise.
+- Your code is simple.
+- Your code is correct.
+- Your code is fast.
