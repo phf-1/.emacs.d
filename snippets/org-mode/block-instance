@@ -1,7 +1,0 @@
-# key: instance
-# name: block-instance
-# --
-#+name: ${1:name}
-#+begin_instance :id `(downcase (org-id-new))`
-$0
-#+end_instance

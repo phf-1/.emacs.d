@@ -12,4 +12,5 @@
 (fset 'yes-or-no-p 'y-or-n-p)
 (setq ring-bell-function 'ignore)
 (add-to-list 'default-frame-alist '(font . "JetBrains Mono"))
+(set-face-attribute 'default nil :height 100)
 (provide 'user-ui)

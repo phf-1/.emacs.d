@@ -1,0 +1,13 @@
+# -*- mode: snippet -*-
+# name: instance-short
+# key: instance
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+`(let ((level (org-current-level)))
+   (pcase (org-current-level)
+     ('nil "* Name")
+     (level (concat (make-string level ?*) " Name"))))`$0
+:PROPERTIES:
+:TYPE: 1d3f7389-803b-4b7b-a328-b718cf41fce4
+:ID: `(org-id-new)`
+:END:

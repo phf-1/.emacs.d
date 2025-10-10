@@ -93,6 +93,7 @@
 (fset 'yes-or-no-p 'y-or-n-p)
 (setq ring-bell-function 'ignore)
 (add-to-list 'default-frame-alist '(font . "JetBrains Mono"))
+(set-face-attribute 'default nil :height 100)
 (provide 'user-ui)
 #+end_src
 
@@ -1043,7 +1044,7 @@ and return an error indicator."
    '((sequence "TODO(t)" "WAITING(w)" "DOING(o)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
   (org-todo-keyword-faces
    '(("TODO" . (:foreground "red" :family "JetBrains Mono" :height 0.9))
-     ("WAITING" . (:foreground "orange" :family "JetBrains Mono" :height 0.9))
+     ("WAITING" . (:foreground "teal" :family "JetBrains Mono" :height 0.9))
      ("DOING" . (:foreground "orange" :family "JetBrains Mono" :height 0.9))
      ("FAILED" . (:foreground "purple" :family "JetBrains Mono" :height 0.9))
      ("DONE" . (:foreground "green" :family "JetBrains Mono" :height 0.9))
@@ -1305,48 +1306,54 @@ and return an error indicator."
 * auto replace characters
 
 #+begin_src emacs-lisp
-;;; Replace "->" with "→" as you type (works inside words and in all major modes)
+  (defcustom auto-replace-characters-include-minibuffer nil
+    "If non-nil, perform replacements in the minibuffer too.
+  Default nil because changing text in the minibuffer can interfere with
+  completions and special minibuffer behavior."
+    :type 'boolean
+    :group 'convenience)
 
-(defcustom arrow-replace-include-minibuffer nil
-  "If non-nil, perform arrow replacement in the minibuffer too.
-Default nil because changing text in the minibuffer can interfere with
-completions and special minibuffer behavior."
-  :type 'boolean
-  :group 'convenience)
+  (defvar auto-replace-characters-rules
+    '((",:"   . "→")
+      (",;" . ":≡")
+      (",in" . "∈")
+      (",<-" . "←")
+      (",=>" . "⇒")
+      (",<=" . "⇐")
+      (",la" . "λ"))
+    "Alist of (STRING . REPLACEMENT).
+  When STRING appears just before point, replace it with REPLACEMENT.")
 
-(defun arrow-replace--post-self-insert ()
-  "Replace the two characters \"-\" and \">\" before point with the single char \"→\".
-Intended to be added to `post-self-insert-hook'."
-  (when (and
-         ;; optionally skip minibuffer
-         (or arrow-replace-include-minibuffer (not (minibufferp)))
-         ;; don't touch read-only buffers
-         (not buffer-read-only)
-         ;; need at least two chars
-         (>= (point) 2)
-         ;; last typed char is '>' and the one before that is '-'
-         (eq (char-before) ?>)
-         (eq (char-before (1- (point))) ?-))
-    (atomic-change-group
-      (delete-region (- (point) 2) (point))
-      (insert "→"))))
+  (defun auto-replace-characters--post-self-insert ()
+    "Check recently typed text and replace according to `auto-replace-characters-rules'."
+    (when (and (or auto-replace-characters-include-minibuffer (not (minibufferp)))
+               (not buffer-read-only))
+      (dolist (rule auto-replace-characters-rules)
+        (let* ((len (length (car rule)))
+               (start (- (point) len)))
+          (when (and (>= (point) len)
+                     (string= (buffer-substring-no-properties start (point))
+                              (car rule)))
+            (atomic-change-group
+              (delete-region start (point))
+              (insert (cdr rule))))))))
 
-(define-minor-mode arrow-replace-mode
-  "Buffer-local minor mode: replace \"->\" with \"→\" as you type."
-  :lighter " →"
-  :global nil
-  (if arrow-replace-mode
-      (add-hook 'post-self-insert-hook #'arrow-replace--post-self-insert nil t)
-    (remove-hook 'post-self-insert-hook #'arrow-replace--post-self-insert t)))
+  (define-minor-mode auto-replace-characters-mode
+    "Minor mode: replace strings like \"->\" with symbols as you type.
+  See `auto-replace-characters-rules' for customization."
+    :lighter " ARC"
+    (if auto-replace-characters-mode
+        (add-hook 'post-self-insert-hook #'auto-replace-characters--post-self-insert nil t)
+      (remove-hook 'post-self-insert-hook #'auto-replace-characters--post-self-insert t)))
 
-(define-globalized-minor-mode global-arrow-replace-mode arrow-replace-mode
-  ;; Init function: enable arrow-replace-mode in new buffers (respect minibuffer setting)
-  (lambda ()
-    (when (or arrow-replace-include-minibuffer (not (minibufferp)))
-      (arrow-replace-mode 1))))
+  (define-globalized-minor-mode global-auto-replace-characters-mode
+    auto-replace-characters-mode
+    (lambda ()
+      (when (or auto-replace-characters-include-minibuffer (not (minibufferp)))
+        (auto-replace-characters-mode 1)))
+    "Globalized version of `auto-replace-characters-mode'.")
 
-;; Enable it globally:
-(global-arrow-replace-mode 1)
+(add-hook 'org-mode-hook #'auto-replace-characters-mode)
 #+end_src
 
 * local extension
