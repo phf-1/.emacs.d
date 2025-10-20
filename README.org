@@ -1120,24 +1120,36 @@ and return an error indicator."
 #+begin_src emacs-lisp
 (use-package org-agenda :demand
   :bind (("C-c a" . org-agenda))
-
+  :custom
+  (org-agenda-skip-scheduled-if-done nil)
+  (org-agenda-span 'day)
+  (org-agenda-show-future-repeats 'next)
+  (org-columns-default-format-for-agenda "%SCHEDULED %CATEGORY %TODO %ITEM %Effort(Effort){:} %CLOCKSUM(Clocked)")
+  (org-deadline-warning-days 1)
+  (org-agenda-sorting-strategy '(time-up todo-state-down priority-down))
+  (org-agenda-prefix-format
+   '((agenda . " %-12t %(xxx) %s")
+     (todo . " %i %(xxx)")
+     (tags . " %i %(xxx)")
+     (search . " %i %(xxx)")))
+  (org-agenda-time-grid
+   '((daily today require-timed)
+     (600 2400)
+     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
   :config
-  (setq org-agenda-skip-scheduled-if-done nil
-        org-agenda-span 'day
-        org-agenda-show-future-repeats 'next
-        org-columns-default-format-for-agenda "%SCHEDULED %CATEGORY %TODO %ITEM %Effort(Effort){:} %CLOCKSUM(Clocked)"
-        org-deadline-warning-days 1
-        org-agenda-sorting-strategy '(time-up todo-state-down priority-down)
-        org-agenda-prefix-format
-        '((agenda . " %-12t %-18:c %s")
-          (todo . " %i %-12:c")
-          (tags . " %i %-12:c")
-          (search . " %i %-12:c"))
-        org-agenda-time-grid
-        '((daily today require-timed)
-          (600 2400)
-          " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
-
+  (defun xxx ()
+    (with-current-buffer (current-buffer)
+      (format
+       "%-60s"
+       (string-join
+        (seq-uniq
+         (reverse
+          (seq-map
+           (lambda (name) (format "%-20s" (file-name-base name)))
+           (seq-take
+            (reverse
+             (file-name-split (or (buffer-file-name) ""))) 3))))
+        ""))))
   (defun user--set-org-agenda-files (&rest _rest)
     "Dynamically set org-agenda-files based on TODO keywords in .org files."
     (let* ((keywords (with-temp-buffer
