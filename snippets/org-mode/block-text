@@ -1,8 +1,7 @@
 # -*- mode: snippet -*-
 # name: block-text
-# key: <t
-# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# key: text
 # --
 #+begin_src text
-  $0
+$0
 #+end_src

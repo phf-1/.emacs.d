@@ -1,0 +1,8 @@
+# -*- mode: snippet -*-
+# name: iife
+# key: iife
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+(function(){
+$0
+})();

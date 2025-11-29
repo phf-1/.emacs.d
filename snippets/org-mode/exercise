@@ -5,21 +5,20 @@
 # --
 `(let ((level (org-current-level)))
    (if level
-       (concat (make-string (+ level 1) ?*) " Exercise")
+       (concat (make-string (- level 1) ?*) " Exercise")
        "* Exercise"))`$0
 :PROPERTIES:
 :TYPE: b0d53cd4-ad89-4333-9ef1-4d9e0995a4d8
 :ID: `(org-id-new)`
 :END:
-
 `(let ((level (org-current-level)))
    (if level
-       (concat (make-string (+ level 2) ?*) " Question")
+       (concat (make-string level ?*) " Question")
        "** Question"))`
 
 `(let ((level (org-current-level)))
    (if level
-       (concat (make-string (+ level 2) ?*) " Answer")
+       (concat (make-string level ?*) " Answer")
        "** Answer"))`
 
 

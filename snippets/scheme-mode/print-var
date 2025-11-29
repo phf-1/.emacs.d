@@ -1,0 +1,5 @@
+# key: pvar
+# name: print-var
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+(display (format #f "${1:var} = ~a\n" $1))

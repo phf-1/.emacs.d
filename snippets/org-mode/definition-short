@@ -6,7 +6,6 @@
 `(let ((level (org-current-level)))
    (pcase (org-current-level)
      ('nil "* Object")
-     (1 "** Object")
      (level (concat (make-string level ?*) " Object"))))`$0
 :PROPERTIES:
 :TYPE: f590edb9-5fa3-4a07-8f3d-f513950d5663

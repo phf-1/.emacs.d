@@ -1,0 +1,22 @@
+# key: ai-fr
+# name: ai-fr
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<instructions>
+- Considérez le contenu ${1:python} suivant :
+</instructions>
+<$1>
+$0
+</$1>
+<instructions>
+- Corrigez l’orthographe.
+- Corrigez la grammaire.
+- Améliorez la rédaction.
+- Soyez concis.
+- Soyez simple.
+- Soyez direct.
+- Soyez clair.
+- Préservez le balisage Org Mode.
+- Listez les incohérences.
+- Retournez le résultat dans un bloc de code.
+</instructions>

@@ -1,49 +1,46 @@
 #+PROPERTY: header-args :tangle init.el :comments org
 
-* COMMENT package.el
+* user--package
 
 #+begin_src emacs-lisp
-(require 'package)
-(add-to-list 'package-archives '("melpa" . "https://melpa.org/packages/") t)
-(package-initialize)
+(defvar user--package (expand-file-name (file-name-concat user-emacs-directory "elisp"))
+  "The directory where user packages are stored.")
+(add-to-list 'load-path user--package)
 #+end_src
 
-* user--packages
+* custom-vars.el
+Defines where customs variables are stored and load them.
 
 #+begin_src emacs-lisp
-(defvar user--packages (expand-file-name (file-name-concat user-emacs-directory "elisp"))
-  "Where users adds its elisp files and packages.")
-(add-to-list 'load-path user--packages)
+(setq custom-file (locate-user-emacs-file "custom-vars.el"))
+(load custom-file 'noerror 'nomessage)
 #+end_src
 
-* use-package
+* Buffer behaviour
+** File/buffer synch
+If the underlying file changes, update the buffer.
 
 #+begin_src emacs-lisp
-(eval-when-compile (require 'use-package))
+(global-auto-revert-mode t)
 #+end_src
 
-* emacs
+** Unique buffers names
+Define sensible buffers names in case of ambiguity.
 
 #+begin_src emacs-lisp
-(use-package emacs
-  :init
-  (require 'user-calendar)
-  (require 'user-editing)
-  (require 'user-ui)
-  (require 'user-startup)
-  (require 'user-buffer)
-  (require 'user-mini-buffer)
-  (require 'user-external-processes)
-  (require 'user-backup)
-  (require 'user-key-bindings)
-  (require 'user-utils)
-  (require 'org-patches))
+(setq uniquify-buffer-name-style 'post-forward)
+(setq uniquify-strip-common-suffix nil)
 #+end_src
 
-** calendar
-:PROPERTIES:
-:header-args+: :tangle elisp/user-calendar.el
-:END:
+** History is saved between sessions
+
+#+begin_src emacs-lisp
+(require 'savehist)
+(savehist-mode)
+#+end_src
+
+* Clean calendar
+Minimize noise in the calendar.
 
 #+begin_src emacs-lisp
 (setq calendar-week-start-day 1)
@@ -51,37 +48,71 @@
 (setq holiday-hebrew-holidays nil)
 (setq holiday-islamic-holidays nil)
 (setq holiday-oriental-holidays nil)
-(provide 'user-calendar)
 #+end_src
 
-** editing
-:PROPERTIES:
-:header-args+: :tangle elisp/user-editing.el
-:END:
-
-1. (add-hook 'before-save-hook #'whitespace-cleanup) does not work,
-   because it removes tabs in makefile code blocks.
+* Enhanced commands
 
 #+begin_src emacs-lisp
-(setq-default indent-tabs-mode nil)
-;; (setq whitespace-style '(face tabs trailing lines-tail))
-(put 'downcase-region 'disabled nil)
-(put 'upcase-region 'disabled nil)
-(delete-selection-mode 1)
-(global-auto-revert-mode t)
-(put 'narrow-to-region 'disabled nil)
-(setq load-prefer-newer t)
-(setq custom-file (locate-user-emacs-file "custom-vars.el"))
-(load custom-file 'noerror 'nomessage)
-(provide 'user-editing)
+(defun user--configure-consult ()
+  (require 'consult)
+  (add-hook 'completion-list-mode-hook #'consult-preview-at-point-mode)
+  (advice-add #'register-preview :override #'consult-register-window))
+(user--configure-consult)
 #+end_src
 
-** ui
-:PROPERTIES:
-:header-args+: :tangle elisp/user-ui.el
-:END:
+* Open protected files
 
 #+begin_src emacs-lisp
+(require 'epg)
+(setq epg-gpg-program (expand-file-name "~/.guix-profile/bin/gpg"))
+(require 'epa-file)
+(epa-file-enable)
+(setq epa-file-name-regexp "\\.\\(gpg\\|asc\\)$")
+(epa-file-name-regexp-update)
+(setq epa-use-gpg-agent t)
+(defun user--protect-secret-files ()
+  "Make files with .gpg or .asc extensions read-only when opened or saved."
+  (when-let ((file-path (buffer-file-name)))
+    (when (string-match-p ".*\\.\\(?:asc\\|gpg\\)$" file-path)
+      (read-only-mode 1))))
+(add-hook 'find-file-hook #'user--protect-secret-files)
+(add-hook 'after-save-hook #'user--protect-secret-files)
+#+end_src
+
+* Tabs
+Allows Emacs to have tabs.
+
+#+begin_src emacs-lisp
+(require 'tab-bar)
+(tab-bar-mode)
+#+end_src
+
+** C-t → new tab
+
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-t") #'tab-new)
+#+end_src
+
+** M-+ → next tab
+
+#+begin_src emacs-lisp
+(global-set-key (kbd "M-+") #'tab-bar-switch-to-next-tab)
+#+end_src
+
+** M-- → previous tab
+
+#+begin_src emacs-lisp
+(global-set-key (kbd "M--") #'tab-bar-switch-to-prev-tab)
+#+end_src
+
+* Use
+** Read
+*** Minimize UI noise
+Remove whatever is not necessary from the UI.
+
+#+begin_src emacs-lisp
+(setq inhibit-startup-screen t)
+(setq initial-scratch-message "")
 (pixel-scroll-precision-mode -1)
 (scroll-bar-mode -1)
 (tool-bar-mode -1)
@@ -90,59 +121,383 @@
 (setq-default fill-column 85)
 (column-number-mode 1)
 (setq frame-title-format '("%b"))
-(fset 'yes-or-no-p 'y-or-n-p)
-(setq ring-bell-function 'ignore)
+#+end_src
+
+*** Low noise directory UI
+
+#+begin_src emacs-lisp
+(require 'dired)
+(setq dired-dwim-target t)
+(add-hook 'dired-mode-hook #'dired-hide-details-mode)
+#+end_src
+
+*** Font
+Define a simple and complete (w.r.t. UTF-8) monofont.
+
+#+begin_src emacs-lisp
 (add-to-list 'default-frame-alist '(font . "JetBrains Mono"))
-(set-face-attribute 'default nil :height 100)
-(provide 'user-ui)
+
+;; For some reason, the font size is changed unless set last.
+(run-with-idle-timer 0.5 nil
+                     (lambda ()
+                       (set-face-attribute 'default nil
+                                           :family "JetBrains Mono"
+                                           :height 100)))
 #+end_src
 
-** startup
-:PROPERTIES:
-:header-args+: :tangle elisp/user-startup.el
-:END:
+*** Highlight matching delimiters
 
 #+begin_src emacs-lisp
-(setq inhibit-startup-screen t)
-(setq initial-scratch-message "")
-(provide 'user-startup)
+(require 'paren)
+(show-paren-mode 1)
+(require 'rainbow-delimiters)
+(add-hook 'prog-mode-hook #'rainbow-delimiters-mode)
 #+end_src
 
-** buffer
-:PROPERTIES:
-:header-args+: :tangle elisp/user-buffer.el
-:END:
+*** Dark theme
 
 #+begin_src emacs-lisp
-(setq uniquify-buffer-name-style 'post-forward)
-(setq uniquify-strip-common-suffix nil)
-(provide 'user-buffer)
+(require 'modus-themes)
+(setq modus-themes-hl-line  '(intense accented))
+(setq x-underline-at-descent-line t)
+(setq modus-themes-intense-markup t)
+(setq modus-themes-italic-constructs t
+      modus-themes-bold-constructs nil
+      modus-themes-region '(bg-only no-extend))
+(load-theme 'modus-vivendi-tinted :no-confirm)
 #+end_src
 
-** mini-buffer
-:PROPERTIES:
-:header-args+: :tangle elisp/user-mini-buffer.el
-:END:
+*** Highlight diffs on demand
 
 #+begin_src emacs-lisp
-(setq enable-recursive-minibuffers t)
-(provide 'user-mini-buffer)
+(require 'diff-hl)
 #+end_src
 
-** external-processes
-:PROPERTIES:
-:header-args+: :tangle elisp/user-external-processes.el
-:END:
+*** The current line is highlighted
 
 #+begin_src emacs-lisp
-(setq read-process-output-max (* 1024 1024))
-(provide 'user-external-processes)
+(require 'hl-line)
+(global-hl-line-mode 1)
 #+end_src
 
-** backup
-:PROPERTIES:
-:header-args+: :tangle elisp/user-backup.el
-:END:
+*** C-$ → clone buffer
+Provide multiple ways to look at the same file /e.g./ different narrow-regions.
+
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-$") #'clone-indirect-buffer-other-window)
+#+end_src
+
+*** dedicate-window
+
+#+begin_src emacs-lisp
+(defun dedicate-window (&optional arg)
+  "Set current window to be dedicated.
+With prefix ARG, undedicate it."
+  (interactive "P")
+  (set-window-dedicated-p (get-buffer-window (current-buffer)) (not arg))
+  (message (if arg
+               "Window '%s' is normal"
+             "Window '%s' is dedicated")
+           (current-buffer)))
+#+end_src
+
+*** Show completion preview
+
+#+begin_src emacs-lisp
+;; Built-in VS Code-style inline “ghost text” completion (Emacs 29+)
+(require 'completion-preview)
+
+;; Enable almost everywhere
+(dolist (hook '(prog-mode-hook
+                text-mode-hook
+                comint-mode-hook
+                org-mode-hook))
+  (add-hook hook #'completion-preview-mode))
+
+;; Settings
+(setq completion-preview-minimum-symbol-length 2)   ; don’t be too eager
+(setq completion-preview-exact-match-only nil)      ; show preview even if not exact
+(setq completion-preview-ignore-case t)             ; case-insensitive
+
+;; Accept preview with TAB, cycle with M-n/M-p
+(define-key completion-preview-active-mode-map (kbd "TAB") #'completion-preview-insert)
+(define-key completion-preview-active-mode-map (kbd "M-n") #'completion-preview-next-candidate)
+(define-key completion-preview-active-mode-map (kbd "M-p") #'completion-preview-prev-candidate)
+
+;; Make preview appear on normal typing (not just special commands)
+(setq completion-preview-commands
+      (append completion-preview-commands
+              '(self-insert-command
+                org-self-insert-command
+                paredit-backward-delete)))
+
+;; In programming modes, add cape-dabbrev as a cheap/fast completion source
+(add-hook 'completion-preview-mode-hook
+          (lambda ()
+            (when (derived-mode-p 'prog-mode)
+              (add-to-list 'completion-at-point-functions #'cape-dabbrev t))))
+#+end_src
+
+** Find
+*** Project
+Limit the scope of different operations like searching to the relevant root directory.
+
+#+begin_src emacs-lisp
+(require 'project)
+(setq project-vc-extra-root-markers '("project-root" "mix.exs"))
+#+end_src
+
+*** Orderless
+Divides the pattern into space-separated components, and matches candidates that
+match all of the components in any order is provided.
+
+#+begin_src emacs-lisp
+(require 'orderless)
+(setq completion-styles '(orderless basic))
+(setq completion-category-defaults nil)
+(setq completion-category-overrides '((file (styles basic partial-completion))))
+#+end_src
+
+*** Annotated completion candidates
+Meta-data are added to completion candidates like descriptions.
+Cycle annotators using the provided key sequence
+
+#+begin_src emacs-lisp
+(require 'marginalia)
+(marginalia-mode)
+#+end_src
+
+*** Default completion candidates
+Cape provides ready-made completion backends.
+
+#+begin_src emacs-lisp
+(require 'cape)
+
+;; Global convenient bindings
+(global-set-key (kbd "C-c f") #'cape-file)
+(global-set-key (kbd "C-c h") #'cape-history)
+
+;; Better completions in shell-mode / eshell / comint
+(defun my/setup-shell-completions ()
+  (add-to-list 'completion-at-point-functions #'cape-history)
+  (add-to-list 'completion-at-point-functions #'pcomplete-completions-at-point))
+
+(add-hook 'shell-mode-hook #'my/setup-shell-completions)
+
+;; Make Cape play nicely with existing completion functions
+(advice-add #'comint-completion-at-point     :around #'cape-wrap-nonexclusive)
+(advice-add #'pcomplete-completions-at-point :around #'cape-wrap-silent)
+(advice-add #'pcomplete-completions-at-point :around #'cape-wrap-purify)
+#+end_src
+
+*** C-s → Find lines in the current buffer
+
+#+begin_src emacs-lisp
+(user--configure-consult)
+(global-set-key (kbd "C-s") #'consult-line)
+#+end_src
+
+*** M-g g → Find line by number
+
+#+begin_src emacs-lisp
+(user--configure-consult)
+(global-set-key (kbd "M-g g") #'consult-goto-line)
+#+end_src
+
+*** M-i → Find sections in the current buffer
+*** M-. → Find the definition of some symbol
+
+#+begin_src emacs-lisp
+(require 'xref)
+(global-set-key (kbd "M-.") #'xref-find-definitions)
+#+end_src
+
+*** C-r → Find files that contains some strings
+
+#+begin_src emacs-lisp
+(require 'rg)
+(rg-enable-default-bindings)
+(setq rg-command-line-flags '())
+(user--configure-consult)
+(global-set-key (kbd "C-r") #'consult-ripgrep)
+#+end_src
+
+*** C-c f → Find files by name
+
+#+begin_src emacs-lisp
+(user--configure-consult)
+(global-set-key (kbd "C-c f") #'consult-fd)
+#+end_src
+
+*** C-- → Find make among all marks
+
+#+begin_src emacs-lisp
+(user--configure-consult)
+(global-set-key (kbd "C-- ") #'consult-mark)
+#+end_src
+
+*** C-x b → Find a buffer among all buffers
+
+#+begin_src emacs-lisp
+(user--configure-consult)
+(global-set-key (kbd "C-x b") #'consult-buffer)
+#+end_src
+
+*** C-y → Find what to paste at point
+
+#+begin_src emacs-lisp
+(user--configure-consult)
+(global-set-key (kbd "C-y") #'consult-yank-replace)
+#+end_src
+
+*** C-z → Find file among recent files
+
+#+begin_src emacs-lisp
+(require 'recentf)
+(recentf-mode)
+(setq recentf-max-menu-items 20)
+(setq recentf-max-saved-items 100)
+(run-at-time nil (* 5 60) 'recentf-save-list)
+(user--configure-consult)
+(global-set-key (kbd "C-z") #'consult-recent-file)
+#+end_src
+
+*** M-/ → Find the next thing to instert
+
+#+begin_src emacs-lisp
+(require 'dabbrev)
+(global-set-key (kbd "M-/") #'dabbrev-completion)
+(add-to-list 'dabbrev-ignored-buffer-regexps "\\` ")
+(add-to-list 'dabbrev-ignored-buffer-modes 'doc-view-mode)
+(add-to-list 'dabbrev-ignored-buffer-modes 'pdf-view-mode)
+(add-to-list 'dabbrev-ignored-buffer-modes 'tags-table-mode)
+#+end_src
+
+** Select
+*** C-; → Select all occurrences of the current word
+
+#+begin_src emacs-lisp
+(require 'iedit)
+(global-set-key (kbd "C-;") #'iedit-mode)
+#+end_src
+
+*** C-< → Expand selected region
+
+#+begin_src emacs-lisp
+(require 'expand-region)
+(global-set-key (kbd "C-<") #'er/expand-region)
+#+end_src
+
+*** Vertical menus to choose from
+
+#+begin_src emacs-lisp
+(require 'vertico)
+(vertico-mode)
+(setq vertico-scroll-margin 0)
+(setq vertico-count 20)
+(setq vertico-resize t)
+(setq vertico-cycle t)
+;; Optional: Enable vertico-multiform for better completion UI
+(vertico-multiform-mode)
+(setq vertico-multiform-categories
+      '((file grid)
+        (consult-grep buffer)))
+#+end_src
+
+*** M-m → Select multiple lines
+
+#+begin_src emacs-lisp
+(require 'multiple-cursors)
+(global-set-key (kbd "M-m") #'mc/edit-lines)
+#+end_src
+
+*** In-buffer completion
+Open a small completion popup at point.
+
+#+begin_src emacs-lisp
+(require 'corfu)
+(setq corfu-cycle t)
+(setq corfu-auto nil)                  ; we drive completion manually
+(setq corfu-quit-no-match 'separator)
+(setq corfu-auto-prefix 2)
+(setq corfu-auto-delay 0.1)
+(setq corfu-popupinfo-delay '(0.5 . 0.2))
+(setq corfu-preview-current 'insert)   ; shows the candidate as if typed
+(setq corfu-preselect 'prompt)         ; first candidate is not auto-selected
+(setq corfu-on-exact-match nil)        ; don't auto-insert on exact match
+
+;; Key bindings inside the Corfu minibuffer map
+(define-key corfu-map (kbd "M-SPC")   #'corfu-insert-separator)
+(define-key corfu-map (kbd "TAB")     #'corfu-next)
+(define-key corfu-map [tab]           #'corfu-next)
+(define-key corfu-map (kbd "S-TAB")   #'corfu-previous)
+(define-key corfu-map [backtab]       #'corfu-previous)
+(define-key corfu-map (kbd "RET")     #'corfu-insert)
+
+;; Enable the modes
+(corfu-history-mode 1)
+(corfu-popupinfo-mode 1)
+(global-corfu-mode 1)
+
+;; corfu-candidate-overlay gives “VS Code-style” inline ghost text
+(require 'corfu-candidate-overlay)
+(corfu-candidate-overlay-mode +1)
+
+;; Convenient global keys to trigger completion-at-point manually
+(global-set-key (kbd "C-<tab>") #'completion-at-point)
+(global-set-key (kbd "C-!") #'completion-at-point)  ; C-! is the same as above in your config
+#+end_src
+
+** Remember
+*** C-c l → Remember places in org mode files
+*** Remember recently executed commands
+
+#+begin_src emacs-lisp
+(require 'repeat)
+#+end_src
+
+** Move
+*** M-i → list and jump to sections of the current buffer
+
+#+begin_src emacs-lisp
+(require 'imenu)
+(setq imenu-auto-rescan t)
+(user--configure-consult)
+(global-set-key (kbd "M-i") #'consult-imenu)
+#+end_src
+
+*** Jump to location, keyboard only
+
+#+begin_src emacs-lisp
+(require 'avy)
+(global-set-key (kbd "C-:") #'avy-goto-char)
+#+end_src
+
+*** Click on =[[id: …]]= or =[[ref: …]]= → list file candidates
+
+#+begin_src emacs-lisp
+(add-to-list 'load-path (file-name-concat user--package "locs-and-refs/_dist"))
+(require 'locs-and-refs)
+(modus-themes-with-colors
+  (custom-set-faces
+   `(locs-and-refs-location-face
+     ((t (:foreground ,magenta-faint :underline t))))
+   `(locs-and-refs-reference-face
+     ((t (:foreground ,red-faint :underline t))))))
+(locs-and-refs-mode)
+#+end_src
+
+** Edit
+*** Do not GC when editing
+
+#+begin_src emacs-lisp
+(require 'gcmh)
+(setq gcmh-verbose t)
+(gcmh-mode)
+#+end_src
+
+*** Avoid littering the filesystem
+Just stop.
 
 #+begin_src emacs-lisp
 (defconst emacs-tmp-dir (expand-file-name (format "emacs%d" (user-uid)) temporary-file-directory))
@@ -157,24 +512,28 @@
  auto-save-list-file-prefix emacs-tmp-dir
  auto-save-file-name-transforms `((".*" ,emacs-tmp-dir t))
  backup-directory-alist `((".*" . ,emacs-tmp-dir)))
-(provide 'user-backup)
 #+end_src
 
-** key-bindings
-:PROPERTIES:
-:header-args+: :tangle elisp/user-key-bindings.el
-:END:
+*** Low tabs
+Minimize tabs usage.
 
 #+begin_src emacs-lisp
-(global-set-key (kbd "C-$") #'clone-indirect-buffer-other-window)
-(global-set-key (kbd "C-c l") #'org-store-link)
-(provide 'user-key-bindings)
+(setq-default indent-tabs-mode nil)
 #+end_src
 
-** utils
-:PROPERTIES:
-:header-args+: :tangle elisp/user-utils.el
-:END:
+*** Low noise
+Minimze the numbfer of "training wheels".
+
+#+begin_src emacs-lisp
+(put 'downcase-region 'disabled nil)
+(put 'upcase-region 'disabled nil)
+(delete-selection-mode 1)
+(put 'narrow-to-region 'disabled nil)
+(fset 'yes-or-no-p 'y-or-n-p)
+(setq ring-bell-function 'ignore)
+#+end_src
+
+*** unfill-paragraph
 
 #+begin_src emacs-lisp
 (defun unfill-paragraph (&optional region)
@@ -185,1187 +544,515 @@
         ;; This would override `fill-column' if it's an integer.
         (emacs-lisp-docstring-fill-column t))
     (fill-paragraph nil region)))
-
-(defun dedicate-window (&optional arg)
-  "Set current window to be dedicated.
-With prefix ARG, undedicate it."
-  (interactive "P")
-  (set-window-dedicated-p (get-buffer-window (current-buffer)) (not arg))
-  (message (if arg
-               "Window '%s' is normal"
-             "Window '%s' is dedicated")
-           (current-buffer)))
-(provide 'user-utils)
 #+end_src
 
-* gcmh
-
-1. GC occurs after Emacs has been idle for come time.
-2. See: https://akrl.sdf.org/#orgc15a10d
+*** Insert parentheses by pairs
 
 #+begin_src emacs-lisp
-(use-package gcmh :demand
-  :config
-  (setq gcmh-verbose t)
-  (gcmh-mode))
+(electric-pair-mode 1)
 #+end_src
 
-* recentf
-
-1. Emacs remembers the last couple of files it has opened.
+*** Shortcut → Snippet inserted
 
 #+begin_src emacs-lisp
-(use-package recentf :demand
-  :config
-  (recentf-mode)
-  (setq recentf-max-menu-items 20)
-  (setq recentf-max-saved-items 100)
-  (run-at-time nil (* 5 60) 'recentf-save-list))
-#+end_src
-
-* dired
-
-1. dired buffers display minimum amount of information by default.
-
-#+begin_src emacs-lisp
-(use-package dired :demand
-  :hook (dired-mode . dired-hide-details-mode)
-  :config
-  (setq dired-dwim-target t))
-#+end_src
-
-* paren
-
-1. Matching parentheses are highlighted.
-
-#+begin_src emacs-lisp
-(use-package paren :demand
-  :config
-  (show-paren-mode 1))
-#+end_src
-
-* elec-pair
-
-1. Parentheses are inserted by pair.
-
-#+begin_src emacs-lisp
-(use-package elec-pair :demand
-  :config
-  (electric-pair-mode 1))
-#+end_src
-
-* theme
-
-1. Dark theme is enabled.
-
-#+begin_src emacs-lisp
-(use-package modus-themes :demand
-  :bind ([f12] . modus-themes-toggle)
-  :config
-  (setq modus-themes-hl-line  '(intense accented))
-  (setq x-underline-at-descent-line t)
-  (setq modus-themes-intense-markup t)
-  (setq modus-themes-italic-constructs t
-        modus-themes-bold-constructs nil
-        modus-themes-region '(bg-only no-extend))
-  (load-theme 'modus-vivendi-tinted :no-confirm))
-#+end_src
-
-* treesit
-
-1. treesitter may be used.
-
-#+begin_src emacs-lisp
-(use-package treesit :demand)
-#+end_src
-
-* treemacs
-
-1. directory structure may be displayed.
-
-#+begin_src emacs-lisp
-(use-package treemacs)
-#+end_src
-
-* hl-line
-
-1. The current line is highlighted.
-
-#+begin_src emacs-lisp
-(use-package hl-line :demand
-  :config
-  (global-hl-line-mode 1))
-#+end_src
-
-* diff-hl
-
-1. If a file is managed by a version manager like Git,
-   then highlight the differences introduced.
-
-#+begin_src emacs-lisp
-(use-package diff-hl
-  :config
-  (when (null vc-handled-backends)
-    (message "%s" "global-diff-hl-mode cannot work. See documentation.")))
-#+end_src
-
-* iedit
-
-1. If a region is selected and the key sequence pressed,
-   then all the occurrences of the current region in the buffer are highlighted.
-2. If one occurrence is modified,
-   then change are propagated to all other occurrences simultaneously.
-
-#+begin_src emacs-lisp
-(use-package iedit :demand
-  :bind ("C-;" . iedit-mode))
-#+end_src
-
-* repeat
-
-1. Most recently executed command may be repeated.
-
-#+begin_src emacs-lisp
-(use-package repeat :demand)
-#+end_src
-
-* imenu
-
-1. If activated, then Jump to a place in the buffer chosen
-   using a buffer menu or mouse menu.
-
-#+begin_src emacs-lisp
-(use-package imenu :demand
-  :config
-  (setq imenu-auto-rescan t))
-#+end_src
-
-* tab-bar
-
-#+begin_src emacs-lisp
-(use-package tab-bar :demand
-  :bind
-  (("M-+" . tab-bar-switch-to-next-tab)
-   ("M--" . tab-bar-switch-to-prev-tab)
-   ("C-t" . tab-new))
-  :config
-  (tab-bar-mode))
-#+end_src
-
-* avy
-
-1. The point may be moved anywhere in a few keystrokes.
-
-#+begin_src emacs-lisp
-(use-package avy :demand
-  :bind
-  ("C-:" . avy-goto-char))
-#+end_src
-
-* expand-region
-
-1. If keys sequence is pressed, then the selected region is incread by semantic units.
-
-#+begin_src emacs-lisp
-(use-package expand-region :demand
-  :bind
-  ("C-<" . er/expand-region))
-#+end_src
-
-* magit
-
-#+begin_src emacs-lisp
-(use-package magit
-  :config
-  (defun transient-prefix-object ()
-    (or transient--prefix transient-current-prefix))
-  (setq magit-diff-refine-hunk (quote all))
-  :bind
-  (("C-x g" . magit-status)))
-#+end_src
-
-* paredit
-
-#+begin_src emacs-lisp
-(use-package paredit
-  :hook
-  (emacs-lisp-mode . paredit-mode)
-  (scheme-mode . paredit-mode))
-#+end_src
-
-* rainbow-delimiters
-
-#+begin_src emacs-lisp
-(use-package rainbow-delimiters
-  :hook (prog-mode . rainbow-delimiters-mode))
-#+end_src
-
-* geiser
-
-#+begin_src emacs-lisp
-(use-package geiser
-  :demand
-  :config
-  (setq geiser-active-implementations '(guile))
-  (setq geiser-default-implementation 'guile)
-  :hook
-  (scheme-mode . geiser-mode))
-
-(use-package geiser-guile
-  :demand
-  :config
-  (add-to-list 'geiser-guile-load-path "~/src/guix"))
-
-(use-package macrostep
-  :demand)
-
-(use-package macrostep-geiser
-  :defer t
-  :after (geiser macrostep)
-  :config
-  (add-hook 'geiser-mode-hook #'macrostep-geiser-setup)
-  (add-hook 'geiser-repl-mode-hook #'macrostep-geiser-setup))
-#+end_src
-* esup
-
-#+begin_src emacs-lisp
-(use-package esup
-  :defer t
-  :commands (esup))
-#+end_src
-
-* rg
-
-#+begin_src emacs-lisp
-(use-package rg :demand
-  :config
-  (rg-enable-default-bindings)
-  (setq rg-command-line-flags '()))
-#+end_src
-
-* vertico
-
-1. If Emacs offers options to choose from, then display a vertical completion UI.
-
-#+begin_src emacs-lisp
-(use-package vertico
-  :demand
-  :config
-  (vertico-mode)
-  (setq vertico-scroll-margin 0)
-  (setq vertico-count 20)
-  (setq vertico-resize t)
-  (setq vertico-cycle t)
-  ;; Optional: Enable vertico-multiform for better completion UI
-  (vertico-multiform-mode)
-  (setq vertico-multiform-categories
-        '((file grid)
-          (consult-grep buffer))))
-#+end_src
-
-* xref
-
-#+begin_src emacs-lisp
-(use-package xref :demand)
-#+end_src
-
-* consult
-
-1. Search and navigation commands based on the Emacs completion function completing-read,
-   are provided.
-2. For instance, compare ~consult-imenu~ and ~imenu~.
-
-#+begin_src emacs-lisp
-(use-package consult
-  :demand
-  :bind
-  (("C-s" . consult-line)
-   ("C-r" . consult-ripgrep)
-   ("C-c f" . consult-find)
-   ("M-." . xref-find-definitions)
-   ("M-i" . consult-imenu)
-   ("C-x b" . consult-buffer)
-   ("C--" . consult-mark)
-   ("C-y" . consult-yank-replace)
-   ("C-z" . consult-recent-file)
-   ("M-g g" . consult-goto-line))
-  :hook
-  (completion-list-mode . consult-preview-at-point-mode)
-  :config
-  (advice-add #'register-preview :override #'consult-register-window)
-  (setq xref-show-xrefs-function #'consult-xref
-        xref-show-definitions-function #'consult-xref))
-#+end_src
-
-* orderless
-
-1. Orderless completion style that divides the pattern into space-separated components,
-   and matches candidates that match all of the components in any order is provided.
-
-#+begin_src emacs-lisp
-(use-package orderless :demand
-  :custom
-  (completion-styles '(orderless basic))
-  (completion-category-defaults nil)
-  (completion-category-overrides '((file (styles basic partial-completion)))))
-#+end_src
-
-* marginalia
-
-1. Meta-data are added to completion candidates like descriptions.
-2. Cycle annotators using the provided key sequence
-
-#+begin_src emacs-lisp
-(use-package marginalia :demand
-  :bind (:map minibuffer-local-map
-         ("M-A" . marginalia-cycle))
-
-  :config
-  (marginalia-mode))
-#+end_src
-
-* yasnippet
-
-#+begin_src emacs-lisp
-(use-package yasnippet :demand
-  :init
-  (require 'f)
-  :config
-  (setq yas--default-user-snippets-dir nil)
-  (add-to-list 'yas-snippet-dirs (f-join user-emacs-directory "snippets"))
-  (setq yas-new-snippet-default
-        "# -*- mode: snippet -*-
+(require 'f)
+(require 'yasnippet)
+(setq yas--default-user-snippets-dir nil)
+(add-to-list 'yas-snippet-dirs (f-join user-emacs-directory "snippets"))
+(setq yas-new-snippet-default
+      "# -*- mode: snippet -*-
 # name: $1
 # key: ${2:${1:$(yas--key-from-desc yas-text)}}
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
 $0`(yas-escape-text yas-selected-text)`")
-  (yas-global-mode))
+(yas-global-mode)
+
+
+(defcustom auto-replace-characters-include-minibuffer nil
+  "If non-nil, perform replacements in the minibuffer too.
+  Default nil because changing text in the minibuffer can interfere with
+  completions and special minibuffer behavior."
+  :type 'boolean
+  :group 'convenience)
+
+(defvar auto-replace-characters-rules
+  '((",:"   . "→")
+    (",iso" . "≅")
+    (",|-" . "⊢")
+    (",..." . "…")
+    (",a" . "α")
+    (",b" . "β")
+    (",x" . "×")
+    (",;" . ":≡")
+    (",---" . "≡")
+    (",fa" . "∀")
+    (",phi" . "φ")
+    ("/=" . "≠")
+    ("O/" . "∅")
+    (",>=" . "≥")
+    (",=<" . "≤")
+    (",in" . "∈")
+    (",<-" . "←")
+    (",=>" . "⇒")
+    (",<=" . "⇐")
+    (",la" . "λ")
+    (",!" . "↓")
+    (",>" . "▸")
+    (",h" . "🞎"))
+  "Alist of (STRING . REPLACEMENT).
+  When STRING appears just before point, replace it with REPLACEMENT.")
+
+(defun auto-replace-characters--post-self-insert ()
+  "Check recently typed text and replace according to `auto-replace-characters-rules'."
+  (when (and (or auto-replace-characters-include-minibuffer (not (minibufferp)))
+             (not buffer-read-only))
+    (dolist (rule auto-replace-characters-rules)
+      (let* ((len (length (car rule)))
+             (start (- (point) len)))
+        (when (and (>= (point) len)
+                   (string= (buffer-substring-no-properties start (point))
+                            (car rule)))
+          (atomic-change-group
+            (delete-region start (point))
+            (insert (cdr rule))))))))
+
+(define-minor-mode auto-replace-characters-mode
+  "Minor mode: replace strings like \"->\" with symbols as you type.
+  See `auto-replace-characters-rules' for customization."
+  :lighter " ARC"
+  (if auto-replace-characters-mode
+      (add-hook 'post-self-insert-hook #'auto-replace-characters--post-self-insert nil t)
+    (remove-hook 'post-self-insert-hook #'auto-replace-characters--post-self-insert t)))
+
+(define-globalized-minor-mode global-auto-replace-characters-mode
+  auto-replace-characters-mode
+  (lambda ()
+    (when (or auto-replace-characters-include-minibuffer (not (minibufferp)))
+      (auto-replace-characters-mode 1)))
+  "Globalized version of `auto-replace-characters-mode'.")
+
+(add-hook 'org-mode-hook #'auto-replace-characters-mode)
 #+end_src
 
-* corfu
-
-1. In-buffer completion is enhanced with a small completion popup.
+** Execute
+*** Recursive minibuffer
+Allows recursive minibuffer so that multiple commands may be issued.
 
 #+begin_src emacs-lisp
-(use-package corfu
-  :disabled t
-  :demand
-  :bind (:map corfu-map
-              ("M-SPC"      . corfu-insert-separator)
-              ("TAB"        . corfu-next)
-              ([tab]        . corfu-next)
-              ("S-TAB"      . corfu-previous)
-              ([backtab]    . corfu-previous)
-              ("RET"        . corfu-insert))
-  :custom
-  (corfu-cycle t)
-  (corfu-auto nil)
-  (corfu-quit-no-match 'separator)
-  (corfu-auto-prefix 2)
-  (corfu-auto-delay 0.1)
-  (corfu-popupinfo-delay '(0.5 . 0.2))
-  (corfu-preview-current 'insert)
-  (corfu-preselect 'prompt)
-  (corfu-on-exact-match nil)
-  :config
-  (corfu-history-mode 1)
-  (corfu-popupinfo-mode 1)
-  (global-corfu-mode 1))
+(setq enable-recursive-minibuffers t)
 #+end_src
 
-* corfu-candidate-overlay
+* Languages
+** CSS
 
 #+begin_src emacs-lisp
-(use-package corfu-candidate-overlay :demand
-  :disabled t
-  :after corfu
-  :bind (("C-<tab>" . completion-at-point)
-         ("C-!" . corfu-candidate-overlay-complete-at-point))
-  :config
-  ;; enable corfu-candidate-overlay mode globally
-  ;; this relies on having corfu-auto set to nil
-  (corfu-candidate-overlay-mode +1))
+;; Use tree-sitter-based CSS mode instead of the old one
+(add-to-list 'auto-mode-alist '("\\.css\\'" . css-ts-mode))
+
+;; Remap the legacy css-mode to the new tree-sitter version
+(add-to-list 'major-mode-remap-alist '(css-mode . css-ts-mode))
 #+end_src
 
-* cape
+** JavaScript
+** Python
 
 #+begin_src emacs-lisp
-(use-package cape
-  :defer t
-  :bind (("C-c f" . cape-file)
-         ("C-c h" . cape-history))
-  :init
-  (defun my/add-shell-completion ()
-    (add-to-list 'completion-at-point-functions 'cape-history)
-    (add-to-list 'completion-at-point-functions 'pcomplete-completions-at-point))
-  (add-hook 'shell-mode-hook #'my/add-shell-completion)
-  :config
-  (advice-add #'comint-completion-at-point :around #'cape-wrap-nonexclusive)
-  (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-silent)
-  (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-purify))
+(require 'python)
+(setq python-indent-offset 4)
+(setq python-indent-guess-indent-offset nil)
+(require 'pyvenv)
+(require 'reformatter)
+(reformatter-define ruff-format
+  :program "ruff"
+  :args '("format" "--stdin-filename" "temp.py" "-")
+  :stdin t)
+(defun reformatter-python-code-block ()
+  (message "TODO"))
+(add-hook 'python-mode-hook #'reformatter-python-code-block)
 #+end_src
 
-* dabbrev
+** HTML
 
 #+begin_src emacs-lisp
-(use-package dabbrev
-  :disabled t
-  :demand
-  :bind (("M-/" . dabbrev-completion)
-         ("C-M-/" . dabbrev-expand))
-  :config
-  (add-to-list 'dabbrev-ignored-buffer-regexps "\\` ")
-  (add-to-list 'dabbrev-ignored-buffer-modes 'doc-view-mode)
-  (add-to-list 'dabbrev-ignored-buffer-modes 'pdf-view-mode)
-  (add-to-list 'dabbrev-ignored-buffer-modes 'tags-table-mode))
+(require 'web-mode)
+;; Use tree-sitter-based CSS mode instead of the old one
+(add-to-list 'auto-mode-alist '("\\.html?\\'" . web-mode))
+
+(setq web-mode-indent-style 1)
+(setq web-mode-markup-indent-offset 2)
+(setq web-mode-css-indent-offset 2)
+(setq web-mode-code-indent-offset 2)
 #+end_src
 
-* savehist
+** Bash
 
 #+begin_src emacs-lisp
-(use-package savehist :demand
-  :config
-  (savehist-mode))
+;; Bash files open in tree-sitter mode
+(add-to-list 'auto-mode-alist '("\\.bash\\'" . bash-ts-mode))
+
+;; Remap legacy sh-mode → bash-ts-mode everywhere
+(add-to-list 'major-mode-remap-alist '(sh-mode . bash-ts-mode))
+
+;; Indentation
+(setq sh-basic-offset 2
+      sh-indentation 2)
+
+;; Start Eglot automatically in bash-ts-mode
+(add-hook 'bash-ts-mode-hook #'eglot-ensure)
+
+;; Optional friendly warning if bash-language-server is missing
+(when (not (executable-find "bash-language-server"))
+  (message "WARNING: bash-language-server not found in PATH; Bash LSP features will be unavailable."))
 #+end_src
 
-* multiple-cursors
+** Elixir
 
 #+begin_src emacs-lisp
-(use-package multiple-cursors :demand
-  :bind (("M-m" . mc/edit-lines)))
-#+end_src
+;; Load local tree-sitter modes
+(add-to-list 'load-path (file-name-concat user--package "elixir-ts-mode"))
+(add-to-list 'load-path (file-name-concat user--package "heex-ts-mode"))
 
-* olivetti
+;; Install grammars the first time (idempotent)
+(unless (treesit-language-available-p 'elixir)
+  (elixir-ts-install-grammar))
+(unless (treesit-language-available-p 'heex)
+  (heex-ts-install-grammar))
 
-#+begin_src emacs-lisp
-(use-package olivetti :demand
-  :config
-  (setq olivetti-body-width 100))
-#+end_src
+;; Autoload the new modes
+(autoload 'elixir-ts-mode "elixir-ts-mode" "Major mode for Elixir (tree-sitter)" t)
+(autoload 'heex-ts-mode   "heex-ts-mode"   "Major mode for Heex"               t)
 
-* css
+;; File associations
+(add-to-list 'auto-mode-alist '("\\.ex\\'"  . elixir-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.exs\\'" . elixir-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.heex\\'" . heex-ts-mode))
 
-#+begin_src emacs-lisp
-(use-package css-ts-mode
-  :mode "\\.css\\'"
-  :init
-  (add-to-list 'major-mode-remap-alist '(css-mode . css-ts-mode)))
-#+end_src
+;; Remap the old non-tree-sitter mode to the new one
+(add-to-list 'major-mode-remap-alist '(elixir-mode . elixir-ts-mode))
 
-* epa-file
+;; Start Eglot automatically in Elixir files
+(add-hook 'elixir-ts-mode-hook #'eglot-ensure)
 
-#+begin_src emacs-lisp
-(use-package epa-file
-  :config
-  (epa-file-enable)
-  (setq epa-file-name-regexp "\\.\\(gpg\\|asc\\)$")
-  (epa-file-name-regexp-update)
-  (setq epa-use-gpg-agent t)
-
-  :hook
-  ((find-file . user--protect-secret-files)
-   (after-save . user--protect-secret-files)))
-
-(defun user--protect-secret-files ()
-  "Make files with .gpg or .asc extensions read-only when opened or saved."
-  (when-let ((file-path (buffer-file-name)))
-    (when (string-match-p ".*\\.\\(?:asc\\|gpg\\)$" file-path)
-      (read-only-mode 1))))
-#+end_src
-
-* JavaScript
-
-#+begin_src emacs-lisp
-(use-package js
-  :mode (("\\.js\\'" . js-ts-mode)
-         ("\\.json\\'" . js-ts-mode)))
-#+end_src
-
-* Python
-
-#+begin_src emacs-lisp
-(use-package python
-  :hook (python-mode . (lambda ()
-                         (setq python-indent-offset 4)
-                         (setq indent-tabs-mode nil)
-                         (setq python-indent-guess-indent-offset nil))))
-#+end_src
-
-* web-mode
-
-#+begin_src emacs-lisp
-(use-package web-mode
-  :mode ("\\.html?\\'" . web-mode)
-  :config
-  (setq web-mode-indent-style 1)
-  (setq web-mode-markup-indent-offset 2)
-  (setq web-mode-css-indent-offset 2)
-  (setq web-mode-code-indent-offset 2))
-#+end_src
-
-* sh-script
-
-#+begin_src emacs-lisp
-(use-package sh-mode
-  :mode "\\.bash\\'"
-  :init
-  (add-to-list 'major-mode-remap-alist '(sh-mode . bash-ts-mode))
-  (let* ((bash-ls-cmd "bash-language-server")
-         (exit-status (call-process bash-ls-cmd nil nil nil "--version")))
-    (unless (= exit-status 0)
-      (message "WARNING: %s not found; bash language server functionality might
-be limited." bash-ls-cmd)))
-  :config
-  (setq sh-basic-offset 2
-        sh-indentation 2)
-  :hook
-  (bash-ts-mode . eglot-ensure))
-#+end_src
-
-* elixir
-
-#+begin_src emacs-lisp
-(add-to-list 'load-path (file-name-concat user--packages "elixir-ts-mode"))
-(use-package elixir-ts-mode :demand
-  :preface
-  (unless (treesit-language-available-p 'elixir)
-    (elixir-ts-install-grammar))
-  :hook (elixir-mode . eglot-ensure)
-  :config
-  (autoload 'elixir-ts-mode "elixir-ts-mode" "Major mode for Elixir" t))
-
-(use-package elixir-mode
-  :mode (("\\.ex\\'" . elixir-mode)
-         ("\\.exs\\'" . elixir-mode))
-  :init
-  (add-to-list 'major-mode-remap-alist '(elixir-mode . elixir-ts-mode)))
-
-(add-to-list 'load-path (file-name-concat user--packages "heex-ts-mode"))
-(use-package heex-ts-mode
-  :mode "\\.heex\\'"
-  :preface
-  (unless (treesit-language-available-p 'heex)
-    (heex-ts-install-grammar)))
-
+;; Tell Eglot where the elixir-ls script lives
 (require 'eglot)
-(add-hook 'elixir-mode-hook 'eglot-ensure)
 (add-to-list 'eglot-server-programs
-             `(elixir-mode
-               ,(file-name-concat (expand-file-name "~") "bin" "elixir-ls" "language_server.sh")))
+             `(elixir-ts-mode . ,(file-name-concat (expand-file-name "~") "bin/elixir-ls/language_server.sh")))
 #+end_src
 
-* project
+** Lisp
+*** Emacs lisp
 
 #+begin_src emacs-lisp
-(use-package project :demand
-  :config
-  (setq project-vc-extra-root-markers '("project-root" "mix.exs")))
+(require 'paredit)
+(add-hook 'emacs-lisp-mode-hook #'paredit-mode)
 #+end_src
 
-* eglot
+*** Scheme
 
 #+begin_src emacs-lisp
-(use-package eglot
-  :demand
-  :config
-  (add-to-list
-   'eglot-server-programs
-   `(elixir-ts-mode ,(file-name-concat user--packages "elixir-ls/language_server.sh"))))
+(require 'paredit)
+(add-hook 'scheme-mode-hook #'paredit-mode)
+(require 'geiser)
+(add-hook 'scheme-mode-hook #'geiser-mode)
+(setq geiser-active-implementations '(guile))
+(setq geiser-default-implementation 'guile)
+(require 'macrostep)
+(require 'macrostep-geiser)
+(add-hook 'geiser-mode-hook #'macrostep-geiser-setup)
+(add-hook 'geiser-repl-mode-hook #'macrostep-geiser-setup)
 #+end_src
 
-* pyvenv
+** Makefile
 
 #+begin_src emacs-lisp
-(use-package pyvenv)
+(require 'make-mode)
+(add-hook 'makefile-mode-hook #'user--indent-makefile-code-blocks-with-tabs)
+(defun user--indent-makefile-code-blocks-with-tabs ()
+  (setq indent-tabs-mode t))
 #+end_src
 
-* COMMENT flycheck
-
-#+begin_src emacs-lisp
-(use-package flycheck
-  :config
-  (flycheck-package-setup))
-#+end_src
-
-* flymake
-
-#+begin_src emacs-lisp
-(use-package flymake :demand)
-#+end_src
-
-* locs-and-refs
-
-#+begin_src emacs-lisp
-(add-to-list 'load-path (file-name-concat user--packages "locs-and-refs/_dist"))
-(use-package locs-and-refs :demand
-  :config
-  (modus-themes-with-colors
-     (custom-set-faces
-      `(locs-and-refs-location-face
-        ((t (:foreground ,magenta-faint :underline t))))
-      `(locs-and-refs-reference-face
-        ((t (:foreground ,red-faint :underline t))))))
-  (locs-and-refs-mode))
-#+end_src
-
-* COMMENT org-tidy
-
-#+begin_src emacs-lisp
-(use-package org-tidy)
-#+end_src
-
-* org-patches
-:PROPERTIES:
-:header-args+: :tangle elisp/org-patches.el
-:END:
-
-#+begin_src emacs-lisp
-(provide 'org-patches)
-#+end_src
-
-** Property drawers are removed after tangling
-
-#+begin_src emacs-lisp
-(defun user--org-remove-property-drawers ()
-  "After tangling, remove all :PROPERTIES: drawers."
-  (save-excursion
-    (goto-char (point-min))
-    (while (re-search-forward "^.*:PROPERTIES:$" nil t)
-      (let ((start (line-beginning-position)))
-        (when (re-search-forward "^.*:END:\n" nil t)
-          (delete-region start (point)))))
-    (when (buffer-modified-p)
-      (save-buffer))))
-(add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
-#+end_src
-
-** org-babel-spec-to-string is fixed
-Like the original version
-but do not insert useless new line.
-
-#+begin_src emacs-lisp
-(defun org-babel-spec-to-string (spec)
-  "Insert SPEC into the current file.
-
-Insert the source-code specified by SPEC into the current source
-code file.  This function uses `comment-region' which assumes
-that the appropriate major-mode is set.  SPEC has the form:
-
-  (start-line file link source-name params body comment)"
-  (pcase-let*
-      ((`(,start ,file ,link ,source ,info ,body ,comment) spec)
-       (comments (cdr (assq :comments info)))
-       (link? (or (string= comments "both") (string= comments "link")
-                  (string= comments "yes") (string= comments "noweb")))
-       (link-data `(("start-line" . ,(number-to-string start))
-                    ("file" . ,file)
-                    ("link" . ,link)
-                    ("source-name" . ,source)))
-       (insert-comment (lambda (text)
-                         (when (and comments
-                                    (not (string= comments "no"))
-                                    (org-string-nw-p text))
-                           (if org-babel-tangle-uncomment-comments
-                               ;; Plain comments: no processing.
-                               (insert text)
-                             ;; Ensure comments are made to be comments.  Also ignore
-                             ;; invisible characters when commenting.
-                             (comment-region
-                              (point)
-                              (progn (insert (org-no-properties text))
-                                     (point))))))))
-    (when comment (funcall insert-comment comment))
-    (when link?
-      (funcall insert-comment
-               (org-fill-template
-                org-babel-tangle-comment-format-beg link-data)))
-    (insert body "\n")
-    (when link?
-      (funcall insert-comment
-               (org-fill-template
-                org-babel-tangle-comment-format-end link-data)))))
-#+end_src
-
-** Try to format all JS code blocks
-- λ()
-  - point :≡ point-min()
-  - search-next-code-block() ≡
-    - error[msg] ⇒ message(msg)
-    - nil ⇒ ■
-    - pair[start end] ⇒
-      - format-code extract-code(start end) ≡
-        - error[msg] ⇒ message(msg)
-        - formatted-code ⇒ replace-code(start end formatted-code)
-      - point :≡ end
-      - λ()
-
-#+begin_src emacs-lisp
-(defun user-format-all-js-code-blocks ()
-  "Format all JavaScript code blocks in the current buffer using Biomejs or Prettier.
-If neither Prettier nor Biomejs is found in the PATH, signal an error.
-Iteratively processes all blocks marked with the 'js' tag."
-  (interactive)
-  (save-excursion
-    (goto-char (point-min))
-    (while (not (eobp))
-      (pcase (user--next-code-block "js")
-        ('nil
-         (message "All JS code blocks have been formatted using %s" (user--format-code-cmd))
-         (end-of-buffer))
-        (`(:error ,msg)
-         (user-error msg))
-        (`(,start ,end)
-         (pcase (user--format-code (user--extract-code start end)
-                                   (get-buffer-create "*Formatting errors*"))
-           (`(:error ,msg)
-            (message "Code block starting at %s has not been formatted.\n%s" start msg)
-
-            (goto-char end))
-           (formatted-code
-            (user--replace-code start end formatted-code)
-            (goto-char start)
-            (pcase (user--next-code-block "js")
-              (`(,start ,end)
-               (goto-char end))))))))))
-
-(defun user--next-code-block (tag)
-  "Find the next code block tagged with TAG in the current buffer.
-Returns nil if no block is found, or a list (START END) indicating
-the region of the block, or an error if an unmatched block is found."
-  (save-excursion
-    (let ((case-fold-search t) begin-re end-re start)
-      (setq begin-re
-            (rx-to-string `(seq bol (0+ " ") "#+begin_src" (1+ " ") (literal ,tag) (not word))))
-      (pcase (search-forward-regexp begin-re nil t)
-        ('nil nil)
-        (_
-         (backward-char)
-         (forward-line 1)
-         (setq start (point))
-         (setq end-re (rx-to-string '(seq bol (0+ " ") "#+end_src" (0+ " "))))
-         (pcase (search-forward-regexp end-re nil t)
-           ('nil
-            (list :error (format "start of code block at %s has no matching end")))
-           (_
-            (beginning-of-line)
-            (list start (point)))))))))
-
-(defun user--extract-code (start end)
-  "Extract the code between START and END in the current buffer.
-Returns the content of the region as a string."
-  (buffer-substring-no-properties start end))
-
-(defun user--replace-code (start end code)
-  "Replace the content between START and END with CODE in the current buffer."
-  (save-excursion
-    (kill-region start end)
-    (goto-char start)
-    (insert code)))
-
-(defun user--format-code (code error-buffer)
-  "Format the given CODE using Prettier.
-If formatting succeeds, return the formatted code as a string.
-If an error occurs, insert the error message into ERROR-BUFFER
-and return an error indicator."
-  (if (string= code "")
-      ""
-    (let (return-code)
-      (with-temp-buffer
-        (insert code)
-        (setq return-code
-              (shell-command-on-region
-               (point-min)
-               (point-max)
-               (user--format-code-cmd)
-               (current-buffer) t
-               error-buffer))
-        (pcase return-code
-          (0
-           (buffer-substring-no-properties (point-min) (point-max)))
-          (_
-           (list :error (format "Formatting error. See buffer %s" (buffer-name error-buffer)))))))))
-
-(setq user--format-code-cmd-cache nil)
-(defun user--format-code-cmd ()
-  (if (null user--format-code-cmd-cache)
-      (setq user--format-code-cmd-cache
-            (pcase (executable-find "biome")
-              ((and (pred stringp) path)
-               (format "%s format --indent-style space --indent-width 4 --stdin-file-path tmp.js" path))
-              (_
-               (pcase (executable-find "prettier")
-                 ((and (pred stringp) path)
-                  (format "%s --stdin-filepath tmp.js" path))
-                 (_
-                  (user-error "neither biome nor prettier in the PATH"))))))
-    user--format-code-cmd-cache))
-#+end_src
-
-* org
+** Org
 :PROPERTIES:
 :ID:       cc511d66-615b-4a92-8481-fb63ba23c43f
 :END:
 
 #+begin_src emacs-lisp
-(use-package org
-  :bind
-  (("C-c C-l" . org-insert-link)
-   ("M-RET" . org-insert-heading)
-   ("M-<right>" . org-metaright)
-   ("M-p" . org-copy-outline-path-to-kill-ring)
-   ("C-c i" . org-clock-in)
-   ("C-c o" . org-clock-out))
+(require 'org)
 
-  :custom
-  (org-cite-global-bibliography (list (expand-file-name "~/src/bibliography/reference.bib")))
-  (org-cite-csl-styles-dir (expand-file-name "~/.emacs.d/csl"))
-  (org-cite-export-processors
-        '((latex biblatex)
-          (t csl)))
+(global-set-key (kbd "C-c C-l") #'org-insert-link)
+(global-set-key (kbd "M-RET")    #'org-insert-heading)
+(global-set-key (kbd "M-<right>") #'org-metaright)
+(global-set-key (kbd "M-p")      #'org-copy-outline-path-to-kill-ring)
+(global-set-key (kbd "C-c i")    #'org-clock-in)
+(global-set-key (kbd "C-c o")    #'org-clock-out)
+(global-set-key (kbd "C-c a")    #'org-agenda)
 
-  ;; TODO Org Mode maintainer.
-  ;(org-element--cache-self-verify nil)
-  ;(org-element--cache-self-verify-frequency 1.0)
-  (org-emphasis-alist (delete '("+" (:strike-through t)) org-emphasis-alist))
-  (org-fontify-emphasized-text t)
-  (org-babel-python-command-nonsession "python3")
-  (org-startup-folded 'show2levels)
-  (org-ellipsis " ")
-  (org-hide-leading-stars t)
-  (org-startup-indented nil)
-  (org-src-fontify-natively t)
-  (org-id-link-to-org-use-id t)
-  (org-link-keep-stored-after-insertion t)
-  (org-imenu-depth 100)
-  (org-src-preserve-indentation t)
-  (org-hide-emphasis-markers t)
-  (org-todo-keywords
-   '((sequence "TODO(t)" "WAITING(w)" "DOING(o)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
-  (org-todo-keyword-faces
-   '(("TODO" . (:foreground "red" :family "JetBrains Mono" :height 0.9))
-     ("WAITING" . (:foreground "teal" :family "JetBrains Mono" :height 0.9))
-     ("DOING" . (:foreground "orange" :family "JetBrains Mono" :height 0.9))
-     ("FAILED" . (:foreground "purple" :family "JetBrains Mono" :height 0.9))
-     ("DONE" . (:foreground "green" :family "JetBrains Mono" :height 0.9))
-     ("CANCELED" . (:foreground "grey" :family "JetBrains Mono" :height 0.9))))
-  (org-log-into-drawer t)
-  (org-clock-into-drawer t)
+;; Appearance & behaviour
+(setq org-cite-global-bibliography
+      (list (expand-file-name "~/src/bibliography/reference.bib")))
+(setq org-cite-csl-styles-dir (expand-file-name "~/.emacs.d/csl"))
+(setq org-cite-export-processors '((latex biblatex) (t csl)))
 
-  :config
-  ;; (setq org-element--cache-self-verify 'backtrace)
-  (add-to-list 'org-src-lang-modes '("js" . js-ts))
-  (add-to-list 'org-src-lang-modes '("json" . js-ts))
-  (add-to-list 'org-src-lang-modes '("heex" . heex-ts))
+(setq org-emphasis-alist (delete '("+" (:strike-through t)) org-emphasis-alist))
+(setq org-fontify-emphasized-text t)
+(setq org-startup-folded 'show2levels)
+(setq org-ellipsis " ")
+(setq org-hide-leading-stars t)
+(setq org-startup-indented nil)
+(setq org-src-fontify-natively t)
+(setq org-id-link-to-org-use-id t)
+(setq org-link-keep-stored-after-insertion t)
+(setq org-imenu-depth 100)
+(setq org-src-preserve-indentation t)
+(setq org-hide-emphasis-markers t)
 
-  (org-babel-do-load-languages
-   'org-babel-load-languages
-   '((emacs-lisp . t)
-     (C . t)
-     (css . t)
-     (shell . t)
-     (lisp . t)
-     (scheme . t)
-     (dot . t)
-     (awk . t)
-     (R . t)
-     (python . t)
-     (js . t)))
+(setq org-babel-python-command-nonsession "python3")
 
-  ;; For whatever reason, this is not defined.
-  (defun citeproc-style-cite-superscript-p (x)
-    t)
+(setq org-todo-keywords
+      '((sequence "TODO(t)" "WAITING(w)" "DOING(o)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
 
-  (defun org-for-all-headings-add-id ()
-    "Generate ID for any headings that are missing one"
-    (interactive)
-    (org-map-entries
-     (lambda ()
-       (let ((ID (org-entry-get (point) "ID")))
-         (when (null ID)
-           (org-entry-put (point) "ID" (org-id-new)))))))
+(setq org-todo-keyword-faces
+      '(("TODO"     . (:foreground "red"     :weight bold))
+        ("WAITING"  . (:foreground "orange"  :weight bold))
+        ("DOING"    . (:foreground "orange"  :weight bold))
+        ("FAILED"   . (:foreground "purple"  :weight bold))
+        ("DONE"     . (:foreground "green"   :weight bold))
+        ("CANCELED" . (:foreground "gray60" :weight bold))))
 
-  (defun org-copy-outline-path-to-kill-ring ()
-    "Copy the current outline path formatted for Org mode to the kill ring."
-    (interactive)
-    (let ((path (org-format-outline-path (org-get-outline-path t) 10000)))
-      (kill-new path)
-      (message "Outline path copied to kill ring: %s" path)))
+(setq org-log-into-drawer t)
+(setq org-clock-into-drawer t)
 
-  (defun org-show-all-drawers ()
-    "Show all drawers in the current Org buffer."
-    (interactive)
-    (org-element-map (org-element-parse-buffer) 'property-drawer
-      (lambda (drawer)
-        (org-fold-hide-drawer-toggle 'off nil drawer))))
+(add-to-list 'org-src-lang-modes '("js"   . js-ts))
+(add-to-list 'org-src-lang-modes '("json" . js-ts))
+(add-to-list 'org-src-lang-modes '("heex" . heex-ts))
 
-  (require 'org-patches))
+(org-babel-do-load-languages
+ 'org-babel-load-languages
+ '((emacs-lisp . t)
+   (C          . t)
+   (css        . t)
+   (shell      . t)
+   (lisp       . t)
+   (scheme     . t)
+   (dot        . t)
+   (awk        . t)
+   (R          . t)
+   (python     . t)
+   (js         . t)))
+
+;; Fix for citeproc (some CSL styles expect this function)
+(unless (fboundp 'citeproc-style-cite-superscript-p)
+  (defun citeproc-style-cite-superscript-p (x) t))
+
+;; Helper functions
+(defun org-copy-outline-path-to-kill-ring ()
+  "Copy current heading’s full outline path (Org syntax) to kill ring."
+  (interactive)
+  (let ((path (org-format-outline-path (org-get-outline-path t) 10000)))
+    (kill-new path)
+    (message "Outline path → kill-ring: %s" path)))
+
+(defun org-for-all-headings-add-id ()
+  "Add missing ID property to every heading in the buffer."
+  (interactive)
+  (org-map-entries
+   (lambda ()
+     (unless (org-entry-get (point) "ID")
+       (org-entry-put (point) "ID" (org-id-new))))))
+
+(defun org-show-all-drawers ()
+  "Reveal all property drawers in the current buffer."
+  (interactive)
+  (org-element-map (org-element-parse-buffer) 'property-drawer
+    (lambda (drawer) (org-fold-hide-drawer-toggle 'off nil drawer))))
+
+;; Remove :PROPERTIES: drawers after tangling (keeps tangled files clean)
+(defun user--org-remove-property-drawers ()
+  "Delete all :PROPERTIES:/:END: blocks in the current buffer after tangling."
+  (save-excursion
+    (goto-char (point-min))
+    (while (re-search-forward "^[ \t]*:PROPERTIES:$" nil t)
+      (let ((start (line-beginning-position)))
+        (when (re-search-forward "^[ \t]*:END:" nil t)
+          (delete-region start (line-end-position 0))
+          (delete-blank-lines))))
+    (when (buffer-modified-p) (save-buffer))))
+(add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
+
+;; Org Agenda
+
+(setq org-agenda-skip-scheduled-if-done nil)
+(setq org-agenda-span 'day)
+(setq org-agenda-show-future-repeats 'next)
+(setq org-deadline-warning-days 1)
+(setq org-agenda-sorting-strategy '(time-up todo-state-down priority-down))
+(setq org-agenda-prefix-format
+      '((agenda . "%s %-12t %b")
+        (todo   . "%b")
+        (tags   . "%b")
+        (search . "%b")))
+(setq org-agenda-time-grid
+      '((daily today require-timed)
+        (600 2400)
+        " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
+
+(defun user--set-org-agenda-files (&rest _)
+  "Dynamically collect all .org files that contain TODO keywords."
+  (let* ((keywords (with-temp-buffer
+                     (org-mode)
+                     (concat "(" (mapconcat #'identity org-todo-keywords-1 "|") ")")))
+         (cmd (format "rg -u -m1 -l -g '*.org' '^\\*+ +%s' ~" keywords))
+         (files (split-string-and-unquote (shell-command-to-string cmd) "\n")))
+    (setq org-agenda-files
+          (seq-filter #'user--set-org-agenda-files-filters files))))
+(advice-add #'org-agenda :before #'user--set-org-agenda-files)
+
+(defun user--set-org-agenda-files-filters (file)
+  "Exclude certain directories from org-agenda-files."
+  (not (or (string-match-p "/worg/" file)
+           (string-match-p "/dl-python-extracteur/tests/" file)
+           (string-match-p "/dl-python-docparser/tests/" file))))
+
+;; Citations
+(require 'citeproc)
 #+end_src
 
-* makefile
+** systemd
 
 #+begin_src emacs-lisp
-(use-package make-mode :demand
-  :hook (makefile-mode . user--indent-makefile-code-blocks-with-tabs)
-  :config
-  (defun user--indent-makefile-code-blocks-with-tabs ()
-    (setq indent-tabs-mode t)))
+(require 'systemd)
 #+end_src
 
-* org-agenda
-:PROPERTIES:
-:ID:       13586139-b0d3-406c-a3bc-e683ccc194e9
-:END:
+** Dot
 
 #+begin_src emacs-lisp
-(use-package org-agenda :demand
-  :bind (("C-c a" . org-agenda))
-  :custom
-  (org-agenda-skip-scheduled-if-done nil)
-  (org-agenda-span 'day)
-  (org-agenda-show-future-repeats 'next)
-  (org-columns-default-format-for-agenda "%SCHEDULED %CATEGORY %TODO %ITEM %Effort(Effort){:} %CLOCKSUM(Clocked)")
-  (org-deadline-warning-days 1)
-  (org-agenda-sorting-strategy '(time-up todo-state-down priority-down))
-  (org-agenda-prefix-format
-   '((agenda . " %-12t %(xxx) %s")
-     (todo . " %i %(xxx)")
-     (tags . " %i %(xxx)")
-     (search . " %i %(xxx)")))
-  (org-agenda-time-grid
-   '((daily today require-timed)
-     (600 2400)
-     " ┄┄┄┄┄ " "┄┄┄┄┄┄┄┄┄┄┄┄┄┄┄"))
-  :config
-  (defun xxx ()
-    (with-current-buffer (current-buffer)
-      (format
-       "%-60s"
-       (string-join
-        (seq-uniq
-         (reverse
-          (seq-map
-           (lambda (name) (format "%-20s" (file-name-base name)))
-           (seq-take
-            (reverse
-             (file-name-split (or (buffer-file-name) ""))) 3))))
-        ""))))
-  (defun user--set-org-agenda-files (&rest _rest)
-    "Dynamically set org-agenda-files based on TODO keywords in .org files."
-    (let* ((keywords (with-temp-buffer
-                       (org-mode)
-                       (concat "(" (mapconcat #'identity org-todo-keywords-1 "|") ")")))
-           (command (format "rg -u -m 1 -l -g '*.%s' '^\\*+ +%s' ~" "%s" keywords))
-           (files (s-split "\n" (s-trim (shell-command-to-string (format command "org"))))))
-      (setq org-agenda-files (seq-filter #'user--set-org-agenda-files-filters files))
-      (message (string-join org-agenda-files "\n"))))
-
-  (defun user--set-org-agenda-files-filters (file)
-    (not (or (string-match-p ".*worg.*" file)
-             (string-match-p ".*/dl-python-extracteur/tests/.*" file)
-             (string-match-p ".*/dl-python-docparser/tests/.*" file))))
-
-  (advice-add #'org-agenda :before #'user--set-org-agenda-files))
+(require 'graphviz-dot-mode)
+(setq graphviz-dot-indent-width 2)
 #+end_src
 
-* eshell
+** TypeScript
 
 #+begin_src emacs-lisp
-(use-package eshell :demand
-  :config
-  (defun eshell-prompt ()
-    "Custom prompt for eshell with only the current directory name."
-    (concat
-     (file-name-nondirectory (eshell/pwd))
-     " $ "))
+;; Tree-sitter grammars — install once via M-x treesit-install-language-grammar
+;; Add TypeScript and TSX grammar recipes (place this early in your init.el)
+(require 'treesit)
+(add-to-list 'treesit-language-source-alist (cons 'typescript '("https://github.com/tree-sitter/tree-sitter-typescript" "master" "typescript/src")))
+(add-to-list 'treesit-language-source-alist (cons 'tsx '("https://github.com/tree-sitter/tree-sitter-typescript" "master" "tsx/src")))
+(unless (treesit-language-available-p 'typescript)
+  (treesit-install-language-grammar 'typescript))
+(unless (treesit-language-available-p 'tsx)
+  (treesit-install-language-grammar 'tsx))
 
-  ;; Set the custom prompt function
-  (setq eshell-prompt-function 'eshell-prompt))
+;; Use tree-sitter modes everywhere
+(dolist (mapping '((typescript-mode . typescript-ts-mode)
+                   (tsx-mode        . tsx-ts-mode)
+                   (js-mode         . typescript-ts-mode)
+                   (js-json-mode    . json-ts-mode)))
+  (add-to-list 'major-mode-remap-alist mapping))
+
+;; File associations
+(add-to-list 'auto-mode-alist '("\\.ts\\'"  . typescript-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.tsx\\'" . tsx-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.mts\\'" . typescript-ts-mode))
+(add-to-list 'auto-mode-alist '("\\.cts\\'" . typescript-ts-mode))
+
+;; Indentation (2 spaces, as is standard in the JS/TS world)
+(setq typescript-ts-mode-indent-offset 2)
+
+;; Start Eglot automatically — works with typescript-language-server
+(add-hook 'typescript-ts-mode-hook #'eglot-ensure)
+(add-hook 'tsx-ts-mode-hook        #'eglot-ensure)
+
+;; Tell Eglot to use typescript-language-server for both .ts and .tsx
+(require 'eglot)
+(add-to-list 'eglot-server-programs
+             '((typescript-ts-mode tsx-ts-mode)
+               . ("typescript-language-server" "--stdio")))
+
+;; Prettier formatting on save (requires prettier in PATH or in node_modules)
+(require 'apheleia)
+(setf (alist-get 'prettier apheleia-formatters)
+      '("prettier" "--stdin-filepath" filepath))
+(dolist (mode '(typescript-ts-mode tsx-ts-mode))
+  (setf (alist-get mode apheleia-mode-alist) 'prettier))
+(apheleia-global-mode +1)
+
+;; Make local node_modules/.bin available (very useful in monorepos)
+(require 'add-node-modules-path)
+(add-hook 'typescript-ts-mode-hook #'add-node-modules-path)
+(add-hook 'tsx-ts-mode-hook        #'add-node-modules-path)
+
+;; Optional: respect .envrc / direnv for correct Node version
+(when (executable-find "direnv")
+  (require 'direnv)
+  (direnv-mode +1))
 #+end_src
 
-* systemd
+* I/O performances
+Bigger chunks, faster I/O.
 
 #+begin_src emacs-lisp
-(use-package systemd :demand)
+(setq read-process-output-max (* 1024 1024))
 #+end_src
 
-* epg
+* Application
+List standalone applications that runs on Emacs or are external processes to which
+Emacs has an interface for.
 
-#+begin_src emacs-lisp
-(use-package epg :demand
-  :config
-  (setq epg-gpg-program (expand-file-name "~/.guix-profile/bin/gpg")))
-#+end_src
-
-* circe
-
-#+begin_src emacs-lisp
-(use-package circe
-  :demand
-  :custom
-  (circe-use-cycle-completion t)
-  (circe-case-insensitive-completion t)
-  (circe-format-say "{nick:-16s}: {body}")
-  (circe-format-self-say "<{nick:-16s}>: {body}")
-  (circe-display-activity nil)
-  (circe-network-options
-   `(("Libera Chat"
-      :nick "phfrohring"
-      :channels ("#emacs" "#guix")
-      :nickserv-password ,(getenv "NICKSERVPWD"))))
-  (circe-reduce-lurker-spam t)
-  :hook
-  (circe-channel-mode-hook . enable-circe-color-nicks))
-#+end_src
-
-* beacon
-
-#+begin_src emacs-lisp
-(use-package beacon
-  :disabled ;Does not work for some reason with the current setup.
-  :config
-  (beacon-mode 1))
-#+end_src
-
-* graphviz-dot
-
-#+begin_src emacs-lisp
-(use-package graphviz-dot-mode
-  :custom
-  (graphviz-dot-indent-width 2))
-#+end_src
-
-* total-recall
+** TotalRecall
 
 #+begin_src emacs-lisp
 (add-to-list
  'load-path
  (expand-file-name "~/src/total-recall-next/total-recall-0.11/elisp"))
-(use-package total-recall
-  :demand
-  :custom
-  (total-recall-database
+
+(require 'total-recall)
+(setq total-recall-database
    (file-name-concat
-    (expand-file-name user-emacs-directory) "total-recall.sqlite3")))
+    (expand-file-name user-emacs-directory) "total-recall.sqlite3"))
 #+end_src
 
-* reformatter
-
-1. python-mode ⇒ (format-python-buffer) exeuted just before killing the buffer
-2. (format-python-buffer-before-buffer-kill) ⇒
+** IRC
 
 #+begin_src emacs-lisp
-(use-package reformatter
-  :config
-
-  (reformatter-define ruff-format
-    :program "ruff"
-    :args '("format" "--stdin-filename" "temp.py" "-")
-    :stdin t)
-
-  (defun reformatter-python-code-block ()
-    (message "TODO"))
-
-  (add-hook 'python-mode-hook #'reformatter-python-code-block))
+(require 'circe)
+(setq circe-use-cycle-completion t)
+(setq circe-case-insensitive-completion t)
+(setq circe-format-say "{nick:-16s}: {body}")
+(setq circe-format-self-say "<{nick:-16s}>: {body}")
+(setq circe-display-activity nil)
+(setq circe-network-options
+      `(("Libera Chat"
+         :nick "phfrohring"
+         :channels ("#emacs" "#guix")
+         :nickserv-password ,(getenv "NICKSERVPWD"))))
+(setq circe-reduce-lurker-spam t)
+(add-hook 'circe-channel-mode-hook #'enable-circe-color-nicks)
 #+end_src
 
-* guix
+** Git
 
 #+begin_src emacs-lisp
-(use-package guix
-  :after '(geiser)
-  :init
-  (with-eval-after-load 'geiser-guile
-    (add-to-list 'geiser-guile-load-path (expand-file-name "~/src/guix"))))
+(require 'magit)
+(defun transient-prefix-object ()
+  (or transient--prefix transient-current-prefix))
+(setq magit-diff-refine-hunk (quote all))
 #+end_src
 
-* completion-preview
+*** C-x g → magit-status
 
 #+begin_src emacs-lisp
-(use-package completion-preview
-  :demand
-  :hook ((prog-mode . completion-preview-mode)
-         (text-mode . completion-preview-mode)
-         (comint-mode . completion-preview-mode)
-         (org-mode . completion-preview-mode))
-  :bind (:map completion-preview-active-mode-map
-              ("M-n" . completion-preview-next-candidate)
-              ("M-p" . completion-preview-prev-candidate)
-              ("TAB" . completion-preview-insert))
-  :config
-  (setq completion-preview-minimum-symbol-length 2)
-  (setq completion-preview-exact-match-only nil)
-  (setq completion-preview-commands
-        (append completion-preview-commands
-                '(org-self-insert-command
-                  paredit-backward-delete
-                  self-insert-command)))
-  (setq completion-preview-ignore-case t)
-  ;; Add context-aware completion
-  (add-hook 'completion-preview-mode-hook
-            (lambda ()
-              (when (derived-mode-p 'prog-mode)
-                (add-to-list 'completion-at-point-functions #'cape-dabbrev t)))))
+(global-set-key (kbd "C-x g") #'magit-status)
 #+end_src
 
-* citeproc
+** Language server
 
 #+begin_src emacs-lisp
-(use-package citeproc
-  :after org)
-#+end_src
-
-* auto replace characters
-
-#+begin_src emacs-lisp
-  (defcustom auto-replace-characters-include-minibuffer nil
-    "If non-nil, perform replacements in the minibuffer too.
-  Default nil because changing text in the minibuffer can interfere with
-  completions and special minibuffer behavior."
-    :type 'boolean
-    :group 'convenience)
-
-  (defvar auto-replace-characters-rules
-    '((",:"   . "→")
-      (",;" . ":≡")
-      (",in" . "∈")
-      (",<-" . "←")
-      (",=>" . "⇒")
-      (",<=" . "⇐")
-      (",la" . "λ"))
-    "Alist of (STRING . REPLACEMENT).
-  When STRING appears just before point, replace it with REPLACEMENT.")
-
-  (defun auto-replace-characters--post-self-insert ()
-    "Check recently typed text and replace according to `auto-replace-characters-rules'."
-    (when (and (or auto-replace-characters-include-minibuffer (not (minibufferp)))
-               (not buffer-read-only))
-      (dolist (rule auto-replace-characters-rules)
-        (let* ((len (length (car rule)))
-               (start (- (point) len)))
-          (when (and (>= (point) len)
-                     (string= (buffer-substring-no-properties start (point))
-                              (car rule)))
-            (atomic-change-group
-              (delete-region start (point))
-              (insert (cdr rule))))))))
-
-  (define-minor-mode auto-replace-characters-mode
-    "Minor mode: replace strings like \"->\" with symbols as you type.
-  See `auto-replace-characters-rules' for customization."
-    :lighter " ARC"
-    (if auto-replace-characters-mode
-        (add-hook 'post-self-insert-hook #'auto-replace-characters--post-self-insert nil t)
-      (remove-hook 'post-self-insert-hook #'auto-replace-characters--post-self-insert t)))
-
-  (define-globalized-minor-mode global-auto-replace-characters-mode
-    auto-replace-characters-mode
-    (lambda ()
-      (when (or auto-replace-characters-include-minibuffer (not (minibufferp)))
-        (auto-replace-characters-mode 1)))
-    "Globalized version of `auto-replace-characters-mode'.")
-
-(add-hook 'org-mode-hook #'auto-replace-characters-mode)
+(require 'eglot)
+(add-to-list
+ 'eglot-server-programs
+ `(elixir-ts-mode ,(file-name-concat user--package "elixir-ls/language_server.sh")))
 #+end_src
 
 * local extension

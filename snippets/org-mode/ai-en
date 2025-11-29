@@ -1,0 +1,22 @@
+# key: ai-en
+# name: ai-en
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+<instructions>
+- Consider the following ${1:python} content:
+</instructions>
+<$1>
+$0
+</$1>
+<instructions>
+- Fix the spelling.
+- Fix the grammar.
+- Improve the writing.
+- Be concise.
+- Be simple.
+- Be direct.
+- Be clear.
+- Preserve the Org Mode markup.
+- List inconsistencies.
+- Return the result as a code block.
+</instructions>
