@@ -204,38 +204,65 @@ With prefix ARG, undedicate it."
 *** Show completion preview
 
 #+begin_src emacs-lisp
-;; Built-in VS Code-style inline “ghost text” completion (Emacs 29+)
+;; Built-in Completion Preview (Emacs 29+)
 (require 'completion-preview)
 
-;; Enable almost everywhere
+;; Enable in almost all text-editing modes
 (dolist (hook '(prog-mode-hook
                 text-mode-hook
-                comint-mode-hook
+                conf-mode-hook
+                comint-mode-hook          ; shell, eshell, ielm, etc.
                 org-mode-hook))
   (add-hook hook #'completion-preview-mode))
 
-;; Settings
-(setq completion-preview-minimum-symbol-length 2)   ; don’t be too eager
-(setq completion-preview-exact-match-only nil)      ; show preview even if not exact
-(setq completion-preview-ignore-case t)             ; case-insensitive
+;; Core settings
+(setq completion-preview-minimum-symbol-length 2)     ; don’t be annoying
+(setq completion-preview-exact-match-only nil)    ; show preview even with many candidates
+(setq completion-preview-insert-on-completion t)  ; TAB just accepts (like VS Code)
 
-;; Accept preview with TAB, cycle with M-n/M-p
-(define-key completion-preview-active-mode-map (kbd "TAB") #'completion-preview-insert)
-(define-key completion-preview-active-mode-map (kbd "M-n") #'completion-preview-next-candidate)
-(define-key completion-preview-active-mode-map (kbd "M-p") #'completion-preview-prev-candidate)
-
-;; Make preview appear on normal typing (not just special commands)
+;; Show the preview immediately while you type (this is the magic)
 (setq completion-preview-commands
-      (append completion-preview-commands
-              '(self-insert-command
-                org-self-insert-command
-                paredit-backward-delete)))
+      '(self-insert-command
+        delete-backward-char
+        backward-delete-char-untabify
+        org-self-insert-command
+        org-delete-backward-char
+        paredit-backward-delete))
 
-;; In programming modes, add cape-dabbrev as a cheap/fast completion source
-(add-hook 'completion-preview-mode-hook
-          (lambda ()
-            (when (derived-mode-p 'prog-mode)
-              (add-to-list 'completion-at-point-functions #'cape-dabbrev t))))
+;; Key bindings – exactly what you expect
+(define-key completion-preview-active-mode-map (kbd "TAB")   #'completion-preview-insert)
+(define-key completion-preview-active-mode-map (kbd "<tab>") #'completion-preview-insert)
+(define-key completion-preview-active-mode-map (kbd "M-n")     #'completion-preview-next-candidate)
+(define-key completion-preview-active-mode-map (kbd "M-p")     #'completion-preview-prev-candidate)
+(define-key completion-preview-active-mode-map (kbd "C-g")     #'completion-preview-cancel)
+
+;; Feed Completion Preview with modern, fast, case-respecting sources
+(require 'cape)
+
+;; Global sources (cape-dabbrev is the new, better dabbrev)
+(add-to-list 'completion-at-point-functions #'cape-dabbrev)
+(add-to-list 'completion-at-point-functions #'cape-file)
+(add-to-list 'completion-at-point-functions #'cape-keyword)
+(add-to-list 'completion-at-point-functions #'cape-history)     ; great in shells
+
+;; Push cape-dabbrev to the front in programming and shell modes (fastest & most relevant)
+(dolist (hook '(prog-mode-hook comint-mode-hook))
+  (add-hook hook
+            (lambda ()
+              (make-local-variable 'completion-at-point-functions)
+              (setq completion-at-point-functions
+                    (cons #'cape-dabbrev
+                          (delq #'cape-dabbrev completion-at-point-functions))))))
+
+;; Never again get 1-API-DRAFT when you wrote 1-api-draft
+(setq dabbrev-case-replace nil)          ; old dabbrev fix (harmless if you never use it)
+(setq cape-dabbrev-check-other-buffers t)  ; scan all buffers, like dabbrev used to
+
+;; Modern fuzzy-ish completion everywhere (optional but 99 % of people love it)
+(setq completion-styles '(orderless basic))
+(setq completion-category-overrides '((file (styles basic partial-completion))))
+(setq completion-ignore-case t)
+(setq read-file-name-completion-ignore-case t)
 #+end_src
 
 ** Find
@@ -599,7 +626,8 @@ $0`(yas-escape-text yas-selected-text)`")
     (",la" . "λ")
     (",!" . "↓")
     (",>" . "▸")
-    (",h" . "🞎"))
+    (",h" . "🞎")
+    (",s" . "■"))
   "Alist of (STRING . REPLACEMENT).
   When STRING appears just before point, replace it with REPLACEMENT.")
 
@@ -781,12 +809,13 @@ Allows recursive minibuffer so that multiple commands may be issued.
 (require 'org)
 
 (global-set-key (kbd "C-c C-l") #'org-insert-link)
-(global-set-key (kbd "M-RET")    #'org-insert-heading)
+(global-set-key (kbd "C-c l") #'org-store-link)
+(global-set-key (kbd "M-RET") #'org-insert-heading)
 (global-set-key (kbd "M-<right>") #'org-metaright)
-(global-set-key (kbd "M-p")      #'org-copy-outline-path-to-kill-ring)
-(global-set-key (kbd "C-c i")    #'org-clock-in)
-(global-set-key (kbd "C-c o")    #'org-clock-out)
-(global-set-key (kbd "C-c a")    #'org-agenda)
+(global-set-key (kbd "M-p") #'org-copy-outline-path-to-kill-ring)
+(global-set-key (kbd "C-c i") #'org-clock-in)
+(global-set-key (kbd "C-c o") #'org-clock-out)
+(global-set-key (kbd "C-c a") #'org-agenda)
 
 ;; Appearance & behaviour
 (setq org-cite-global-bibliography

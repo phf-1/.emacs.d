@@ -1,5 +1,5 @@
-# key: template
-# name: template
+# key: init
+# name: init
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
 # \$(patsubst %.docx,%.md,file1.docx file2.docx)
@@ -16,14 +16,14 @@ MAKEFLAGS += --no-print-directory
 
 .PHONY: help
 help:
-	grep '^# - make ' \$(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", \$\$1, \$\$2}'
+        grep '^# - make ' \$(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", \$\$1, \$\$2}'
 
 # BUILD
 # - \${BUILD} is the directory under which all generated files are installed.
 
 BUILD := _build
 \${BUILD}:
-	mkdir -p \$@
+        mkdir -p \$@
 
 # TRACE
 # - \${TRACE} is a file used to record an execution trace.
@@ -47,10 +47,10 @@ MAIN_ORG := README.org
 TANGLE_HEADING := \${BUILD}/tangle-heading
 tangle-heading: \${TANGLE_HEADING}
 \${TANGLE_HEADING}: \${MAIN_ORG} | \${BUILD}
-	\${TRAP}
-	./tangle-heading \${MAIN_ORG} tangle-heading \${BUILD} &> \${TRACE}
-	cp -vf \${BUILD}/tangle-heading ./tangle-heading &>> \${TRACE}
-	tail -n 1 \${TRACE}
+        \${TRAP}
+        ./tangle-heading \${MAIN_ORG} tangle-heading \${BUILD} &> \${TRACE}
+        cp -vf \${BUILD}/tangle-heading ./tangle-heading &>> \${TRACE}
+        tail -n 1 \${TRACE}
 
 # Makefile
 # - make Makefile # Returns the path to the updated ./Makefile.
@@ -59,10 +59,10 @@ tangle-heading: \${TANGLE_HEADING}
 MAKEFILE := \${BUILD}/Makefile
 Makefile: \${MAKEFILE}
 \${MAKEFILE}: \${MAIN_ORG} | \${BUILD}
-	\${TRAP}
-	./tangle-heading \${MAIN_ORG} Makefile \${BUILD} &> \${TRACE}
-	cp -vf \${BUILD}/Makefile ./Makefile &>> \${TRACE}
-	tail -n 1 \${TRACE}
+        \${TRAP}
+        ./tangle-heading \${MAIN_ORG} Makefile \${BUILD} &> \${TRACE}
+        cp -vf \${BUILD}/Makefile ./Makefile &>> \${TRACE}
+        tail -n 1 \${TRACE}
 
 # packages.scm
 # - make packages.scm # Returns the path to the Guix packages available in the environment.
@@ -71,9 +71,9 @@ Makefile: \${MAKEFILE}
 PACKAGES_SCM := \${BUILD}/packages.scm
 packages.scm: \${PACKAGES_SCM}
 \${PACKAGES_SCM}: \${MAIN_ORG} | \${BUILD}
-	\${TRAP}
-	./tangle-heading \${MAIN_ORG} packages.scm \${BUILD} &> \${TRACE}
-	echo "\$@"
+        \${TRAP}
+        ./tangle-heading \${MAIN_ORG} packages.scm \${BUILD} &> \${TRACE}
+        echo "\$@"
 
 # init.bash
 # - make init.bash # Returns the path to parameters that initialize Bash in the environment.
@@ -82,9 +82,9 @@ packages.scm: \${PACKAGES_SCM}
 INIT_BASH := \${BUILD}/init.bash
 init.bash: \${INIT_BASH}
 \${INIT_BASH}: \${MAIN_ORG} | \${BUILD}
-	\${TRAP}
-	./tangle-heading \${MAIN_ORG} init.bash \${BUILD} &> \${TRACE}
-	echo "\$@"
+        \${TRAP}
+        ./tangle-heading \${MAIN_ORG} init.bash \${BUILD} &> \${TRACE}
+        echo "\$@"
 
 # env
 # - make env # Starts the environment.
@@ -92,27 +92,27 @@ init.bash: \${INIT_BASH}
 .PHONY: env
 GUIX := guix
 GUIX_SHELL := \${GUIX} shell --container \
-	-F \
-	-N \
-	--file=\${PACKAGES_SCM} \
-	--preserve='^TERM\$\$' \
-	-- bash --init-file \${INIT_BASH}
+        -F \
+        -N \
+        --file=\${PACKAGES_SCM} \
+        --preserve='^TERM\$\$' \
+        -- bash --init-file \${INIT_BASH}
 env: \${PACKAGES_SCM} \${INIT_BASH}
-	CMD="\${CMD}"
-	if [[ ! -v GUIX_ENVIRONMENT ]]; then
-	  if [[ "\$\${CMD}" == "" ]]; then
-	    \${GUIX_SHELL} -i;
-	  else
-	    \${GUIX_SHELL} -c "\${CMD}";
-	  fi
-	else
-	  \${CMD}
-	  :
-	fi
+        CMD="\${CMD}"
+        if [[ ! -v GUIX_ENVIRONMENT ]]; then
+          if [[ "\$\${CMD}" == "" ]]; then
+            \${GUIX_SHELL} -i;
+          else
+            \${GUIX_SHELL} -c "\${CMD}";
+          fi
+        else
+          \${CMD}
+          :
+        fi
 
 # clean
 # - make clean # Deletes all generated files.
 
 .PHONY: clean
 clean:
-	rm -rfv \${BUILD}
+        rm -rfv \${BUILD}
