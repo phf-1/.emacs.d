@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: typedoc-link
+# key: link
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+{@link ${1:Type}} \`${2:name}\`
