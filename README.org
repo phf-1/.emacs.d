@@ -693,6 +693,13 @@ Contextual actions for completions, buffers, files, etc.
 (add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode)
 #+end_src
 
+#+begin_src emacs-lisp
+(require 'which-key)
+(setq which-key-idle-delay 0.5)
+(setq which-key-max-description-length 40)
+(which-key-mode)
+#+end_src
+
 * Languages
 ** CSS
 
