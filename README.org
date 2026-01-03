@@ -50,16 +50,6 @@ Minimize noise in the calendar.
 (setq holiday-oriental-holidays nil)
 #+end_src
 
-* Enhanced commands
-
-#+begin_src emacs-lisp
-(defun user--configure-consult ()
-  (require 'consult)
-  (add-hook 'completion-list-mode-hook #'consult-preview-at-point-mode)
-  (advice-add #'register-preview :override #'consult-register-window))
-(user--configure-consult)
-#+end_src
-
 * Open protected files
 
 #+begin_src emacs-lisp
@@ -103,6 +93,134 @@ Allows Emacs to have tabs.
 
 #+begin_src emacs-lisp
 (global-set-key (kbd "M--") #'tab-bar-switch-to-prev-tab)
+#+end_src
+
+* Completion
+Vertico + Consult + Marginalia + Orderless + Cape + native Completion Preview + Embark
+
+#+begin_src emacs-lisp
+;; Core completion styles (defined only once)
+(setq completion-styles '(orderless basic))
+(setq completion-category-defaults nil)
+(setq completion-category-overrides '((file (styles basic partial-completion))))
+(setq completion-ignore-case t)
+(setq read-file-name-completion-ignore-case t)
+
+;; Orderless
+(require 'orderless)
+
+;; Marginalia annotations
+(require 'marginalia)
+(marginalia-mode)
+
+;; Cape backends - only via keybindings for explicit completion
+(require 'cape)
+(global-set-key (kbd "C-c f") #'cape-file)
+(global-set-key (kbd "C-c h") #'cape-history)
+
+;; Minimal global capfs - only dabbrev and keyword for general use
+;; File and history completion are available via explicit keybindings above
+(setq-default completion-at-point-functions
+              '(cape-dabbrev cape-keyword))
+
+;; Dabbrev tweaks
+(setq dabbrev-case-replace nil)
+(setq cape-dabbrev-check-other-buffers t)
+
+;; Prioritize dabbrev in modes where dynamic expansion is most useful
+(defun user--prioritize-dabbrev-completion ()
+  "Move cape-dabbrev to front of completion-at-point-functions."
+  (setq-local completion-at-point-functions
+              (cons #'cape-dabbrev
+                    (delq #'cape-dabbrev completion-at-point-functions))))
+
+(dolist (hook '(prog-mode-hook comint-mode-hook))
+  (add-hook hook #'user--prioritize-dabbrev-completion))
+
+;; Shell-specific completions
+(add-hook 'shell-mode-hook
+          (lambda ()
+            (add-to-list 'completion-at-point-functions #'cape-history)
+            (add-to-list 'completion-at-point-functions #'pcomplete-completions-at-point)))
+(advice-add #'comint-completion-at-point :around #'cape-wrap-nonexclusive)
+(advice-add #'pcomplete-completions-at-point :around #'cape-wrap-silent)
+
+;; Ripgrep integration (for consult-ripgrep)
+(require 'rg)
+(rg-enable-default-bindings)
+(setq rg-command-line-flags '())
+
+;; Consult preview integration
+(require 'consult)
+(add-hook 'completion-list-mode-hook #'consult-preview-at-point-mode)
+(advice-add #'register-preview :override #'consult-register-window)
+
+;; All Consult keybindings
+(global-set-key (kbd "C-s") #'consult-line)
+(global-set-key (kbd "M-g g") #'consult-goto-line)
+(global-set-key (kbd "C-r") #'consult-ripgrep)
+(global-set-key (kbd "C-c f") #'consult-fd)
+(global-set-key (kbd "C-- ") #'consult-mark)
+(global-set-key (kbd "C-x b") #'consult-buffer)
+(global-set-key (kbd "C-y") #'consult-yank-replace)
+(global-set-key (kbd "C-z") #'consult-recent-file)
+(global-set-key (kbd "M-i") #'consult-imenu)
+
+;; Recent files (required for consult-recent-file)
+(require 'recentf)
+(recentf-mode)
+(setq recentf-max-menu-items 20)
+(setq recentf-max-saved-items 100)
+(run-at-time nil (* 5 60) 'recentf-save-list)
+
+;; Vertico UI
+(require 'vertico)
+(vertico-mode)
+(vertico-multiform-mode)
+(setq vertico-scroll-margin 0)
+(setq vertico-count 20)
+(setq vertico-resize t)
+(setq vertico-cycle t)
+(setq vertico-multiform-categories
+      '((file grid)
+        (consult-grep buffer)))
+
+;; Native inline preview (Completion Preview)
+;; This works alongside Cape but handles inline preview independently
+(require 'completion-preview)
+(dolist (hook '(prog-mode-hook text-mode-hook conf-mode-hook comint-mode-hook org-mode-hook))
+  (add-hook hook #'completion-preview-mode))
+(setq completion-preview-minimum-symbol-length 2)
+(setq completion-preview-exact-match-only nil)
+(setq completion-preview-insert-on-completion t)
+(setq completion-preview-commands
+      '(self-insert-command delete-backward-char backward-delete-char-untabify
+        org-self-insert-command org-delete-backward-char paredit-backward-delete))
+(define-key completion-preview-active-mode-map (kbd "TAB") #'completion-preview-insert)
+(define-key completion-preview-active-mode-map (kbd "<tab>") #'completion-preview-insert)
+(define-key completion-preview-active-mode-map (kbd "M-n") #'completion-preview-next-candidate)
+(define-key completion-preview-active-mode-map (kbd "M-p") #'completion-preview-prev-candidate)
+(define-key completion-preview-active-mode-map (kbd "C-g") #'completion-preview-cancel)
+(global-set-key (kbd "C-<tab>") #'completion-at-point)
+(global-set-key (kbd "C-!") #'completion-at-point)
+
+;; Embark
+(require 'embark)
+(require 'embark-consult)
+(global-set-key (kbd "C-.") #'embark-act)
+(global-set-key (kbd "C-h B") #'embark-bindings)
+(setq embark-live t)
+(add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode)
+#+end_src
+
+** Which-key
+Displays available keybindings after a prefix.
+
+#+begin_src emacs-lisp
+(require 'which-key)
+(setq which-key-idle-delay 0.5)
+(setq which-key-max-description-length 40)
+(which-key-mode)
 #+end_src
 
 * Use
@@ -201,70 +319,6 @@ With prefix ARG, undedicate it."
            (current-buffer)))
 #+end_src
 
-*** Show completion preview
-
-#+begin_src emacs-lisp
-;; Built-in Completion Preview (Emacs 29+)
-(require 'completion-preview)
-
-;; Enable in almost all text-editing modes
-(dolist (hook '(prog-mode-hook
-                text-mode-hook
-                conf-mode-hook
-                comint-mode-hook          ; shell, eshell, ielm, etc.
-                org-mode-hook))
-  (add-hook hook #'completion-preview-mode))
-
-;; Core settings
-(setq completion-preview-minimum-symbol-length 2)     ; don’t be annoying
-(setq completion-preview-exact-match-only nil)    ; show preview even with many candidates
-(setq completion-preview-insert-on-completion t)  ; TAB just accepts (like VS Code)
-
-;; Show the preview immediately while you type (this is the magic)
-(setq completion-preview-commands
-      '(self-insert-command
-        delete-backward-char
-        backward-delete-char-untabify
-        org-self-insert-command
-        org-delete-backward-char
-        paredit-backward-delete))
-
-;; Key bindings – exactly what you expect
-(define-key completion-preview-active-mode-map (kbd "TAB")   #'completion-preview-insert)
-(define-key completion-preview-active-mode-map (kbd "<tab>") #'completion-preview-insert)
-(define-key completion-preview-active-mode-map (kbd "M-n")     #'completion-preview-next-candidate)
-(define-key completion-preview-active-mode-map (kbd "M-p")     #'completion-preview-prev-candidate)
-(define-key completion-preview-active-mode-map (kbd "C-g")     #'completion-preview-cancel)
-
-;; Feed Completion Preview with modern, fast, case-respecting sources
-(require 'cape)
-
-;; Global sources (cape-dabbrev is the new, better dabbrev)
-(add-to-list 'completion-at-point-functions #'cape-dabbrev)
-(add-to-list 'completion-at-point-functions #'cape-file)
-(add-to-list 'completion-at-point-functions #'cape-keyword)
-(add-to-list 'completion-at-point-functions #'cape-history)     ; great in shells
-
-;; Push cape-dabbrev to the front in programming and shell modes (fastest & most relevant)
-(dolist (hook '(prog-mode-hook comint-mode-hook))
-  (add-hook hook
-            (lambda ()
-              (make-local-variable 'completion-at-point-functions)
-              (setq completion-at-point-functions
-                    (cons #'cape-dabbrev
-                          (delq #'cape-dabbrev completion-at-point-functions))))))
-
-;; Never again get 1-API-DRAFT when you wrote 1-api-draft
-(setq dabbrev-case-replace nil)          ; old dabbrev fix (harmless if you never use it)
-(setq cape-dabbrev-check-other-buffers t)  ; scan all buffers, like dabbrev used to
-
-;; Modern fuzzy-ish completion everywhere (optional but 99 % of people love it)
-(setq completion-styles '(orderless basic))
-(setq completion-category-overrides '((file (styles basic partial-completion))))
-(setq completion-ignore-case t)
-(setq read-file-name-completion-ignore-case t)
-#+end_src
-
 ** Find
 *** Project
 Limit the scope of different operations like searching to the relevant root directory.
@@ -274,118 +328,11 @@ Limit the scope of different operations like searching to the relevant root dire
 (setq project-vc-extra-root-markers '("project-root" "mix.exs"))
 #+end_src
 
-*** Orderless
-Divides the pattern into space-separated components, and matches candidates that
-match all of the components in any order is provided.
-
-#+begin_src emacs-lisp
-(require 'orderless)
-(setq completion-styles '(orderless basic))
-(setq completion-category-defaults nil)
-(setq completion-category-overrides '((file (styles basic partial-completion))))
-#+end_src
-
-*** Annotated completion candidates
-Meta-data are added to completion candidates like descriptions.
-Cycle annotators using the provided key sequence
-
-#+begin_src emacs-lisp
-(require 'marginalia)
-(marginalia-mode)
-#+end_src
-
-*** Default completion candidates
-Cape provides ready-made completion backends.
-
-#+begin_src emacs-lisp
-(require 'cape)
-
-;; Global convenient bindings
-(global-set-key (kbd "C-c f") #'cape-file)
-(global-set-key (kbd "C-c h") #'cape-history)
-
-;; Better completions in shell-mode / eshell / comint
-(defun my/setup-shell-completions ()
-  (add-to-list 'completion-at-point-functions #'cape-history)
-  (add-to-list 'completion-at-point-functions #'pcomplete-completions-at-point))
-
-(add-hook 'shell-mode-hook #'my/setup-shell-completions)
-
-;; Make Cape play nicely with existing completion functions
-(advice-add #'comint-completion-at-point     :around #'cape-wrap-nonexclusive)
-(advice-add #'pcomplete-completions-at-point :around #'cape-wrap-silent)
-#+end_src
-
-*** C-s → Find lines in the current buffer
-
-#+begin_src emacs-lisp
-(user--configure-consult)
-(global-set-key (kbd "C-s") #'consult-line)
-#+end_src
-
-*** M-g g → Find line by number
-
-#+begin_src emacs-lisp
-(user--configure-consult)
-(global-set-key (kbd "M-g g") #'consult-goto-line)
-#+end_src
-
-*** M-i → Find sections in the current buffer
 *** M-. → Find the definition of some symbol
 
 #+begin_src emacs-lisp
 (require 'xref)
 (global-set-key (kbd "M-.") #'xref-find-definitions)
-#+end_src
-
-*** C-r → Find files that contains some strings
-
-#+begin_src emacs-lisp
-(require 'rg)
-(rg-enable-default-bindings)
-(setq rg-command-line-flags '())
-(user--configure-consult)
-(global-set-key (kbd "C-r") #'consult-ripgrep)
-#+end_src
-
-*** C-c f → Find files by name
-
-#+begin_src emacs-lisp
-(user--configure-consult)
-(global-set-key (kbd "C-c f") #'consult-fd)
-#+end_src
-
-*** C-- → Find make among all marks
-
-#+begin_src emacs-lisp
-(user--configure-consult)
-(global-set-key (kbd "C-- ") #'consult-mark)
-#+end_src
-
-*** C-x b → Find a buffer among all buffers
-
-#+begin_src emacs-lisp
-(user--configure-consult)
-(global-set-key (kbd "C-x b") #'consult-buffer)
-#+end_src
-
-*** C-y → Find what to paste at point
-
-#+begin_src emacs-lisp
-(user--configure-consult)
-(global-set-key (kbd "C-y") #'consult-yank-replace)
-#+end_src
-
-*** C-z → Find file among recent files
-
-#+begin_src emacs-lisp
-(require 'recentf)
-(recentf-mode)
-(setq recentf-max-menu-items 20)
-(setq recentf-max-saved-items 100)
-(run-at-time nil (* 5 60) 'recentf-save-list)
-(user--configure-consult)
-(global-set-key (kbd "C-z") #'consult-recent-file)
 #+end_src
 
 *** M-/ → Find the next thing to instert
@@ -414,67 +361,11 @@ Cape provides ready-made completion backends.
 (global-set-key (kbd "C-<") #'er/expand-region)
 #+end_src
 
-*** Vertical menus to choose from
-
-#+begin_src emacs-lisp
-(require 'vertico)
-(vertico-mode)
-(setq vertico-scroll-margin 0)
-(setq vertico-count 20)
-(setq vertico-resize t)
-(setq vertico-cycle t)
-;; Optional: Enable vertico-multiform for better completion UI
-(vertico-multiform-mode)
-(setq vertico-multiform-categories
-      '((file grid)
-        (consult-grep buffer)))
-#+end_src
-
 *** M-m → Select multiple lines
 
 #+begin_src emacs-lisp
 (require 'multiple-cursors)
 (global-set-key (kbd "M-m") #'mc/edit-lines)
-#+end_src
-
-*** In-buffer completion
-Inline completion preview using the built-in Completion Preview mode.
-
-#+begin_src emacs-lisp
-(require 'completion-preview)
-
-;; Enable in almost all text-editing modes (mirrors your original choice)
-(dolist (hook '(prog-mode-hook
-                text-mode-hook
-                conf-mode-hook
-                comint-mode-hook          ; shell, eshell, ielm, etc.
-                org-mode-hook))
-  (add-hook hook #'completion-preview-mode))
-
-;; Core behaviour settings
-(setq completion-preview-minimum-symbol-length 2)     ; avoid noise on short symbols
-(setq completion-preview-exact-match-only nil)        ; show preview even with multiple candidates
-(setq completion-preview-insert-on-completion t)      ; TAB accepts the preview
-
-;; Automatically show the preview while typing in common situations
-(setq completion-preview-commands
-      '(self-insert-command
-        delete-backward-char
-        backward-delete-char-untabify
-        org-self-insert-command
-        org-delete-backward-char
-        paredit-backward-delete))  ; add more if you use other structural editing modes
-
-;; Keybindings in the active preview
-(define-key completion-preview-active-mode-map (kbd "TAB")   #'completion-preview-insert)
-(define-key completion-preview-active-mode-map (kbd "<tab>") #'completion-preview-insert)
-(define-key completion-preview-active-mode-map (kbd "M-n")   #'completion-preview-next-candidate)
-(define-key completion-preview-active-mode-map (kbd "M-p")   #'completion-preview-prev-candidate)
-(define-key completion-preview-active-mode-map (kbd "C-g")   #'completion-preview-cancel)
-
-;; Manual trigger (your existing preferred keys) – this restarts/re-shows the preview
-(global-set-key (kbd "C-<tab>") #'completion-at-point)
-(global-set-key (kbd "C-!") #'completion-at-point)
 #+end_src
 
 ** Remember
@@ -486,15 +377,6 @@ Inline completion preview using the built-in Completion Preview mode.
 #+end_src
 
 ** Move
-*** M-i → list and jump to sections of the current buffer
-
-#+begin_src emacs-lisp
-(require 'imenu)
-(setq imenu-auto-rescan t)
-(user--configure-consult)
-(global-set-key (kbd "M-i") #'consult-imenu)
-#+end_src
-
 *** Jump to location, keyboard only
 
 #+begin_src emacs-lisp
@@ -671,33 +553,6 @@ Allows recursive minibuffer so that multiple commands may be issued.
 
 #+begin_src emacs-lisp
 (setq enable-recursive-minibuffers t)
-#+end_src
-
-** Contextual menu
-Contextual actions for completions, buffers, files, etc.
-
-#+begin_src emacs-lisp
-(require 'embark)
-(require 'embark-consult)  ; essential integration with Consult
-
-;; Default action key — C-. opens the Embark action menu
-(global-set-key (kbd "C-.") #'embark-act)
-
-;; Show available keybindings for the current target
-(global-set-key (kbd "C-h B") #'embark-bindings)
-
-;; Live-updating preview of actions as you move through candidates
-(setq embark-live t)
-
-;; Make Embark act on the region when active (very useful)
-(add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode)
-#+end_src
-
-#+begin_src emacs-lisp
-(require 'which-key)
-(setq which-key-idle-delay 0.5)
-(setq which-key-max-description-length 40)
-(which-key-mode)
 #+end_src
 
 * Languages
@@ -1019,10 +874,6 @@ Contextual actions for completions, buffers, files, etc.
 
 ;; Indentation (2 spaces, as is standard in the JS/TS world)
 (setq typescript-ts-mode-indent-offset 2)
-
-;; Start Eglot automatically — works with typescript-language-server
-;; (add-hook 'typescript-ts-mode-hook #'eglot-ensure)
-;; (add-hook 'tsx-ts-mode-hook        #'eglot-ensure)
 
 ;; Tell Eglot to use typescript-language-server for both .ts and .tsx
 (require 'eglot)
