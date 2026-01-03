@@ -314,7 +314,6 @@ Cape provides ready-made completion backends.
 ;; Make Cape play nicely with existing completion functions
 (advice-add #'comint-completion-at-point     :around #'cape-wrap-nonexclusive)
 (advice-add #'pcomplete-completions-at-point :around #'cape-wrap-silent)
-(advice-add #'pcomplete-completions-at-point :around #'cape-wrap-purify)
 #+end_src
 
 *** C-s → Find lines in the current buffer
@@ -439,40 +438,43 @@ Cape provides ready-made completion backends.
 #+end_src
 
 *** In-buffer completion
-Open a small completion popup at point.
+Inline completion preview using the built-in Completion Preview mode.
 
 #+begin_src emacs-lisp
-(require 'corfu)
-(setq corfu-cycle t)
-(setq corfu-auto nil)                  ; we drive completion manually
-(setq corfu-quit-no-match 'separator)
-(setq corfu-auto-prefix 2)
-(setq corfu-auto-delay 0.1)
-(setq corfu-popupinfo-delay '(0.5 . 0.2))
-(setq corfu-preview-current 'insert)   ; shows the candidate as if typed
-(setq corfu-preselect 'prompt)         ; first candidate is not auto-selected
-(setq corfu-on-exact-match nil)        ; don't auto-insert on exact match
+(require 'completion-preview)
 
-;; Key bindings inside the Corfu minibuffer map
-(define-key corfu-map (kbd "M-SPC")   #'corfu-insert-separator)
-(define-key corfu-map (kbd "TAB")     #'corfu-next)
-(define-key corfu-map [tab]           #'corfu-next)
-(define-key corfu-map (kbd "S-TAB")   #'corfu-previous)
-(define-key corfu-map [backtab]       #'corfu-previous)
-(define-key corfu-map (kbd "RET")     #'corfu-insert)
+;; Enable in almost all text-editing modes (mirrors your original choice)
+(dolist (hook '(prog-mode-hook
+                text-mode-hook
+                conf-mode-hook
+                comint-mode-hook          ; shell, eshell, ielm, etc.
+                org-mode-hook))
+  (add-hook hook #'completion-preview-mode))
 
-;; Enable the modes
-(corfu-history-mode 1)
-(corfu-popupinfo-mode 1)
-(global-corfu-mode 1)
+;; Core behaviour settings
+(setq completion-preview-minimum-symbol-length 2)     ; avoid noise on short symbols
+(setq completion-preview-exact-match-only nil)        ; show preview even with multiple candidates
+(setq completion-preview-insert-on-completion t)      ; TAB accepts the preview
 
-;; corfu-candidate-overlay gives “VS Code-style” inline ghost text
-(require 'corfu-candidate-overlay)
-(corfu-candidate-overlay-mode +1)
+;; Automatically show the preview while typing in common situations
+(setq completion-preview-commands
+      '(self-insert-command
+        delete-backward-char
+        backward-delete-char-untabify
+        org-self-insert-command
+        org-delete-backward-char
+        paredit-backward-delete))  ; add more if you use other structural editing modes
 
-;; Convenient global keys to trigger completion-at-point manually
+;; Keybindings in the active preview
+(define-key completion-preview-active-mode-map (kbd "TAB")   #'completion-preview-insert)
+(define-key completion-preview-active-mode-map (kbd "<tab>") #'completion-preview-insert)
+(define-key completion-preview-active-mode-map (kbd "M-n")   #'completion-preview-next-candidate)
+(define-key completion-preview-active-mode-map (kbd "M-p")   #'completion-preview-prev-candidate)
+(define-key completion-preview-active-mode-map (kbd "C-g")   #'completion-preview-cancel)
+
+;; Manual trigger (your existing preferred keys) – this restarts/re-shows the preview
 (global-set-key (kbd "C-<tab>") #'completion-at-point)
-(global-set-key (kbd "C-!") #'completion-at-point)  ; C-! is the same as above in your config
+(global-set-key (kbd "C-!") #'completion-at-point)
 #+end_src
 
 ** Remember
@@ -671,6 +673,26 @@ Allows recursive minibuffer so that multiple commands may be issued.
 (setq enable-recursive-minibuffers t)
 #+end_src
 
+** Contextual menu
+Contextual actions for completions, buffers, files, etc.
+
+#+begin_src emacs-lisp
+(require 'embark)
+(require 'embark-consult)  ; essential integration with Consult
+
+;; Default action key — C-. opens the Embark action menu
+(global-set-key (kbd "C-.") #'embark-act)
+
+;; Show available keybindings for the current target
+(global-set-key (kbd "C-h B") #'embark-bindings)
+
+;; Live-updating preview of actions as you move through candidates
+(setq embark-live t)
+
+;; Make Embark act on the region when active (very useful)
+(add-hook 'embark-collect-mode-hook #'consult-preview-at-point-mode)
+#+end_src
+
 * Languages
 ** CSS
 
@@ -839,15 +861,17 @@ Allows recursive minibuffer so that multiple commands may be issued.
 (setq org-babel-python-command-nonsession "python3")
 
 (setq org-todo-keywords
-      '((sequence "TODO(t)" "WAITING(w)" "DOING(o)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
+      '((sequence "TODO(t)" "READY(r)" "WAITING(w)" "DOING(o)" "|" "DONE(d)" "FAILED(f)")))
 
 (setq org-todo-keyword-faces
       '(("TODO"     . (:foreground "red"     :weight bold))
+        ("READY"    . (:foreground "red"     :weight bold))
+        ("PLANNED"  . (:foreground "red"     :weight bold))
         ("WAITING"  . (:foreground "orange"  :weight bold))
         ("DOING"    . (:foreground "orange"  :weight bold))
-        ("FAILED"   . (:foreground "purple"  :weight bold))
+        ("FAILED"   . (:foreground "gray"    :weight bold))
         ("DONE"     . (:foreground "green"   :weight bold))
-        ("CANCELED" . (:foreground "gray60" :weight bold))))
+        ("CANCELED" . (:foreground "gray60"  :weight bold))))
 
 (setq org-log-into-drawer t)
 (setq org-clock-into-drawer t)
@@ -990,22 +1014,14 @@ Allows recursive minibuffer so that multiple commands may be issued.
 (setq typescript-ts-mode-indent-offset 2)
 
 ;; Start Eglot automatically — works with typescript-language-server
-(add-hook 'typescript-ts-mode-hook #'eglot-ensure)
-(add-hook 'tsx-ts-mode-hook        #'eglot-ensure)
+;; (add-hook 'typescript-ts-mode-hook #'eglot-ensure)
+;; (add-hook 'tsx-ts-mode-hook        #'eglot-ensure)
 
 ;; Tell Eglot to use typescript-language-server for both .ts and .tsx
 (require 'eglot)
 (add-to-list 'eglot-server-programs
              '((typescript-ts-mode tsx-ts-mode)
                . ("typescript-language-server" "--stdio")))
-
-;; Prettier formatting on save (requires prettier in PATH or in node_modules)
-(require 'apheleia)
-(setf (alist-get 'prettier apheleia-formatters)
-      '("prettier" "--stdin-filepath" filepath))
-(dolist (mode '(typescript-ts-mode tsx-ts-mode))
-  (setf (alist-get mode apheleia-mode-alist) 'prettier))
-(apheleia-global-mode +1)
 
 ;; Make local node_modules/.bin available (very useful in monorepos)
 (require 'add-node-modules-path)
