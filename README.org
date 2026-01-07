@@ -697,8 +697,6 @@ Allows recursive minibuffer so that multiple commands may be issued.
 (global-set-key (kbd "M-RET") #'org-insert-heading)
 (global-set-key (kbd "M-<right>") #'org-metaright)
 (global-set-key (kbd "M-p") #'org-copy-outline-path-to-kill-ring)
-(global-set-key (kbd "C-c i") #'org-clock-in)
-(global-set-key (kbd "C-c o") #'org-clock-out)
 (global-set-key (kbd "C-c a") #'org-agenda)
 
 ;; Appearance & behaviour
@@ -723,7 +721,7 @@ Allows recursive minibuffer so that multiple commands may be issued.
 (setq org-babel-python-command-nonsession "python3")
 
 (setq org-todo-keywords
-      '((sequence "TODO(t)" "READY(r)" "WAITING(w)" "DOING(o)" "|" "DONE(d)" "FAILED(f)")))
+      '((sequence "TODO(t)" "READY(r)" "WAITING(w)" "DOING(o)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
 
 (setq org-todo-keyword-faces
       '(("TODO"     . (:foreground "red"     :weight bold))
@@ -831,6 +829,28 @@ Allows recursive minibuffer so that multiple commands may be issued.
 
 ;; Citations
 (require 'citeproc)
+#+end_src
+
+*** Time may be measured per task and summarized for a whole plan
+Given a plan:
+#+begin_src org
+,* Plan
+,** TODO Objective
+,*** TODO Objective 1
+,**** TODO Objective 1.1
+,**** TODO Objective 1.2
+,*** TODO Objective 2
+#+end_src
+
+Then ~C-c i/o~ starts/stops a clock for the heading at point.
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-c i") #'org-clock-in)
+(global-set-key (kbd "C-c o") #'org-clock-out)
+#+end_src
+
+Then, a detailed summary may be deduced with ~C-c p~ when point on some heading.
+#+begin_src emacs-lisp
+(global-set-key (kbd "C-c p") #'org-clock-display)
 #+end_src
 
 ** systemd
