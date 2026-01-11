@@ -2,7 +2,7 @@
 # name: local-variables
 # key: lv
 # --
-* Local Variables  :noexport:
+* Local Variables                                                  :noexport:
 Local Variables:
 eval: (add-hook 'before-save-hook #'whitespace-cleanup nil t)
 eval: (add-hook 'after-save-hook #'org-babel-tangle nil t)

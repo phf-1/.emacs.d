@@ -1,0 +1,26 @@
+# key: org-for-export
+# name: org-for-export
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+#+OPTIONS: author:nil
+#+PROPERTY: header-args:bash :exports both :results output raw :wrap example :eval never-export
+
+* README
+** Installation
+#+begin_src bash
+node --version
+#+end_src
+
+#+RESULTS:
+#+begin_example
+v22.13.0
+#+end_example
+
+
+* Local Variables                                                  :noexport:
+Local Variables:
+eval: (add-hook 'before-save-hook #'whitespace-cleanup nil t)
+eval: (add-hook 'after-save-hook #'user--org-export-current-buffer-to-utf8-buffer nil t)
+org-confirm-babel-evaluate: nil
+fill-column: 85
+End:

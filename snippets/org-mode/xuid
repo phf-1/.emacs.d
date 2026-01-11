@@ -1,8 +1,6 @@
 # -*- mode: snippet -*-
-# name: comment
-# key: cmt
+# name: xuid
+# key: xuid
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-/**
- * Given TODO, then TODO.
- */
+`(concat "x" (downcase (nth 1 (split-string (org-id-new) "-"))))`

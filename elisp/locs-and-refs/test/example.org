@@ -1,0 +1,20 @@
+#+ID: 2d4130ee-4042-43e7-8cb2-a13b2b1a92e2 id1
+#+REF: 121105cb-349a-4dc4-a20f-9acd36b4f97c ref1
+#+id: 3072b9c1-f91d-4248-ba8d-eb578d045ef5
+#+ref: 316042e5-e1ff-44bf-bba8-5b62a1a01b50 ref2
+
+* heading
+:PROPERTIES:
+:ID: 353a0470-af2e-4ac9-9a1d-8641dca4dfab id3
+:ref: 0131785f-ae7b-4aef-8e1d-a33b39313089 ref3
+:ref: 121105cb-349a-4dc4-a20f-9acd36b4f97c
+:END:
+
+[[id:c2a97878-7d31-4d47-a850-29ff136e1639][id4]] [[ref:c2a97878-7d31-4d47-a850-29ff136e1639][ref4]]
+
+#+begin_src emacs-lisp
+(require 'lar)
+#+end_src
+
+#+RESULTS:
+: lar

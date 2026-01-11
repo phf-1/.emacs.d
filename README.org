@@ -1,4 +1,4 @@
-#+PROPERTY: header-args :tangle init.el :comments org
+#+PROPERTY: header-args:emacs-lisp :tangle init.el :comments org
 
 * user--package
 
@@ -115,7 +115,7 @@ Vertico + Consult + Marginalia + Orderless + Cape + native Completion Preview + 
 
 ;; Cape backends - only via keybindings for explicit completion
 (require 'cape)
-(global-set-key (kbd "C-c f") #'cape-file)
+(global-set-key (kbd "C-c p f") #'cape-file)
 (global-set-key (kbd "C-c h") #'cape-history)
 
 ;; Minimal global capfs - only dabbrev and keyword for general use
@@ -201,8 +201,7 @@ Vertico + Consult + Marginalia + Orderless + Cape + native Completion Preview + 
 (define-key completion-preview-active-mode-map (kbd "M-n") #'completion-preview-next-candidate)
 (define-key completion-preview-active-mode-map (kbd "M-p") #'completion-preview-prev-candidate)
 (define-key completion-preview-active-mode-map (kbd "C-g") #'completion-preview-cancel)
-(global-set-key (kbd "C-<tab>") #'completion-at-point)
-(global-set-key (kbd "C-!") #'completion-at-point)
+(global-set-key (kbd "M-/") #'completion-at-point)
 
 ;; Embark
 (require 'embark)
@@ -246,7 +245,10 @@ Remove whatever is not necessary from the UI.
 #+begin_src emacs-lisp
 (require 'dired)
 (setq dired-dwim-target t)
+(setq dired-listing-switches "-alh")  ; human-readable sizes
+(setq dired-kill-when-opening-new-dired-buffer t)  ; don't accumulate buffers
 (add-hook 'dired-mode-hook #'dired-hide-details-mode)
+(add-hook 'dired-mode-hook #'hl-line-mode)  ; highlight current line
 #+end_src
 
 *** Font
@@ -339,7 +341,8 @@ Limit the scope of different operations like searching to the relevant root dire
 
 #+begin_src emacs-lisp
 (require 'dabbrev)
-(global-set-key (kbd "M-/") #'dabbrev-completion)
+(setq dabbrev-check-all-buffers t)
+(setq dabbrev-check-other-buffers t)
 (add-to-list 'dabbrev-ignored-buffer-regexps "\\` ")
 (add-to-list 'dabbrev-ignored-buffer-modes 'doc-view-mode)
 (add-to-list 'dabbrev-ignored-buffer-modes 'pdf-view-mode)
@@ -388,14 +391,7 @@ Limit the scope of different operations like searching to the relevant root dire
 
 #+begin_src emacs-lisp
 (add-to-list 'load-path (file-name-concat user--package "locs-and-refs/_dist"))
-(require 'locs-and-refs)
-(modus-themes-with-colors
-  (custom-set-faces
-   `(locs-and-refs-location-face
-     ((t (:foreground ,magenta-faint :underline t))))
-   `(locs-and-refs-reference-face
-     ((t (:foreground ,red-faint :underline t))))))
-(locs-and-refs-mode)
+(require 'lar)
 #+end_src
 
 ** Edit
@@ -511,7 +507,9 @@ $0`(yas-escape-text yas-selected-text)`")
     (",!" . "↓")
     (",>" . "▸")
     (",h" . "🞎")
-    (",s" . "■"))
+    (",s" . "■")
+    ("|->" . "↦")
+    ("|>" . "▸"))
   "Alist of (STRING . REPLACEMENT).
   When STRING appears just before point, replace it with REPLACEMENT.")
 
@@ -692,12 +690,14 @@ Allows recursive minibuffer so that multiple commands may be issued.
 #+begin_src emacs-lisp
 (require 'org)
 
-(global-set-key (kbd "C-c C-l") #'org-insert-link)
-(global-set-key (kbd "C-c l") #'org-store-link)
-(global-set-key (kbd "M-RET") #'org-insert-heading)
-(global-set-key (kbd "M-<right>") #'org-metaright)
-(global-set-key (kbd "M-p") #'org-copy-outline-path-to-kill-ring)
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-c C-l") #'org-insert-link)
+  (define-key org-mode-map (kbd "M-RET") #'org-meta-return)
+  (define-key org-mode-map (kbd "M-<right>") #'org-metaright)
+  (define-key org-mode-map (kbd "M-p") #'org-copy-outline-path-to-kill-ring))
+
 (global-set-key (kbd "C-c a") #'org-agenda)
+(global-set-key (kbd "C-c l") #'org-store-link)
 
 ;; Appearance & behaviour
 (setq org-cite-global-bibliography
@@ -721,11 +721,12 @@ Allows recursive minibuffer so that multiple commands may be issued.
 (setq org-babel-python-command-nonsession "python3")
 
 (setq org-todo-keywords
-      '((sequence "TODO(t)" "READY(r)" "WAITING(w)" "DOING(o)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
+      '((sequence "TODO(t)" "READY(r)" "WAITING(w)" "DOING(o)" "REMOVE(m)" "|" "DONE(d)" "FAILED(f)" "CANCELED(c)")))
 
 (setq org-todo-keyword-faces
       '(("TODO"     . (:foreground "red"     :weight bold))
         ("READY"    . (:foreground "red"     :weight bold))
+        ("REMOVE"   . (:foreground "red"     :weight bold))
         ("PLANNED"  . (:foreground "red"     :weight bold))
         ("WAITING"  . (:foreground "orange"  :weight bold))
         ("DOING"    . (:foreground "orange"  :weight bold))
@@ -760,9 +761,17 @@ Allows recursive minibuffer so that multiple commands may be issued.
 
 ;; Helper functions
 (defun org-copy-outline-path-to-kill-ring ()
-  "Copy current heading’s full outline path (Org syntax) to kill ring."
+  "Copy current heading's full outline path (Org syntax) to kill ring."
   (interactive)
-  (let ((path (org-format-outline-path (org-get-outline-path t) 10000)))
+  (let* ((filename (file-name-nondirectory (buffer-file-name)))
+         (outline-path (org-get-outline-path))
+         (current-heading (org-get-heading t t t t))
+         (todo-keyword (org-get-todo-state))
+         (heading-with-todo (if todo-keyword
+                                (concat todo-keyword " " current-heading)
+                              current-heading))
+         (full-path (append (list filename) outline-path (list heading-with-todo)))
+         (path (org-format-outline-path full-path 10000 nil " → ")))
     (kill-new path)
     (message "Outline path → kill-ring: %s" path)))
 
@@ -785,26 +794,43 @@ Allows recursive minibuffer so that multiple commands may be issued.
   "Delete all :PROPERTIES:/:END: blocks in the current buffer after tangling."
   (save-excursion
     (goto-char (point-min))
-    (while (re-search-forward "^[ \t]*:PROPERTIES:$" nil t)
-      (let ((start (line-beginning-position)))
-        (when (re-search-forward "^[ \t]*:END:" nil t)
-          (delete-region start (line-end-position 0))
-          (delete-blank-lines))))
-    (when (buffer-modified-p) (save-buffer))))
-(add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
+    (while (re-search-forward "^[ \t]*:PROPERTIES:[ \t]*$" nil t)
+      (let ((start (match-beginning 0)))
+        (when (re-search-forward "^[ \t]*:END:[ \t]*$" nil t)
+          (delete-region start (1+ (line-end-position)))
+          (goto-char start))))))
+;; (defun user--org-remove-property-drawers ()
+;;   "Delete all :PROPERTIES:/:END: blocks in the current buffer after tangling."
+;;   (save-excursion
+;;     (goto-char (point-min))
+;;     (while (re-search-forward "^[ \t]*:PROPERTIES:$" nil t)
+;;       (let ((start (line-beginning-position)))
+;;         (when (re-search-forward "^[ \t]*:END:" nil t)
+;;           (delete-region start (line-end-position 0))
+;;           (delete-blank-lines))))
+;;     (when (buffer-modified-p) (save-buffer))))
+
+;; (add-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
+;; (remove-hook 'org-babel-post-tangle-hook #'user--org-remove-property-drawers)
 
 ;; Org Agenda
 
-(setq org-agenda-skip-scheduled-if-done nil)
+(setq org-agenda-skip-scheduled-if-done t)
 (setq org-agenda-span 'day)
 (setq org-agenda-show-future-repeats 'next)
 (setq org-deadline-warning-days 1)
 (setq org-agenda-sorting-strategy '(time-up todo-state-down priority-down))
+(defun my/org-agenda-prefix-filename ()
+  "Return just the filename without path for agenda prefix."
+  (if (buffer-file-name (org-base-buffer (current-buffer)))
+      (concat (file-name-nondirectory (buffer-file-name (org-base-buffer (current-buffer)))) "->")
+    ""))
+
 (setq org-agenda-prefix-format
-      '((agenda . "%s %-12t %b")
-        (todo   . "%b")
-        (tags   . "%b")
-        (search . "%b")))
+      '((agenda . "%s %-12t %(my/org-agenda-prefix-filename)%b")
+        (todo   . "%(my/org-agenda-prefix-filename)%b")
+        (tags   . "%(my/org-agenda-prefix-filename)%b")
+        (search . "%(my/org-agenda-prefix-filename)%b")))
 (setq org-agenda-time-grid
       '((daily today require-timed)
         (600 2400)
@@ -827,6 +853,14 @@ Allows recursive minibuffer so that multiple commands may be issued.
            (string-match-p "/dl-python-extracteur/tests/" file)
            (string-match-p "/dl-python-docparser/tests/" file))))
 
+(defun user--org-export-current-buffer-to-utf8-buffer ()
+  "Export current org buffer to *Org UTF-8 Export* buffer."
+  (let ((translated (org-export-as 'ascii nil nil nil '(:ascii-charset utf-8)))
+        (buffer (get-buffer-create "*UTF8 export*")))
+    (with-current-buffer buffer
+      (erase-buffer)
+      (insert translated))))
+
 ;; Citations
 (require 'citeproc)
 #+end_src
@@ -844,13 +878,17 @@ Given a plan:
 
 Then ~C-c i/o~ starts/stops a clock for the heading at point.
 #+begin_src emacs-lisp
-(global-set-key (kbd "C-c i") #'org-clock-in)
-(global-set-key (kbd "C-c o") #'org-clock-out)
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-c i") #'org-clock-in)
+  (define-key org-mode-map (kbd "C-c o") #'org-clock-out))
 #+end_src
 
-Then, a detailed summary may be deduced with ~C-c p~ when point on some heading.
+Then, a detailed summary may be deduced with ~C-c p~ when point on some heading. ~C-c m~
+to remove it.
 #+begin_src emacs-lisp
-(global-set-key (kbd "C-c p") #'org-clock-display)
+(with-eval-after-load 'org
+  (define-key org-mode-map (kbd "C-c p") #'org-clock-display)
+  (define-key org-mode-map (kbd "C-c m") #'org-clock-remove-overlays))
 #+end_src
 
 ** systemd

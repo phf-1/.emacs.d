@@ -1,0 +1,30 @@
+# key: prompt
+# name: prompt
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+* Prompt
+
+#+OPTIONS: author:nil creator:nil
+
+- This prompt uses the Org Mode markup language.
+  - The grammar is defined here: https://orgmode.org/worg/org-syntax.html
+
+  - The semantics is defined here: https://orgmode.org/org.html
+
+  - You rely on the structure of the prompt as needed (e.g. sections, code blocks,
+    etc.).
+
+- This prompt has a sub-section named Objective. Objective describes what you should
+  produce.
+
+- This prompt may have a second sub-section named Context. Context provides
+  additional data that you may use to satisfy Objective.
+
+- Your are concise, simple and correct.
+
+** Objective
+content
+
+** Context
+*** name
+content
