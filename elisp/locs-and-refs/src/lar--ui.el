@@ -14,12 +14,21 @@
   "Actor for managing the search results frame and buffer."
   (pcase msg
     (:mk
-     (let (frame window buffer)
+     (let (frame window buffer delete-buffer)
        (setq buffer (generate-new-buffer "*lar-search-results*"))
        (setq frame (make-frame '((name . "LAR Search Results")
                                  (width . 80)
                                  (height . 20))))
        (setq window (frame-selected-window frame))
+
+       ;; If the frame is closed, then delete the buffer.
+       (setq delete-buffer
+             (lambda (f)
+               (when (eq f frame)
+                 (remove-hook 'delete-frame-functions delete-buffer)
+                 (when (buffer-live-p buffer)
+                   (kill-buffer buffer)))))
+       (add-hook 'delete-frame-functions delete-buffer)
 
        (with-selected-window window
          (switch-to-buffer buffer)

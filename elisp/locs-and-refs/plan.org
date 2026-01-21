@@ -1,43 +1,86 @@
 #+OPTIONS: author:nil
 #+PROPERTY: header-args:bash :exports both :results output raw :wrap example :eval never-export
 
-* Iterations
-** DONE 1
+* Integration
+** lar-mode
+M-x lar-mode is interpreted as emacs#lar-mode(). Clean all previously added overlays,
+then add fresh overlays. On deactivation, remove all previously added overlays.
+
+emacs#lar-mode() :≡
+- root :≡ user defined path
+- rg :≡ user defined path
+- parser :≡ Parser#mk()
+- searcher :≡ Searcher#mk(root rg)
+- overlayer :≡ Overlayer#mk(searcher parser)
+- buffer :≡ emacs#current-buffer()
+- buffer :≡ overlayer#clean(buffer)
+- links :≡ overlayer#links(buffer)
+- ∀ link ∈ links, overlayer#add(buffer link)
+
+** Overlayer
 :PROPERTIES:
-:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
+:ID:       ed895cdf-0f98-472c-95d0-dba6780d05b9
 :END:
-:LOGBOOK:
-CLOCK: [2026-01-17 Sat 11:00]--[2026-01-17 Sat 12:15] =>  1:15
-:END:
-<2026-01-15 Thu>
+A Overlayer may be used to add an overlay on Links of a given buffer in order to make
+them visually distinct and responsive to user actions.
 
-*** DONE Objective
-lar-mode is defined.
+*** Overlayer#mk() : Overlayer
+*** overlayer#add : Buffer Link Searcher → Buffer
+buffer link searcher ↦ adds an overlay over link#start() and link#end() in buffer
+such that a click on the overlay uses searcher to find the relevant Path × LineNbr
+and display them in a Ui.
 
-*** DONE Specification
-M-x lar-mode activates the mode and prints "hello", then M-x lar-mode deactivates the
-mode and prints "bye".
+*** overlayer#clean : Buffer → Buffer
+buffer ↦ removes any overlay that has been added using #add in buffer.
 
-*** DONE Delivery
-~make dist~ buils a package ready to be installed.
-
-** DONE 2
-SCHEDULED: <2026-01-18 Sun>
+** Ui
 :PROPERTIES:
-:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
+:ID:       11058c38-1c3f-4400-934a-b4b9afa7ceb9
 :END:
-:LOGBOOK:
-CLOCK: [2026-01-18 Sun 22:38]--[2026-01-19 Mon 00:30] =>  1:52
-CLOCK: [2026-01-18 Sun 20:58]--[2026-01-18 Sun 22:01] =>  1:03
+A Ui may be used to display a list of Path × LineNbr ; a click on any of these
+links opens the relevant file at the relevant line number.
+
+*** Ui#mk() : Ui
+Ui#mk() starts a new frame with a new window displaying the content of a buffer.
+
+*** ui#display : List(Path × LineNbr × ColNbr) → Ui
+ui displays the links.
+
+** Searcher
+:PROPERTIES:
+:ID:       f21cac9b-de52-43fe-85f2-5e63d2ab0043
+:END:
+A Searcher may be used to list file paths and associated line numbers where a
+particular regex has been found.
+
+*** Searcher#mk : Path Path → Searcher
+root rg ↦ Searcher instance that uses the ripgrep binary designated by rg.
+
+*** searcher#search : RegEx (List(Path × LineNbr × ColNbr) → ∅) → ∅
+regex cb ↦ search for regex under root using rg asynchronously. Upon completion,
+calls cb with the list of found matches.
+
+** Parser
+:PROPERTIES:
+:ID:       c7d70791-dcbb-4808-a6e1-9d1a9260fbbb
+:END:
+A Parser may be used to list Links within a buffer.
+
+*** Parser#mk() : Parser
+*** parser#links : Buffer → List(Link)
+buffer ↦ list of Links built from the sub-strings in buffer that are LinkString.
+
+** Link
+:PROPERTIES:
+:ID:      de7de9e1-046c-4295-9560-da55718e1648
 :END:
 
-*** Context
-**** Maybe
-X : Type.
+A Link represents a link in a buffer.
 
-Maybe(X) :≡ Just(X) | Nothing.
+*** Link#mk : Tag (id : LinkId) (start : Pos) (end : Pos) → Link
 
-**** LinkGrammar
+** LinkString
+A LinkString is a string that matches the following PEG grammar:
 #+begin_example
 LinkGrammar {
   link = globalLink | propertyLink | inlineLink
@@ -53,90 +96,120 @@ LinkGrammar {
 }
 #+end_example
 
+** LinkId
+:PROPERTIES:
+:ID: 64839093-8be8-40ed-a4dc-0f365cc3da16
+:END:
+
+A LinkId is a string of length > 0.
+
+*** LinkId#mk : String → LinkId
+str ↦ str or error
+
+** Tag
+:PROPERTIES:
+:ID: 089f64c7-0c56-40af-ae19-af444e163aa0
+:END:
+
+A Tag is a symbol.
+
+*** Tag#loc() : Tag
+*** Tag#ref() : Tag
+*** Tag#inverse : Tag → Tag
+tag ↦ The inverse of tag.
+
+*** Tag#string : Tag → String
+tag ↦ The string representation of tag.
+
+** result :≡ actor#msg(params?)
+=result :≡ actor#msg(params)= is to be interpreted as: "After receiving the message
+=msg(params)=, the actor =actor= replied with =reply=."
+
+** x ↦ y :≡ λx.y
+** x : X
+=x : X= is to be interpreted as =x= is of type =X=.
+
+* Iterations
+** DONE 9
+SCHEDULED: <2026-01-21 Wed>
+:PROPERTIES:
+:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
+:END:
+:LOGBOOK:
+CLOCK: [2026-01-21 Wed 22:34]--[2026-01-21 Wed 22:41] =>  0:07
+:END:
+
 *** Objective
-Given a text or prog buffer, print all linkPattern found in the buffer.
+Overlay with name just show tag and name.  For instance:
+#+begin_example
+[[ref:1234][name]]
+#+end_example
+
+Should appear as:
+#+begin_example
+[[ref][name]]
+#+end_example
+
+** DONE 8
+SCHEDULED: <2026-01-21 Wed>
+:PROPERTIES:
+:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
+:END:
+:LOGBOOK:
+CLOCK: [2026-01-21 Wed 22:07]--[2026-01-21 Wed 22:16] =>  0:09
+:END:
+
+*** Objective
+If a search frame is closed, then the associated buffer is deleted to avoid
+accumulating buffers like:
+
+#+begin_example
+ %* *lar-search-results*<10>          17 Grep
+ %* *lar-search-results*<9>           17 Grep
+ %* *lar-search-results*<8>           17 Grep
+ %* *lar-search-results*<7>           17 Grep
+ %* *lar-search-results*<6>           17 Grep
+ %* *lar-search-results*<5>           17 Grep
+ %* *lar-search-results*<4>           17 Grep
+ %* *lar-search-results*<3>           17 Grep
+ %* *lar-search-results*<2>           17 Grep
+ %* *lar-search-results*              17 Grep
+#+end_example
+
+** DONE 7
+SCHEDULED: <2026-01-22 Thu>
+:PROPERTIES:
+:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
+:END:
+:LOGBOOK:
+CLOCK: [2026-01-21 Wed 20:41]--[2026-01-21 Wed 20:52] =>  0:11
+:END:
+
+*** Objective
+- Write a README.org
+- Remove dead code.
+- Cleanup where possible.
+
+** DONE 6
+:PROPERTIES:
+:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
+:END:
+:LOGBOOK:
+CLOCK: [2026-01-21 Wed 16:11]--[2026-01-21 Wed 16:24] =>  0:13
+:END:
+
+*** Objective
+Update the implementation in order to publish it in MELPA.
 
 *** Specification
-- buffer : Text or Prog Buffer
-- Start :≡ Position in buffer
-- End :≡ Position in buffer
-- LinkString :≡ String that satisfies the LinkGrammar
-- Link :≡ Tag × Id × start:Start × end:End × Maybe(Name) × (start ≤ end)
-- buffer->links : Buffer → List(Link) :≡ λbuffer.↓
-  - Using [[https://www.gnu.org/software/emacs/manual/html_node/elisp/Parsing-Expression-Grammars.html][peg grammar]], find all LinkString in buffer and return a list of links for
-    each of them.
-- M-x lar-mode in buffer should print all buffer->links(buffer).
+For each source file, make it compliant with MELPA specification, return each updated
+file in its own code block.
 
 *** Execution
 - Plan
 - Implement
 - Document
 - Test
-
-*** Delivery
-- Artifact sent to client.
-
-** DONE 3
-SCHEDULED: <2026-01-19 Mon>
-:PROPERTIES:
-:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
-:END:
-:LOGBOOK:
-CLOCK: [2026-01-19 Mon 09:40]--[2026-01-19 Mon 10:14] =>  0:34
-:END:
-
-*** Objective
-- ~M-x lar-mode~ removes all previously added overlays in the current buffer, and adds
-  new ones to links, so we know which are locations and which are references.
-
-*** Specification
-- Name :≡ String
-- LinkOverlay#mk : Start End Buffer Tag Name → LinkOverlay :≡ λstart,end,buffer,tag,name.↓
-  - overlay :≡ make-overlay(start end buffer)
-  - overlay-put(overlay 'lar t)
-  - overlay-put(overlay 'lar-tag tag)
-  - ;; make the visible name of the overlay equal to name
-  - ;; depending on the tag, make the overlay blue ('ref) or green ('loc)
-- LinkOverlay#from : Buffer Link → LinkOverlay :≡ λbuffer,link.↓
-  - link ≡ <tag id start end maybe(name)>
-  - name :≡ match maybe(name)
-    - nothing → id
-    - just(name) → name
-  - LinkOverlay#mk(start end buffer tag name)
-- buffer : TextBuffer | ProgBuffer
-- ∀ ov : LinkOverlay in buffer
-  - remove ov
-- ∀ link ∈ buffer
-  - overlay :≡ LinkOverlay#from(buffer link)
-  - apply overlay on link in buffer
-
-*** Execution
-- Plan
-- Implement
-- Document
-- Test
-
-*** Delivery
-- Artifact sent to client.
-
-** DONE 4
-SCHEDULED: <2026-01-20 Tue>
-:PROPERTIES:
-:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
-:END:
-:LOGBOOK:
-CLOCK: [2026-01-19 Mon 13:40]--[2026-01-19 Mon 14:05] =>  0:25
-:END:
-
-*** Objective
-- A click on an overlay calls some kind of simulated search function (for now) that
-  prints the relevant parameters of the underlying link.
-
-*** Specification
-- Given
-  - ov : LinkOverlay
-- Then
-  - A click on ov should print the underlying link tag and id.
 
 ** DONE 5
 :PROPERTIES:
@@ -285,7 +358,6 @@ buffer ↦ removes any overlay that has been added using #add in buffer.
 M-x lar-mode is interpreted as emacs#lar-mode(). Clean all previously added overlays,
 then add fresh overlays. On deactivation, remove all previously added overlays.
 
-
 *** TODO Execution
 - Plan
 - Implement
@@ -312,20 +384,58 @@ then add fresh overlays. On deactivation, remove all previously added overlays.
   - What could be improved
   - Action items carried forward
 
-** DONE 6
+** DONE 4
+SCHEDULED: <2026-01-20 Tue>
 :PROPERTIES:
 :TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
 :END:
 :LOGBOOK:
-CLOCK: [2026-01-21 Wed 16:11]--[2026-01-21 Wed 16:24] =>  0:13
+CLOCK: [2026-01-19 Mon 13:40]--[2026-01-19 Mon 14:05] =>  0:25
 :END:
 
 *** Objective
-Update the implementation in order to publish it in MELPA.
+- A click on an overlay calls some kind of simulated search function (for now) that
+  prints the relevant parameters of the underlying link.
 
 *** Specification
-For each source file, make it compliant with MELPA specification, return each updated
-file in its own code block.
+- Given
+  - ov : LinkOverlay
+- Then
+  - A click on ov should print the underlying link tag and id.
+
+** DONE 3
+SCHEDULED: <2026-01-19 Mon>
+:PROPERTIES:
+:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
+:END:
+:LOGBOOK:
+CLOCK: [2026-01-19 Mon 09:40]--[2026-01-19 Mon 10:14] =>  0:34
+:END:
+
+*** Objective
+- ~M-x lar-mode~ removes all previously added overlays in the current buffer, and adds
+  new ones to links, so we know which are locations and which are references.
+
+*** Specification
+- Name :≡ String
+- LinkOverlay#mk : Start End Buffer Tag Name → LinkOverlay :≡ λstart,end,buffer,tag,name.↓
+  - overlay :≡ make-overlay(start end buffer)
+  - overlay-put(overlay 'lar t)
+  - overlay-put(overlay 'lar-tag tag)
+  - ;; make the visible name of the overlay equal to name
+  - ;; depending on the tag, make the overlay blue ('ref) or green ('loc)
+- LinkOverlay#from : Buffer Link → LinkOverlay :≡ λbuffer,link.↓
+  - link ≡ <tag id start end maybe(name)>
+  - name :≡ match maybe(name)
+    - nothing → id
+    - just(name) → name
+  - LinkOverlay#mk(start end buffer tag name)
+- buffer : TextBuffer | ProgBuffer
+- ∀ ov : LinkOverlay in buffer
+  - remove ov
+- ∀ link ∈ buffer
+  - overlay :≡ LinkOverlay#from(buffer link)
+  - apply overlay on link in buffer
 
 *** Execution
 - Plan
@@ -333,19 +443,84 @@ file in its own code block.
 - Document
 - Test
 
-** DONE 7
-SCHEDULED: <2026-01-22 Thu>
+*** Delivery
+- Artifact sent to client.
+
+** DONE 2
+SCHEDULED: <2026-01-18 Sun>
 :PROPERTIES:
 :TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
 :END:
 :LOGBOOK:
-CLOCK: [2026-01-21 Wed 20:41]--[2026-01-21 Wed 20:52] =>  0:11
+CLOCK: [2026-01-18 Sun 22:38]--[2026-01-19 Mon 00:30] =>  1:52
+CLOCK: [2026-01-18 Sun 20:58]--[2026-01-18 Sun 22:01] =>  1:03
 :END:
 
+*** Context
+**** Maybe
+X : Type.
+
+Maybe(X) :≡ Just(X) | Nothing.
+
+**** LinkGrammar
+#+begin_example
+LinkGrammar {
+  link = globalLink | propertyLink | inlineLink
+  globalLink = "#+" tag ":" space* id (space+ name)?
+  propertyLink = ":" tag ":" space* id (space+ name)?
+  inlineLink = "[" "[" tag ":" id "]" ("[" name? "]")? "]"
+  id = alpha+
+  name = alpha+
+  tag = idTag | refTag
+  idTag = "id" | "ID"
+  refTag = "ref" | "REF"
+  alpha = letter | digit | "_" | "-" | "."
+}
+#+end_example
+
 *** Objective
-- Write a README.org
-- Remove dead code.
-- Cleanup where possible.
+Given a text or prog buffer, print all linkPattern found in the buffer.
+
+*** Specification
+- buffer : Text or Prog Buffer
+- Start :≡ Position in buffer
+- End :≡ Position in buffer
+- LinkString :≡ String that satisfies the LinkGrammar
+- Link :≡ Tag × Id × start:Start × end:End × Maybe(Name) × (start ≤ end)
+- buffer->links : Buffer → List(Link) :≡ λbuffer.↓
+  - Using [[https://www.gnu.org/software/emacs/manual/html_node/elisp/Parsing-Expression-Grammars.html][peg grammar]], find all LinkString in buffer and return a list of links for
+    each of them.
+- M-x lar-mode in buffer should print all buffer->links(buffer).
+
+*** Execution
+- Plan
+- Implement
+- Document
+- Test
+
+*** Delivery
+- Artifact sent to client.
+
+** DONE 1
+:PROPERTIES:
+:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
+:END:
+:LOGBOOK:
+CLOCK: [2026-01-17 Sat 11:00]--[2026-01-17 Sat 12:15] =>  1:15
+:END:
+<2026-01-15 Thu>
+
+*** DONE Objective
+lar-mode is defined.
+
+*** DONE Specification
+M-x lar-mode activates the mode and prints "hello", then M-x lar-mode deactivates the
+mode and prints "bye".
+
+*** DONE Delivery
+~make dist~ buils a package ready to be installed.
+
+* Backlog
 
 * Local Variables                                                  :noexport:
 Local Variables:

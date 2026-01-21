@@ -390,7 +390,7 @@ Limit the scope of different operations like searching to the relevant root dire
 *** Click on =[[id: …]]= or =[[ref: …]]= → list file candidates
 
 #+begin_src emacs-lisp
-(add-to-list 'load-path (file-name-concat user--package "locs-and-refs/_dist"))
+(add-to-list 'load-path (file-name-concat user--package "locs-and-refs/src"))
 (require 'lar)
 #+end_src
 

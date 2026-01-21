@@ -1,8 +1,8 @@
 ;;; lar--tag.el --- Tag type definitions for lar -*- lexical-binding: t; -*-
-
 ;; Copyright (C) 2024 Pierre-Henry FRÖHRING
 ;; Author: Pierre-Henry FRÖHRING contact@phfrohring.com
 ;; SPDX-License-Identifier: GPL-3.0-or-later
+;; [[ref:089f64c7-0c56-40af-ae19-af444e163aa0][specification]]
 
 ;;; Code:
 

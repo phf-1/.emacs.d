@@ -25,26 +25,33 @@
             (let* ((start (lar--start link))
                    (end (lar--end link))
                    (ov (make-overlay start end buffer))
-                   (map (make-sparse-keymap)))
+                   (map (make-sparse-keymap))
+                   (tag (lar--tag link))
+                   (name (lar--name link)))
 
               (define-key map [mouse-1]
-                (lambda (_)
-                  (interactive "e")
-                  (let* ((tag (lar--tag link))
-                         (id (lar--id link))
-                         (inv-tag (lar--inverse #'lar--Tag tag))
-                         (tag-str (lar--string #'lar--Tag inv-tag))
-                         (regex (lar--regex parser tag-str id))
-                         (ui (lar--mk #'lar--Ui)))
-                    (lar--search searcher regex
-                                 (lambda (results)
-                                   (lar--display ui results))))))
+                          (lambda (_)
+                            (interactive "e")
+                            (let* ((tag (lar--tag link))
+                                   (id (lar--id link))
+                                   (inv-tag (lar--inverse #'lar--Tag tag))
+                                   (tag-str (lar--string #'lar--Tag inv-tag))
+                                   (regex (lar--regex parser tag-str id))
+                                   (ui (lar--mk #'lar--Ui)))
+                              (lar--search searcher regex
+                                           (lambda (results)
+                                             (lar--display ui results))))))
 
               (overlay-put ov 'lar--overlayer t)
               (overlay-put ov 'face 'link)
               (overlay-put ov 'mouse-face 'highlight)
               (overlay-put ov 'help-echo "Click to find linked occurrences")
-              (overlay-put ov 'keymap map)))
+              (overlay-put ov 'keymap map)
+
+              ;; Display only tag and name if name exists
+              (when (and name (not (string-empty-p name)))
+                (let ((tag-str (lar--string #'lar--Tag tag)))
+                  (overlay-put ov 'display (format "[[%s][%s]]" tag-str name))))))
           buffer)
 
          (`(:clean ,buffer)
