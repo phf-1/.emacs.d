@@ -1,0 +1,6 @@
+# -*- mode: snippet -*-
+# name: ref-specification
+# key: refspec
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+[[ref:${1:id}][specification]]

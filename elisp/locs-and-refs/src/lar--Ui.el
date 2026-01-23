@@ -1,14 +1,15 @@
-;;; lar--ui.el --- Search results UI for lar -*- lexical-binding: t; -*-
+;;; lar--Ui.el --- Search results UI for lar -*- lexical-binding: t; -*-
 
 ;; Copyright (C) 2024 Pierre-Henry FRÖHRING
 ;; Author: Pierre-Henry FRÖHRING contact@phfrohring.com
 ;; SPDX-License-Identifier: GPL-3.0-or-later
+;; [[ref:11058c38-1c3f-4400-934a-b4b9afa7ceb9][specification]]
 
 ;;; Code:
 
-(require 'lar--vocabulary)
-(require 'lar--check)
-(require 'lar--error)
+(require 'lar--send)
+(require 'lar--Check)
+(require 'lar--Error)
 
 (defun lar--Ui (msg)
   "Actor for managing the search results frame and buffer."
@@ -17,8 +18,8 @@
      (let (frame window buffer delete-buffer)
        (setq buffer (generate-new-buffer "*lar-search-results*"))
        (setq frame (make-frame '((name . "LAR Search Results")
-                                 (width . 80)
-                                 (height . 20))))
+                                 (width . 160)
+                                 (height . 40))))
        (setq window (frame-selected-window frame))
 
        ;; If the frame is closed, then delete the buffer.
@@ -44,7 +45,7 @@
             (when (frame-live-p frame)
               (delete-frame frame)))
 
-           (`(:display ,links)
+           ((and `(:display ,links) (guard (listp links)))
             (with-current-buffer buffer
               (let ((inhibit-read-only t))
                 (erase-buffer)
@@ -54,8 +55,15 @@
                     (let ((abs-path (expand-file-name path)))
                       (insert (format "%s:%d:%d\n" abs-path line col)))))
                 (goto-char (point-min)))))
+
+           ((and `(:display ,message) (guard (stringp message)))
+            (with-current-buffer buffer
+              (let ((inhibit-read-only t))
+                (erase-buffer)
+                (goto-char (point-min))
+                (insert (format "%s" message)))))
            (_ (lar--unexpected #'lar--Error msg))))))
     (_ (lar--unexpected #'lar--Error msg))))
 
-(provide 'lar--ui)
-;;; lar--ui.el ends here
+(provide 'lar--Ui)
+;;; lar--Ui.el ends here

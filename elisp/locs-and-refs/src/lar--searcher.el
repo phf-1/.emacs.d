@@ -3,12 +3,13 @@
 ;; Copyright (C) 2024 Pierre-Henry FRÖHRING
 ;; Author: Pierre-Henry FRÖHRING contact@phfrohring.com
 ;; SPDX-License-Identifier: GPL-3.0-or-later
+;; [[ref:f21cac9b-de52-43fe-85f2-5e63d2ab0043][specification]]
 
 ;;; Code:
 
-(require 'lar--vocabulary)
-(require 'lar--check)
-(require 'lar--error)
+(require 'lar--send)
+(require 'lar--Check)
+(require 'lar--Error)
 
 (defun lar--Searcher-cmd-mk (root rg-path pattern)
   "Build ripgrep command list for PATTERN search under ROOT.

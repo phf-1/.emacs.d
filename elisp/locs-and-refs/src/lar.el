@@ -8,6 +8,7 @@
 ;; Package-Requires: ((emacs "29.1") (peg "1.0"))
 ;; Keywords: tools, hypermedia
 ;; SPDX-License-Identifier: GPL-3.0-or-later
+;; [[ref:fab21ab9-754d-4331-be62-9790112b18b2][specification]]
 
 ;;; Commentary:
 
@@ -17,41 +18,27 @@
 
 ;;; Code:
 
-(require 'lar--vocabulary)
+(require 'lar--Configuration)
+(require 'lar--send)
 (require 'lar--parser)
 (require 'lar--searcher)
-(require 'lar--overlayer)
-
-(defgroup lar nil
-  "Locate and print Org-style id/ref links."
-  :group 'tools)
-
-(defcustom lar-rg-path "rg"
-  "Path to the ripgrep executable."
-  :type 'string
-  :group 'lar)
-
-(defcustom lar-root-directory "~"
-  "The root directory where the searcher looks for links."
-  :type 'directory
-  :group 'lar)
+(require 'lar--Overlayer)
 
 (defun lar--emacs-start ()
   "Clean previous overlays and add fresh ones to the current buffer."
-  (let* ((root (expand-file-name lar-root-directory))
-         (rg-path (executable-find lar-rg-path))
-         (parser (lar--mk #'lar--Parser))
+  (let* ((root (lar--root #'lar--Configuration))
+         (rg-path (lar--rg #'lar--Configuration))
          (searcher (lar--mk #'lar--Searcher root rg-path))
-         (overlayer (lar--mk #'lar--Overlayer searcher parser))
-         (links (lar--links parser (current-buffer))))
-    (lar--clean overlayer (current-buffer))
-    (dolist (link links)
-      (lar--add overlayer (current-buffer) link))))
+         (overlayer (lar--mk #'lar--Overlayer searcher))
+         (buffer (progn (let ((b (current-buffer))) (lar--clean overlayer b) b)))
+         (links (lar--links #'lar--parser buffer)))
+    (dolist (link links) (lar--add overlayer buffer link))))
 
 (defun lar--emacs-stop ()
   "Remove all overlays added by lar-mode."
-  (let ((overlayer (lar--mk #'lar--Overlayer nil nil)))
-    (lar--clean overlayer (current-buffer))))
+  (lar--clean
+   (lar--mk #'lar--Overlayer nil)
+   (current-buffer)))
 
 ;;;###autoload
 (define-minor-mode lar-mode

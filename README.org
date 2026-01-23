@@ -335,6 +335,7 @@ Limit the scope of different operations like searching to the relevant root dire
 #+begin_src emacs-lisp
 (require 'xref)
 (global-set-key (kbd "M-.") #'xref-find-definitions)
+(global-set-key (kbd "M-?") #'xref-find-references)
 #+end_src
 
 *** M-/ → Find the next thing to instert
@@ -508,8 +509,10 @@ $0`(yas-escape-text yas-selected-text)`")
     (",>" . "▸")
     (",h" . "🞎")
     (",s" . "■")
-    ("|->" . "↦")
-    ("|>" . "▸"))
+    (",l" . "↦")
+    ("|>" . "▸")
+    (",ie" . "/i.e./")
+    ("0/" . "∅"))
   "Alist of (STRING . REPLACEMENT).
   When STRING appears just before point, replace it with REPLACEMENT.")
 

@@ -19,20 +19,19 @@ $(error Could not extract Package-Version from ${MAIN})
 endif
 
 PKG_FILES := \
-	${SRC}/lar--check.el \
-	${SRC}/lar--error.el \
-	${MAIN} \
-	${SRC}/lar--link-id.el \
-	${SRC}/lar--link.el \
-	${SRC}/lar--message.el \
-	${SRC}/lar--overlayer.el \
+	${SRC}/lar--Check.el \
+	${SRC}/lar--Configuration.el \
+	${SRC}/lar--Error.el \
+	${SRC}/lar--Link.el \
+	${SRC}/lar--Overlay.el \
+	${SRC}/lar--Overlayer.el \
+	${SRC}/lar--Tag.el \
 	${SRC}/lar--parser.el \
 	${SRC}/lar--searcher.el \
 	${SRC}/lar--send.el \
-	${SRC}/lar--tag.el \
-	${SRC}/lar--ui.el \
-	${SRC}/lar--vocabulary.el \
+	${SRC}/lar--Ui.el \
 	${PKG_FILE} \
+	${MAIN} \
 	README.org \
 	LICENSE \
 	CONTRIBUTORS.org

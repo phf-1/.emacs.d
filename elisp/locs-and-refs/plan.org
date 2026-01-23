@@ -3,6 +3,10 @@
 
 * Integration
 ** lar-mode
+:PROPERTIES:
+:ID:       fab21ab9-754d-4331-be62-9790112b18b2
+:END:
+
 M-x lar-mode is interpreted as emacs#lar-mode(). Clean all previously added overlays,
 then add fresh overlays. On deactivation, remove all previously added overlays.
 
@@ -21,10 +25,11 @@ emacs#lar-mode() :≡
 :PROPERTIES:
 :ID:       ed895cdf-0f98-472c-95d0-dba6780d05b9
 :END:
-A Overlayer may be used to add an overlay on Links of a given buffer in order to make
-them visually distinct and responsive to user actions.
 
-*** Overlayer#mk() : Overlayer
+overlayer is an actor that may be used to add an [[ref:7d158113-130f-41a8-9823-99db28fdef61][overlay]] on [[ref:de7de9e1-046c-4295-9560-da55718e1648][Links]] of a given buffer
+in order to make them visually distinct and responsive to user actions.
+
+*** Overlayer#mk : Searcer → Overlayer
 *** overlayer#add : Buffer Link Searcher → Buffer
 buffer link searcher ↦ adds an overlay over link#start() and link#end() in buffer
 such that a click on the overlay uses searcher to find the relevant Path × LineNbr
@@ -33,10 +38,16 @@ and display them in a Ui.
 *** overlayer#clean : Buffer → Buffer
 buffer ↦ removes any overlay that has been added using #add in buffer.
 
+** Overlay
+:PROPERTIES:
+:ID:       7d158113-130f-41a8-9823-99db28fdef61
+:END:
+
 ** Ui
 :PROPERTIES:
 :ID:       11058c38-1c3f-4400-934a-b4b9afa7ceb9
 :END:
+
 A Ui may be used to display a list of Path × LineNbr ; a click on any of these
 links opens the relevant file at the relevant line number.
 
@@ -50,36 +61,65 @@ ui displays the links.
 :PROPERTIES:
 :ID:       f21cac9b-de52-43fe-85f2-5e63d2ab0043
 :END:
+
 A Searcher may be used to list file paths and associated line numbers where a
 particular regex has been found.
 
-*** Searcher#mk : Path Path → Searcher
-root rg ↦ Searcher instance that uses the ripgrep binary designated by rg.
+*** Searcher#mk : Root RgPath → Searcher
+root rg ↦
+- self#root :≡ root
+- self#rg :≡ rg
+- self
 
-*** searcher#search : RegEx (List(Path × LineNbr × ColNbr) → ∅) → ∅
+*** searcher#search : RegEx Cb → ∅
 regex cb ↦ search for regex under root using rg asynchronously. Upon completion,
 calls cb with the list of found matches.
 
-** Parser
+** parser
 :PROPERTIES:
 :ID:       c7d70791-dcbb-4808-a6e1-9d1a9260fbbb
 :END:
-A Parser may be used to list Links within a buffer.
 
-*** Parser#mk() : Parser
+parser is an actor that extracts [[ref:de7de9e1-046c-4295-9560-da55718e1648][Links]] from buffers.
+
 *** parser#links : Buffer → List(Link)
 buffer ↦ list of Links built from the sub-strings in buffer that are LinkString.
+
+*** parser#regex : Tag Id → RegEx
+tag id ↦ PCRE regex that may be used to match all LinkString(tag id) in a given string.
 
 ** Link
 :PROPERTIES:
 :ID:      de7de9e1-046c-4295-9560-da55718e1648
 :END:
 
-A Link represents a link in a buffer.
+Path :≡ String
 
-*** Link#mk : Tag (id : LinkId) (start : Pos) (end : Pos) → Link
+[[ref:089f64c7-0c56-40af-ae19-af444e163aa0][Tag]]
+
+Id :≡ non-empty String
+
+Start :≡ Pos
+
+End :≡ Pos
+
+Link :≡ Path × Tag × Id × Start × End.
+
+A Link =link= is an abstract representation of a [[ref:33402f84-467c-4e42-89eb-6c75e31c8395][LinkString]]. If link#tag() =
+loc, then link represents a position (link#start()) in the file link#path()
+identified by link#id(). "identified by id" means that link#id() is synonymous to
+<link#path(), link#start()>. If link#tag() = ref, then link represents a reference
+from link#id() to a set of referenced locations locs :≡ { locLink : Link |
+locLink#tag() = loc ∧ locLink#id() = link#id() }. If card(locs) = 0, then nothing
+matches the reference.
+
+*** Link#mk : Tag (id : Id) (start : Pos) (end : Pos) → Link
 
 ** LinkString
+:PROPERTIES:
+:ID:       33402f84-467c-4e42-89eb-6c75e31c8395
+:END:
+
 A LinkString is a string that matches the following PEG grammar:
 #+begin_example
 LinkGrammar {
@@ -89,47 +129,87 @@ LinkGrammar {
   inlineLink = "[" "[" tag ":" id "]" ("[" name? "]")? "]"
   id = alpha+
   name = alpha+
-  tag = idTag | refTag
-  idTag = "id" | "ID"
+  tag = locTag | refTag
+  locTag = "id" | "ID"
   refTag = "ref" | "REF"
   alpha = letter | digit | "_" | "-" | "."
 }
 #+end_example
-
-** LinkId
-:PROPERTIES:
-:ID: 64839093-8be8-40ed-a4dc-0f365cc3da16
-:END:
-
-A LinkId is a string of length > 0.
-
-*** LinkId#mk : String → LinkId
-str ↦ str or error
 
 ** Tag
 :PROPERTIES:
 :ID: 089f64c7-0c56-40af-ae19-af444e163aa0
 :END:
 
-A Tag is a symbol.
+Tag :≡ loc | ref
 
-*** Tag#loc() : Tag
-*** Tag#ref() : Tag
 *** Tag#inverse : Tag → Tag
 tag ↦ The inverse of tag.
 
 *** Tag#string : Tag → String
 tag ↦ The string representation of tag.
 
-** result :≡ actor#msg(params?)
-=result :≡ actor#msg(params)= is to be interpreted as: "After receiving the message
-=msg(params)=, the actor =actor= replied with =reply=."
+** Error
+:PROPERTIES:
+:ID:       4a7e700c-86aa-4892-8110-560b1c07ea1f
+:END:
+
+For some set of keywords Key and key : Key, error#key(…) raises some kind of error.
+
+** Configuration
+:PROPERTIES:
+:ID:       3679aa4b-cb4b-40a5-a72a-a8cf95e3de99
+:END:
+
+For some set of keywords Key and key : Key, Configuration#key() is the value
+associated with the configuration key.
+
+** Check
+:PROPERTIES:
+:ID:       20b42aec-e678-4c24-8934-28ffef83b982
+:END:
+
+Check :≡ Any → ∅ such that given c : Check, and a : Any, then c(a) = ∅ is some
+property is true of a else it raises an error with an appropriate message. For
+instance, Check#string("1") = ∅ because "1" is a string and Check#integer(1) raises
+an error.
+
+** Cb :≡ List(Path × LineNbr × ColNbr) → ∅
+** Actor
+:PROPERTIES:
+:ID:       10025816-10f9-4f9c-a010-55802b295348
+:END:
+=reply :≡ actor#msg(params)= is to be interpreted as: "After receiving the message
+=msg(params)=, the actor =actor= replied with =reply=, if a reply is received. =reply= may be
+awaited forever or the actor may raise an exception. =reply= may or may not satisfy
+what was expected from the actor."
+
+Any procedure =Message → Any= may be interpreted as an actor. Message :≡ Keyword |
+Keyword × …. =send : Actor Message → Any= is a primitive used to send a message to an
+actor.
 
 ** x ↦ y :≡ λx.y
 ** x : X
 =x : X= is to be interpreted as =x= is of type =X=.
 
 * Iterations
+** DONE 10
+:PROPERTIES:
+:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
+:END:
+:LOGBOOK:
+CLOCK: [2026-01-23 Fri 10:30]--[2026-01-23 Fri 14:30]
+:END:
+
+*** Objective
+Simplify
+
+*** Specification
+Remove code while keeping functionnality /i.e./ write a more elegant program. Keep the
+architecture rigorous.
+
+*** Execution
+
 ** DONE 9
 SCHEDULED: <2026-01-21 Wed>
 :PROPERTIES:
@@ -239,10 +319,6 @@ CLOCK: [2026-01-19 Mon 18:30]--[2026-01-19 Mon 19:05] =>  0:35
 =msg(params)=, the actor =actor= replied with =reply=."
 
 **** Tag
-:PROPERTIES:
-:ID: 089f64c7-0c56-40af-ae19-af444e163aa0
-:END:
-
 A Tag is a symbol.
 
 ***** Tag#loc() : Tag
@@ -255,7 +331,6 @@ tag ↦ The string representation of tag.
 
 **** LinkId
 :PROPERTIES:
-:ID: 64839093-8be8-40ed-a4dc-0f365cc3da16
 :END:
 
 A LinkId is a string of length > 0.
@@ -282,7 +357,6 @@ LinkGrammar {
 
 **** Link
 :PROPERTIES:
-:ID:      de7de9e1-046c-4295-9560-da55718e1648
 :END:
 
 A Link represents a link in a buffer.
@@ -291,19 +365,16 @@ A Link represents a link in a buffer.
 
 **** LocLink
 :PROPERTIES:
-:ID:       aea9ab49-a306-41fe-82e9-299b1783ab52
 :END:
 A LocLink is a Link such that link#tag() = Tag#loc().
 
 **** RefLink
 :PROPERTIES:
-:ID:       cd9bdbdd-b6bc-46bd-90dd-bf4ee0df6bde
 :END:
 A RefLink is a Link such that link#tag() = Tag#ref().
 
 **** Parser
 :PROPERTIES:
-:ID:       c7d70791-dcbb-4808-a6e1-9d1a9260fbbb
 :END:
 A Parser may be used to list Links within a buffer.
 
@@ -313,7 +384,6 @@ buffer ↦ list of Links built from the sub-strings in buffer that are LinkStrin
 
 **** Searcher
 :PROPERTIES:
-:ID:       f21cac9b-de52-43fe-85f2-5e63d2ab0043
 :END:
 A Searcher may be used to list file paths and associated line numbers where a
 particular regex has been found.
@@ -327,7 +397,6 @@ calls cb with the list of found matches.
 
 **** Ui
 :PROPERTIES:
-:ID:       11058c38-1c3f-4400-934a-b4b9afa7ceb9
 :END:
 A Ui may be used to display a list of Path × LineNbr ; a click on any of these
 links opens the relevant file at the relevant line number.
@@ -340,7 +409,6 @@ ui displays the links.
 
 **** Overlayer
 :PROPERTIES:
-:ID:       ed895cdf-0f98-472c-95d0-dba6780d05b9
 :END:
 A Overlayer may be used to add an overlay on Links of a given buffer in order to make
 them visually distinct and responsive to user actions.
@@ -522,6 +590,59 @@ mode and prints "bye".
 
 * Backlog
 
+** TODO Optimization
+:PROPERTIES:
+:TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
+:END:
+
+*** Objective
+Get to results faster.
+
+*** Specification
+:LOGBOOK:
+CLOCK: [2026-01-22 Thu 09:36]--[2026-01-22 Thu 11:00] =>  1:24
+:END:
+
+**** Searcher : Type
+***** Searcher#mk : Root RgPath RegEx → Searcher
+root rg regex ↦
+- self#root :≡ root
+- self#rg :≡ rg
+- self#regex :≡ regex
+  - Matches on LinkStrings and allows to extract tag and id using groups.
+- self#cache :≡ Cache#mk(Map#mk())
+- self
+
+***** searcher#search : Tag Id Cb → ∅
+tag id cb ↦
+- self#cache#search(tag id cb)
+- self#rg self#regex self#root ↦ map
+  - build a buffer where each line has the form:
+    - Tag:Id:Path:LineNbr:ColNbr
+  - Parse the buffer into map
+- cache#update(map)
+- self#cache#search(tag id cb)
+
+**** Cache : Type
+***** Cache#mk : Map → Cache
+map ↦ self#map :≡ map
+
+***** cache#search : Tag Id Cb → ∅
+tag id cb ↦ cb(self#map(tag id))
+
+***** cache#update : Map → Cache
+map ↦ self#map :≡ map
+
+**** Cb :≡ List(Path × LineNbr × ColNbr) → ∅
+**** Map :≡ Map(Tag × Id, List(Path × LineNbr × ColNbr))
+1) map#get(<tag, id>) ↦ list
+2) ∀ <path, line, col> ∈ list, ∃ link ∈ LinkString(tag id) at line in path
+
+**** ColNbr :≡ String
+**** LineNbr :≡ String
+**** Path :≡ String
+**** Id :≡ String
+**** Tag :≡ String
 * Local Variables                                                  :noexport:
 Local Variables:
 eval: (add-hook 'before-save-hook #'whitespace-cleanup nil t)

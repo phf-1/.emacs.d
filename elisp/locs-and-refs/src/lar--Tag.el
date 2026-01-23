@@ -1,4 +1,4 @@
-;;; lar--tag.el --- Tag type definitions for lar -*- lexical-binding: t; -*-
+;;; lar--Tag.el --- Tag type definitions for lar -*- lexical-binding: t; -*-
 ;; Copyright (C) 2024 Pierre-Henry FRÖHRING
 ;; Author: Pierre-Henry FRÖHRING contact@phfrohring.com
 ;; SPDX-License-Identifier: GPL-3.0-or-later
@@ -6,8 +6,8 @@
 
 ;;; Code:
 
-(require 'lar--error)
-(require 'lar--vocabulary)
+(require 'lar--Error)
+(require 'lar--send)
 
 (defun lar--Tag (msg)
   "Actor for managing link tags (loc/ref)."
@@ -23,5 +23,5 @@
     ('(:string :loc) "id")
     (_ (lar--unexpected #'lar--Error msg))))
 
-(provide 'lar--tag)
-;;; lar--tag.el ends here
+(provide 'lar--Tag)
+;;; lar--Tag.el ends here
