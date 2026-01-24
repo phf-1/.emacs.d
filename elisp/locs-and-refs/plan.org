@@ -589,7 +589,6 @@ mode and prints "bye".
 ~make dist~ buils a package ready to be installed.
 
 * Backlog
-
 ** TODO Optimization
 :PROPERTIES:
 :TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration

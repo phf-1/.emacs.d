@@ -866,6 +866,26 @@ Allows recursive minibuffer so that multiple commands may be issued.
 
 ;; Citations
 (require 'citeproc)
+
+;; Export id/ref links
+(require 'ol)
+(require 'ox)
+
+(org-link-set-parameters "ref"
+  :export (lambda (path desc backend)
+            (pcase backend
+              ('ascii desc)
+              ('utf8 desc)
+              ('html (format "<span class=\"ref\">%s</span>" desc))
+              (_ desc))))
+
+(org-link-set-parameters "id"
+  :export (lambda (path desc backend)
+            (pcase backend
+              ('ascii desc)
+              ('utf8 desc)
+              ('html (format "<span class=\"id\">%s</span>" desc))
+              (_ desc))))
 #+end_src
 
 *** Time may be measured per task and summarized for a whole plan
@@ -883,7 +903,8 @@ Then ~C-c i/o~ starts/stops a clock for the heading at point.
 #+begin_src emacs-lisp
 (with-eval-after-load 'org
   (define-key org-mode-map (kbd "C-c i") #'org-clock-in)
-  (define-key org-mode-map (kbd "C-c o") #'org-clock-out))
+  (define-key org-mode-map (kbd "C-c o") #'org-clock-out)
+  (setq org-clock-auto-clock-resolution nil))
 #+end_src
 
 Then, a detailed summary may be deduced with ~C-c p~ when point on some heading. ~C-c m~
