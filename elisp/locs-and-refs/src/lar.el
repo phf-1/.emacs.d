@@ -32,6 +32,7 @@
          (overlayer (lar--mk #'lar--Overlayer searcher))
          (buffer (progn (let ((b (current-buffer))) (lar--clean overlayer b) b)))
          (links (lar--links #'lar--parser buffer)))
+    (message "root = %s (from lar-mode)" root)
     (dolist (link links) (lar--add overlayer buffer link))))
 
 (defun lar--emacs-stop ()
