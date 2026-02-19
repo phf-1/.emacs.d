@@ -2,117 +2,45 @@
 # name: init
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-# \$(patsubst %.docx,%.md,file1.docx file2.docx)
-# path_wo_ext="\$\${path%.*}"
-
+# Each rule uses a single Bash instance.
+# The Bash script uses strict mode.
+# It is silent by default.
 SHELL := bash
 .SHELLFLAGS := -ceuo pipefail
 MAKEFLAGS += --no-print-directory
 .ONESHELL:
 .SILENT:
 
-# help
-# - make help # Print this help.
-
-.PHONY: help
-help:
-        grep '^# - make ' \$(MAKEFILE_LIST) | sed 's/^# - make //' | awk 'BEGIN {FS = " # "}; {printf "\033[36m%-30s\033[0m %s\n", \$\$1, \$\$2}'
-
-# BUILD
-# - \${BUILD} is the directory under which all generated files are installed.
-
-BUILD := _build
-\${BUILD}:
-        mkdir -p \$@
-
-# TRACE
-# - \${TRACE} is a file used to record an execution trace.
-
-TRACE := \${BUILD}/trace.txt
-
-# TRAP
-# - \${TRAP} If something has been written to \${TRACE}, then consider that the rule failed.
-
-TRAP := > \${TRACE}; trap 'if [[ \$\$? -ne 0 ]]; then cat \${TRACE}; fi' EXIT
-
-# MAIN_ORG
-# - \${MAIN_ORG} is the path to source file.
-
-MAIN_ORG := README.org
-
-# tangle-heading
-# - make tangle-heading # Returns the path to the updated ./tangle-heading script.
-
-.PHONY: tangle-heading
-TANGLE_HEADING := \${BUILD}/tangle-heading
-tangle-heading: \${TANGLE_HEADING}
-\${TANGLE_HEADING}: \${MAIN_ORG} | \${BUILD}
-        \${TRAP}
-        ./tangle-heading \${MAIN_ORG} tangle-heading \${BUILD} &> \${TRACE}
-        cp -vf \${BUILD}/tangle-heading ./tangle-heading &>> \${TRACE}
-        tail -n 1 \${TRACE}
-
-# Makefile
-# - make Makefile # Returns the path to the updated ./Makefile.
-
-.PHONY: Makefile
-MAKEFILE := \${BUILD}/Makefile
-Makefile: \${MAKEFILE}
-\${MAKEFILE}: \${MAIN_ORG} | \${BUILD}
-        \${TRAP}
-        ./tangle-heading \${MAIN_ORG} Makefile \${BUILD} &> \${TRACE}
-        cp -vf \${BUILD}/Makefile ./Makefile &>> \${TRACE}
-        tail -n 1 \${TRACE}
-
-# packages.scm
-# - make packages.scm # Returns the path to the Guix packages available in the environment.
-
-.PHONY: packages.scm
-PACKAGES_SCM := \${BUILD}/packages.scm
-packages.scm: \${PACKAGES_SCM}
-\${PACKAGES_SCM}: \${MAIN_ORG} | \${BUILD}
-        \${TRAP}
-        ./tangle-heading \${MAIN_ORG} packages.scm \${BUILD} &> \${TRACE}
-        echo "\$@"
-
-# init.bash
-# - make init.bash # Returns the path to parameters that initialize Bash in the environment.
-
-.PHONY: init.bash
-INIT_BASH := \${BUILD}/init.bash
-init.bash: \${INIT_BASH}
-\${INIT_BASH}: \${MAIN_ORG} | \${BUILD}
-        \${TRAP}
-        ./tangle-heading \${MAIN_ORG} init.bash \${BUILD} &> \${TRACE}
-        echo "\$@"
-
-# env
-# - make env # Starts the environment.
-
+# `make env' build a development environment. Within this environment, production
+# and development dependencies are installed.
 .PHONY: env
-GUIX := guix
-GUIX_SHELL := \${GUIX} shell --container \
-        -F \
-        -N \
-        --file=\${PACKAGES_SCM} \
-        --preserve='^TERM\$\$' \
-        -- bash --init-file \${INIT_BASH}
-env: \${PACKAGES_SCM} \${INIT_BASH}
-        CMD="\${CMD}"
-        if [[ ! -v GUIX_ENVIRONMENT ]]; then
-          if [[ "\$\${CMD}" == "" ]]; then
-            \${GUIX_SHELL} -i;
-          else
-            \${GUIX_SHELL} -c "\${CMD}";
-          fi
+env:
+        if [[ -v GUIX_ENVIRONMENT ]]; then
+          uv install --python python3.12 --with pip aider-chat@latest
         else
-          \${CMD}
-          :
+          guix shell -m manifest.scm --pure -- bash -c "make env"
+          guix shell -m manifest.scm --pure
         fi
 
-# clean
-# - make clean # Deletes all generated files.
+# `make test' executes all tests.
+.PHONY: test
+test:
+        if [[ -v GUIX_ENVIRONMENT ]]; then
+          guix shell -m manifest.scm -- bash -c "make test"
+        else
+          echo "test"
+        fi
 
+# `make dist' builds an artifact that may be deployed on some target machine.
+.PHONY: dist
+dist:
+        if [[ -v GUIX_ENVIRONMENT ]]; then
+          guix shell -m manifest.scm -- bash -c "make dist"
+        else
+          echo "dist"
+        fi
+
+# `make clean' deletes all generated files.
 .PHONY: clean
 clean:
-        rm -rfv \${BUILD}
+        rm -rfv _*

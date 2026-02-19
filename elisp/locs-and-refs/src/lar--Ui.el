@@ -35,7 +35,7 @@
          (switch-to-buffer buffer)
          (grep-mode)
          (let ((inhibit-read-only t))
-           (insert "Search results:\n\n")))
+           (insert "Searching …\n\n")))
 
        (lambda (msg)
          (pcase msg

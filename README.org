@@ -510,8 +510,10 @@ $0`(yas-escape-text yas-selected-text)`")
     (",h" . "🞎")
     (",s" . "■")
     (",l" . "↦")
+    (",--" . "—")
     ("|>" . "▸")
     (",ie" . "/i.e./")
+    (",eg" . "/e.g./")
     ("0/" . "∅"))
   "Alist of (STRING . REPLACEMENT).
   When STRING appears just before point, replace it with REPLACEMENT.")
@@ -546,6 +548,7 @@ $0`(yas-escape-text yas-selected-text)`")
   "Globalized version of `auto-replace-characters-mode'.")
 
 (add-hook 'org-mode-hook #'auto-replace-characters-mode)
+(add-hook 'prog-mode-hook #'auto-replace-characters-mode)
 #+end_src
 
 ** Execute
@@ -704,7 +707,7 @@ Allows recursive minibuffer so that multiple commands may be issued.
 
 ;; Appearance & behaviour
 (setq org-cite-global-bibliography
-      (list (expand-file-name "~/src/bibliography/reference.bib")))
+      (list (expand-file-name "~/src/website/bibliography.bib")))
 (setq org-cite-csl-styles-dir (expand-file-name "~/.emacs.d/csl"))
 (setq org-cite-export-processors '((latex biblatex) (t csl)))
 
@@ -818,16 +821,18 @@ Allows recursive minibuffer so that multiple commands may be issued.
 
 ;; Org Agenda
 
-(setq org-agenda-skip-scheduled-if-done t)
+(setq org-agenda-skip-scheduled-if-done nil)
+(setq org-agenda-skip-deadline-if-done nil)
 (setq org-agenda-span 'day)
 (setq org-agenda-show-future-repeats 'next)
 (setq org-deadline-warning-days 1)
 (setq org-agenda-sorting-strategy '(time-up todo-state-down priority-down))
 (defun my/org-agenda-prefix-filename ()
   "Return just the filename without path for agenda prefix."
-  (if (buffer-file-name (org-base-buffer (current-buffer)))
-      (concat (file-name-nondirectory (buffer-file-name (org-base-buffer (current-buffer)))) "->")
-    ""))
+  ;; (if (buffer-file-name (org-base-buffer (current-buffer)))
+  ;;     (concat (file-name-nondirectory (buffer-file-name (org-base-buffer (current-buffer)))) "->")
+  ;;   "")
+  "")
 
 (setq org-agenda-prefix-format
       '((agenda . "%s %-12t %(my/org-agenda-prefix-filename)%b")
@@ -863,6 +868,10 @@ Allows recursive minibuffer so that multiple commands may be issued.
     (with-current-buffer buffer
       (erase-buffer)
       (insert translated))))
+
+(defun user--org-export-current-buffer-to-utf8-file ()
+  "Export current org buffer to *Org UTF-8 Export* file."
+  (org-ascii-export-to-ascii nil nil nil nil '(:ascii-charset utf-8)))
 
 ;; Citations
 (require 'citeproc)
@@ -1040,6 +1049,40 @@ Emacs has an interface for.
  `(elixir-ts-mode ,(file-name-concat user--package "elixir-ls/language_server.sh")))
 #+end_src
 
+** AI Coding Assistants
+
+#+begin_src emacs-lisp
+(let (xai-backend)
+  (require 'gptel)
+
+  (setq gptel-default-mode #'org-mode)
+
+  (setq xai-backend
+        (gptel-make-xai "Grok"
+          :key #'gptel-api-key-from-auth-source
+          :models '(grok-4 grok-code-fast-1)))
+
+  (setq gptel-backend xai-backend
+        gptel-model 'grok-code-fast-1)
+
+  (add-hook 'gptel-mode-hook
+            (lambda ()
+              (when (project-current)
+                (gptel-add (project-root (project-current)))))))
+#+end_src
+
+Test:
+
+#+begin_src bash :eval no
+curl https://api.x.ai/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer xai-your-full-key-here" \
+  -d '{
+    "model": "grok-code-fast-1",
+    "messages": [{"role": "user", "content": "Say hi"}]
+  }'
+#+end_src
+
 * local extension
 
 #+begin_src emacs-lisp
@@ -1056,8 +1099,8 @@ Set %s to a local elisp file to run it after init.el"
 
 * Local Variables  :noexport:
 Local Variables:
-eval: (add-hook 'before-save-hook #'whitespace-cleanup)
-eval: (add-hook 'after-save-hook #'org-babel-tangle)
+eval: (add-hook 'before-save-hook #'whitespace-cleanup nil t)
+eval: (add-hook 'after-save-hook #'org-babel-tangle nil t)
 eval: (indent-tabs-mode 0)
 fill-column: 85
 End:

@@ -2,48 +2,51 @@
 # name: freelance-iteration
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-* TODO K
+${1:*} TODO iteration(${2:🞎})$0
 :PROPERTIES:
 :TYPE: d0305c80-3399-4e07-b4ba-ee8c22eacb19 Iteration
 :END:
 
-** TODO Context
+$1* TODO Context
+
 - List of available resources that may be used to reach the objective.
 
-** TODO Objective
+$1* TODO Objective
+
 - Informal description of what it means to reach the objective.
 
-** TODO Specification
+$1* TODO Specification
+
 - Formal description of what it means to reach the objective.
 
-** TODO Risks
+$1* TODO Risks
+
 - Awaiting client feedback on spec (due 2026-01-20)
 - Potential scope creep on feature X
 
-** TODO Execution
-- Plan
-- Implement
-- Document
-- Test
+$1* TODO Log
 
-** TODO Log
 - Documentation of executed steps.
 
-** TODO Delivery
+$1* TODO Result
+
 - Artifact sent to client.
 
-** TODO Review
+$1* TODO Review
+
 - Demo
 - Demo is reproducible by the client
 - Feedback
   - Action items carried forward
 
-** TODO Sign-off
+$1* TODO Sign-off
+
 - Client acceptance: [YES/NO]
 - if milestone, then invoice issued.
 - Next iteration planned
 
-** TODO Retrospective
+$1* TODO Retrospective
+
 - Feedback
   - What went well
   - What could be improved

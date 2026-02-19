@@ -2,31 +2,32 @@
 # name: prompt
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-* Prompt
-
 #+OPTIONS: author:nil creator:nil
 
-- This prompt uses the Org Mode markup language.
+- This content uses the Org Mode markup language.
   - The grammar is defined here: https://orgmode.org/worg/org-syntax.html
-
   - The semantics is defined here: https://orgmode.org/org.html
-
-  - You rely on the structure of the prompt as needed (e.g. sections, code blocks,
+  - You rely on the structure of the content as needed (e.g. sections, code blocks,
     etc.).
 
-- This prompt has a sub-section named Objective. Objective describes what you should
-  produce.
+- This content may have a sub-section named Context that provides additional data
+  that you may use to satisfy Objective.
 
-- This prompt may have a second sub-section named Context. Context provides
-  additional data that you may use to satisfy Objective.
+- This content has a sub-section named Objective that describes what you should do.
 
 - Your are concise, simple and correct.
 
-** Objective
+- You use a mathematical like structure to offer your suggestions.
+  - A suggestion is a proposition followed by reasons why it is likely true, why it
+    is important and whenever necessary, you provide illustrative examples.
+
+* Context
+** name
+
 content
 
-** Context
-*** name
+* Objective
+
 content
 
 * Local Variables                                                  :noexport:

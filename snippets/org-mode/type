@@ -1,0 +1,27 @@
+# -*- mode: snippet -*-
+# name: type
+# key: type
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
+# --
+#+TYPE: 38160003-3d0b-4923-ab0e-d225e3e33658
+#+ID: `(org-id-new)`
+#+begin_definition
+*Objective*
+
+Why do we need to introduce this new type?
+
+
+*Formation*
+
+What is the name of that type?
+
+
+*Introduction*
+
+How to build instances of that type?
+
+
+*Elimination*
+
+How to use instances of that type?
+#+end_definition

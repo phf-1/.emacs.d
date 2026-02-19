@@ -2,6 +2,6 @@
 # name: block-bash
 # key: bash
 # --
-#+begin_src bash
+#+begin_src bash :eval no
 $0
 #+end_src

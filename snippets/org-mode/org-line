@@ -1,8 +1,6 @@
 # -*- mode: snippet -*-
-# name: block-example
-# key: ex
+# name: org-line
+# key: line
 # expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-#+begin_example
-$0
-#+end_example
+-----

@@ -1,7 +1,9 @@
-# key: texdef
-# name: block-definition
+# -*- mode: snippet -*-
+# name: org-block-definition
+# key: definition
+# expand-env: ((yas-indent-line 'fixed) (yas-wrap-around-region 'nil))
 # --
-#+ATTR_LATEX: :options [${1:0}]
+#+ID: `(org-id-new)`
 #+begin_definition
-$0
+*$0*
 #+end_definition

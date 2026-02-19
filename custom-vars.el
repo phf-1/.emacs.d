@@ -114,7 +114,9 @@
      "/home/phf/src/actor/job/state/monaco/actor.org"))
  '(package-selected-packages nil)
  '(safe-local-variable-values
-   '((eval add-hook 'after-save-hook #'user--org-export-current-buffer-to-utf8-buffer
+   '((eval add-hook 'after-save-hook #'user--org-export-current-buffer-to-utf8-file nil
+           t)
+     (eval add-hook 'after-save-hook #'user--org-export-current-buffer-to-utf8-buffer
            nil t)
      (org-confirm-babel-evaluate lambda (lang body) (not (string= lang "bash")))
      (org-export-with-broken-links . t)

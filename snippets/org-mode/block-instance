@@ -1,0 +1,7 @@
+# key: instance
+# name: block-instance
+# --
+#+ID: `(org-id-new)`
+#+begin_instance
+$0
+#+end_instance
